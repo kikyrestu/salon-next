@@ -1225,7 +1225,7 @@ export default function POSPage() {
             </div>
 
             {/* Right Side: Cart */}
-            <div className={`w-full md:w-[440px] lg:w-[500px] xl:w-[560px] 2xl:w-[620px] md:flex-none flex flex-col bg-white border-l border-gray-200 ${mobileTab === 'catalog' ? 'hidden md:flex' : 'flex'} h-full`}>
+            <div className={`w-full md:w-[420px] lg:w-[500px] xl:w-[560px] 2xl:w-[620px] md:flex-none flex flex-col bg-white border-l border-gray-200 ${mobileTab === 'catalog' ? 'hidden md:flex' : 'flex'} h-full`}>
                 <div className="bg-white flex flex-col h-full overflow-hidden">
                     <div className="p-3 lg:p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0 space-y-3">
                         <div className="flex items-center gap-2">
@@ -1243,6 +1243,7 @@ export default function POSPage() {
                                     })),
                                 ]}
                                 className="flex-1"
+                                controlClassName="px-3 py-1.5 text-xs md:text-xs lg:text-sm"
                             />
                             <button
                                 onClick={() => setIsCustomerModalOpen(true)}
@@ -1408,6 +1409,7 @@ export default function POSPage() {
                                                     onChange={(val) => setPackageClaimId(item._id, item.type, val)}
                                                     options={getServicePackageOptions(item._id)}
                                                     className="w-full h-8"
+                                                    controlClassName="px-2.5 py-1 text-[11px] md:text-[11px] lg:text-xs"
                                                 />
                                             )}
 
@@ -1417,6 +1419,7 @@ export default function POSPage() {
                                                 onChange={(val) => addServiceStaffAssignment(item._id, item.type, val)}
                                                 options={staffList.map(s => ({ value: s._id, label: s.name }))}
                                                 className="w-full h-8"
+                                                controlClassName="px-2.5 py-1 text-[11px] md:text-[11px] lg:text-xs"
                                             />
                                             {(serviceStaffAssignments[getCartItemKey(item._id, item.type)] || []).length > 0 && (
                                                 <div className="space-y-1">

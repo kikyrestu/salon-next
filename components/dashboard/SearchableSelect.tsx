@@ -18,6 +18,7 @@ interface SearchableSelectProps {
     required?: boolean;
     error?: string;
     className?: string;
+    controlClassName?: string;
 }
 
 export default function SearchableSelect({
@@ -29,6 +30,7 @@ export default function SearchableSelect({
     required,
     error,
     className = "",
+    controlClassName = "",
 }: SearchableSelectProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -60,7 +62,8 @@ export default function SearchableSelect({
             )}
             <div className="relative">
                 <div
-                    className={`w-full px-4 py-2 border rounded-lg cursor-pointer flex items-center justify-between bg-white ${error ? "border-red-500" : "border-gray-300 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent"
+                    className={`w-full px-4 py-2 text-sm border rounded-lg cursor-pointer flex items-center justify-between bg-white ${error ? "border-red-500" : "border-gray-300 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent"
+                        } ${controlClassName
                         }`}
                     onClick={() => setIsOpen(!isOpen)}
                 >
