@@ -65,7 +65,24 @@ interface CustomerPackageItem {
     _id: string;
     packageName: string;
     status: 'active' | 'depleted' | 'expired' | 'cancelled';
+    expiresAt?: string;
+    package?: {
+        _id?: string;
+        name?: string;
+        code?: string;
+    };
     serviceQuotas: CustomerPackageQuota[];
+}
+
+interface CustomerDealOption {
+    customerPackageId: string;
+    packageName: string;
+    packageCode?: string;
+    serviceId: string;
+    serviceName: string;
+    remainingQuota: number;
+    totalQuota: number;
+    expiresAt?: string;
 }
 
 interface PackageClaim {
@@ -122,6 +139,8 @@ export default function POSPage() {
     const [isNonQrisConfirmOpen, setIsNonQrisConfirmOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+    const [isDealsModalOpen, setIsDealsModalOpen] = useState(false);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [isQrisModalOpen, setIsQrisModalOpen] = useState(false);
     const [qrisSession, setQrisSession] = useState<{ externalId: string; checkoutUrl: string; invoiceId: string; status: string; sourceType: 'invoice' | 'package_order' } | null>(null);
     const [checkingQris, setCheckingQris] = useState(false);
@@ -129,6 +148,12 @@ export default function POSPage() {
     useEffect(() => {
         fetchResources();
     }, []);
+
+    useEffect(() => {
+        if (!toastMessage) return;
+        const timeout = window.setTimeout(() => setToastMessage(null), 2200);
+        return () => window.clearTimeout(timeout);
+    }, [toastMessage]);
 
     useEffect(() => {
         const loadCustomerPackages = async () => {
@@ -265,11 +290,6 @@ export default function POSPage() {
                 alert('Penjualan paket harus diproses terpisah dari service/product. Selesaikan atau kosongkan cart dulu.');
                 return;
             }
-
-            if (cart.some((i) => i.type === 'Package' && i._id !== item._id)) {
-                alert('Saat ini checkout paket hanya mendukung 1 jenis paket per transaksi.');
-                return;
-            }
         }
 
         if (item.type !== 'Package' && cart.some((i) => i.type === 'Package')) {
@@ -280,9 +300,6 @@ export default function POSPage() {
         setCart(prev => {
             const existing = prev.find(i => i._id === item._id && i.type === item.type);
             if (existing) {
-                if (item.type === 'Package') {
-                    return prev;
-                }
                 return prev.map(i => i._id === item._id && i.type === item.type ? { ...i, quantity: i.quantity + 1 } : i);
             }
             return [...prev, { ...item, quantity: 1 }];
@@ -428,6 +445,52 @@ export default function POSPage() {
                 },
             };
         });
+    };
+
+    const getAvailableDeals = (): CustomerDealOption[] => {
+        return customerPackages
+            .filter((pkg) => pkg.status === 'active')
+            .flatMap((pkg) => {
+                return (pkg.serviceQuotas || [])
+                    .filter((quota) => Number(quota.remainingQuota) > 0)
+                    .map((quota) => ({
+                        customerPackageId: pkg._id,
+                        packageName: pkg.packageName,
+                        packageCode: pkg.package?.code,
+                        serviceId: String(quota.service),
+                        serviceName: quota.serviceName,
+                        remainingQuota: Number(quota.remainingQuota || 0),
+                        totalQuota: Number(quota.totalQuota || 0),
+                        expiresAt: pkg.expiresAt,
+                    }));
+            });
+    };
+
+    const addDealToCart = (deal: CustomerDealOption) => {
+        if (!selectedCustomer || selectedCustomer === 'walking-customer') {
+            alert('Pilih customer terdaftar dulu untuk menggunakan paket.');
+            return;
+        }
+
+        const service = services.find((entry) => entry._id === deal.serviceId);
+        if (!service) {
+            alert('Service untuk paket ini tidak ditemukan di master service.');
+            return;
+        }
+
+        const key = getCartItemKey(service._id, 'Service');
+        const existing = cart.find((entry) => entry._id === service._id && entry.type === 'Service');
+        const existingClaim = packageClaims[key];
+
+        if (existing && (!existingClaim?.enabled || existingClaim.customerPackageId !== deal.customerPackageId)) {
+            alert(`Service "${service.name}" sudah ada di cart tanpa claim paket yang sama. Hapus dulu item lama atau gunakan claim dari item yang sudah ada.`);
+            return;
+        }
+
+        addToCart(service);
+        setPackageClaimId(service._id, 'Service', deal.customerPackageId);
+        setIsDealsModalOpen(false);
+        setToastMessage('Berhasil menambahkan produk!');
     };
 
     const setPackageClaimId = (itemId: string, type: string, customerPackageId: string) => {
@@ -588,14 +651,22 @@ export default function POSPage() {
             }
         });
 
-        const updatedAssignments = Object.values(perStaff).map(assignment => ({
-            staffId: assignment.staffId,
-            percentage: totalCommission > 0 ? (assignment.commission / totalCommission) * 100 : 0,
-            porsiPersen: totalCommission > 0 ? (assignment.commission / totalCommission) * 100 : 0,
-            commission: assignment.commission,
-            komisiNominal: assignment.commission,
-            tip: assignment.tip
-        }));
+        const perStaffValues = Object.values(perStaff);
+        const fallbackPercentages = getEqualSplitPercentages(perStaffValues.length);
+        const updatedAssignments = perStaffValues.map((assignment, index) => {
+            const percentage = totalCommission > 0
+                ? (assignment.commission / totalCommission) * 100
+                : (fallbackPercentages[index] || 0);
+
+            return {
+                staffId: assignment.staffId,
+                percentage,
+                porsiPersen: percentage,
+                commission: assignment.commission,
+                komisiNominal: assignment.commission,
+                tip: assignment.tip
+            };
+        });
 
         return {
             subtotal,
@@ -650,22 +721,30 @@ export default function POSPage() {
         }
 
         if (packageItems.length > 0) {
-            if (packageItems.length > 1) {
-                alert('Checkout paket saat ini hanya mendukung 1 paket per transaksi.');
-                return;
+            for (const packageItem of packageItems) {
+                if (Number(packageItem.quantity || 0) < 1) {
+                    alert(`Quantity paket "${packageItem.name}" tidak valid.`);
+                    return;
+                }
             }
-
-            if (packageItems[0].quantity !== 1) {
-                alert('Quantity paket harus 1 per transaksi.');
-                return;
-            }
-
         }
         for (const item of serviceItems) {
             const key = getCartItemKey(item._id, item.type);
             const rawAssignments = serviceStaffAssignments[key] || [];
             const itemAssignments = getEffectiveServiceAssignments(item._id, item.type);
             const splitMode = serviceSplitModes[key] || 'auto';
+            const commissionType = item.commissionType || 'fixed';
+            const commissionValue = Number(item.commissionValue || 0);
+
+            if (commissionType === 'fixed' && commissionValue <= 0) {
+                alert(`Komisi service "${item.name}" belum diisi. Isi Komisi Nominal lebih dari 0 terlebih dahulu.`);
+                return;
+            }
+
+            if (commissionType === 'percentage' && commissionValue <= 0) {
+                alert(`Komisi service "${item.name}" belum diisi. Isi Komisi Persentase lebih dari 0 terlebih dahulu.`);
+                return;
+            }
 
             if (itemAssignments.length === 0) {
                 alert(`Please assign at least 1 staff for service "${item.name}"`);
@@ -687,8 +766,8 @@ export default function POSPage() {
                 })),
                 servicePrice: item.price,
                 quantity: item.quantity,
-                commissionType: item.commissionType || 'fixed',
-                commissionValue: Number(item.commissionValue || 0),
+                commissionType,
+                commissionValue,
                 sourceType: packageClaims[key]?.enabled ? 'package_redeem' : 'normal_sale',
             });
 
@@ -721,7 +800,6 @@ export default function POSPage() {
         setSubmitting(true);
         try {
             if (packageItems.length > 0) {
-                const packageItem = packageItems[0];
                 const customerId = selectedCustomer === 'walking-customer' ? undefined : selectedCustomer;
 
                 if (!customerId) {
@@ -729,23 +807,39 @@ export default function POSPage() {
                     return;
                 }
 
-                const orderRes = await fetch('/api/package-orders', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        customerId,
-                        packageId: packageItem._id,
-                    }),
+                const expandedPackageItems = packageItems.flatMap((item) => {
+                    const qty = Math.max(1, Number(item.quantity || 1));
+                    return Array.from({ length: qty }, () => item);
                 });
 
-                const orderData = await orderRes.json();
-                if (!orderData.success || !orderData.data?.payment) {
-                    alert(orderData.error || 'Gagal membuat order paket');
+                if (paymentMethod === 'QRIS' && expandedPackageItems.length > 1) {
+                    alert('QRIS untuk multi paket belum didukung dalam satu checkout. Gunakan Cash/Card/Transfer atau proses QRIS satu paket per transaksi.');
                     return;
                 }
 
-                const payment = orderData.data.payment;
+                const createdPayments: Array<{ sourceId: string; amount: number; customer: string; description: string }> = [];
+
+                for (const packageItem of expandedPackageItems) {
+                    const orderRes = await fetch('/api/package-orders', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            customerId,
+                            packageId: packageItem._id,
+                        }),
+                    });
+
+                    const orderData = await orderRes.json();
+                    if (!orderData.success || !orderData.data?.payment) {
+                        alert(orderData.error || 'Gagal membuat order paket');
+                        return;
+                    }
+
+                    createdPayments.push(orderData.data.payment);
+                }
+
                 if (paymentMethod === 'QRIS') {
+                    const payment = createdPayments[0];
                     const qrisRes = await fetch('/api/payments/xendit/create-invoice', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -784,24 +878,26 @@ export default function POSPage() {
                 }
 
                 if (isMarkedPaid) {
-                    const markPaidRes = await fetch(`/api/package-orders/${payment.sourceId}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            paid: true,
-                            paymentMethod,
-                        }),
-                    });
+                    for (const payment of createdPayments) {
+                        const markPaidRes = await fetch(`/api/package-orders/${payment.sourceId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                paid: true,
+                                paymentMethod,
+                            }),
+                        });
 
-                    const markPaidData = await markPaidRes.json();
-                    if (!markPaidData.success) {
-                        alert(markPaidData.error || 'Gagal konfirmasi pembayaran paket');
-                        return;
+                        const markPaidData = await markPaidRes.json();
+                        if (!markPaidData.success) {
+                            alert(markPaidData.error || 'Gagal konfirmasi pembayaran paket');
+                            return;
+                        }
                     }
 
-                    alert('Pembayaran paket tersimpan dan paket customer langsung aktif.');
+                    alert(`Pembayaran ${createdPayments.length} paket tersimpan dan paket customer langsung aktif.`);
                 } else {
-                    alert('Order paket dibuat sebagai belum dibayar (pending). Paket akan aktif setelah dilunasi.');
+                    alert(`Order ${createdPayments.length} paket dibuat sebagai belum dibayar (pending). Paket akan aktif setelah dilunasi.`);
                 }
 
                 setCart([]);
@@ -1023,6 +1119,7 @@ export default function POSPage() {
     const enteredPaidAmount = amountPaid === "" ? 0 : parseFloat(amountPaid.toString()) || 0;
     const changeAmount = Math.max(0, enteredPaidAmount - total);
     const [mobileTab, setMobileTab] = useState<'catalog' | 'cart'>('catalog');
+    const availableDeals = getAvailableDeals();
 
     return (
         <div className="flex h-[100dvh] w-full bg-gray-50 overflow-hidden flex-col md:flex-row">
@@ -1154,7 +1251,31 @@ export default function POSPage() {
                             >
                                 <Plus className="w-4 h-4 ml-0.5" />
                             </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsDealsModalOpen(true)}
+                                disabled={!selectedCustomer || selectedCustomer === 'walking-customer'}
+                                className="p-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="My Deals"
+                            >
+                                <Package className="w-4 h-4" />
+                            </button>
                         </div>
+
+                        {selectedCustomer && selectedCustomer !== 'walking-customer' && (
+                            <div className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+                                <p className="text-[11px] text-amber-800 font-semibold">
+                                    My Deals: {availableDeals.length} reward tersedia
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDealsModalOpen(true)}
+                                    className="text-[10px] font-bold uppercase tracking-wide text-amber-700 hover:text-amber-900"
+                                >
+                                    Lihat Paket
+                                </button>
+                            </div>
+                        )}
 
                         {selectedCustomer === 'walking-customer' && (
                             <div className="space-y-1">
@@ -1199,6 +1320,19 @@ export default function POSPage() {
                                             <div className="min-w-0">
                                                 <p className="text-[10px] md:text-xs font-semibold text-gray-800 truncate">{item.name}</p>
                                                 <p className="text-[9px] md:text-[10px] text-gray-500">{settings.symbol}{item.price}</p>
+                                                {(() => {
+                                                    if (item.type !== 'Service') return null;
+                                                    const claim = packageClaims[getCartItemKey(item._id, item.type)];
+                                                    if (!claim?.enabled || !claim.customerPackageId) return null;
+                                                    const pkg = customerPackages.find((entry) => entry._id === claim.customerPackageId);
+                                                    const quota = pkg?.serviceQuotas.find((entry) => String(entry.service) === String(item._id));
+
+                                                    return (
+                                                        <p className="text-[9px] md:text-[10px] text-amber-700 font-bold truncate">
+                                                            Reward: {pkg?.packageName || 'Paket'} ({quota ? `${quota.remainingQuota}/${quota.totalQuota}` : 'Claim'})
+                                                        </p>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-1 flex-shrink-0">
@@ -1494,6 +1628,46 @@ export default function POSPage() {
             </Modal>
 
             <Modal
+                isOpen={isDealsModalOpen}
+                onClose={() => setIsDealsModalOpen(false)}
+                title="My Deals"
+                size="lg"
+            >
+                <div className="space-y-3 text-black max-h-[70vh] overflow-y-auto pr-1">
+                    {!selectedCustomer || selectedCustomer === 'walking-customer' ? (
+                        <p className="text-sm text-gray-500">Pilih customer terdaftar dulu untuk melihat paket.</p>
+                    ) : availableDeals.length === 0 ? (
+                        <p className="text-sm text-gray-500">Customer belum punya reward paket aktif.</p>
+                    ) : (
+                        availableDeals.map((deal, index) => (
+                            <div key={`${deal.customerPackageId}-${deal.serviceId}-${index}`} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-black text-amber-900 uppercase tracking-wide">
+                                            {deal.packageCode ? `${deal.packageCode} ` : ''}{deal.serviceName}
+                                        </p>
+                                        <p className="text-xs text-amber-800 mt-0.5">
+                                            Reward: {deal.packageName} ({deal.remainingQuota}/{deal.totalQuota})
+                                        </p>
+                                        <p className="text-[11px] text-amber-700 mt-0.5">
+                                            Exp: {deal.expiresAt ? new Date(deal.expiresAt).toLocaleDateString('id-ID') : '-'}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => addDealToCart(deal)}
+                                        className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700"
+                                    >
+                                        Masuk Cart
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </Modal>
+
+            <Modal
                 isOpen={isQrisModalOpen}
                 onClose={() => setIsQrisModalOpen(false)}
                 title="Pembayaran QRIS"
@@ -1570,6 +1744,12 @@ export default function POSPage() {
                     </div>
                 </div>
             </Modal>
+
+            {toastMessage && (
+                <div className="fixed bottom-20 md:bottom-6 right-3 md:right-6 z-[70] px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs md:text-sm font-bold shadow-xl">
+                    {toastMessage}
+                </div>
+            )}
         </div>
     );
 }

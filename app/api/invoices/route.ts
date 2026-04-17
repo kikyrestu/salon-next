@@ -33,7 +33,10 @@ const validateSplitAssignments = (assignments: any[]): { valid: boolean; error?:
     const total = assignments.reduce((sum, entry) => sum + toNum(entry?.porsiPersen ?? entry?.percentage), 0);
     const hasNonPositive = assignments.some((entry) => toNum(entry?.porsiPersen ?? entry?.percentage) <= 0);
     if (hasNonPositive) {
-        return { valid: false, error: 'Each staff split percentage must be greater than 0' };
+        return {
+            valid: false,
+            error: 'Porsi split staff wajib lebih dari 0%. Jika komisi service di-set 0, kirim porsi staff tetap > 0% (atau kosongkan staffAssignments level invoice).',
+        };
     }
 
     if (Math.abs(total - 100) > SPLIT_TOLERANCE) {

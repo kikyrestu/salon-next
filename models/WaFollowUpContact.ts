@@ -38,7 +38,6 @@ const waFollowUpContactSchema = new Schema<IWaFollowUpContact>(
     { timestamps: true }
 );
 
-waFollowUpContactSchema.index({ phoneNumber: 1 }, { unique: true });
 waFollowUpContactSchema.index({ isActive: 1, updatedAt: -1 });
 
 export default mongoose.models.WaFollowUpContact || mongoose.model<IWaFollowUpContact>('WaFollowUpContact', waFollowUpContactSchema);

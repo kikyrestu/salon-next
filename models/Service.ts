@@ -15,6 +15,10 @@ export interface IService extends Document {
         enabled: boolean;
         firstDays: number;
         secondDays: number;
+        firstDelayValue?: number;
+        firstDelayUnit?: 'minute' | 'hour' | 'day';
+        secondDelayValue?: number;
+        secondDelayUnit?: 'minute' | 'hour' | 'day';
         firstTemplateId?: mongoose.Types.ObjectId;
         secondTemplateId?: mongoose.Types.ObjectId;
     };
@@ -48,6 +52,10 @@ const serviceSchema = new Schema<IService>(
             enabled: { type: Boolean, default: false },
             firstDays: { type: Number, default: 0, min: 0 },
             secondDays: { type: Number, default: 0, min: 0 },
+            firstDelayValue: { type: Number, default: 0, min: 0 },
+            firstDelayUnit: { type: String, enum: ['minute', 'hour', 'day'], default: 'day' },
+            secondDelayValue: { type: Number, default: 0, min: 0 },
+            secondDelayUnit: { type: String, enum: ['minute', 'hour', 'day'], default: 'day' },
             firstTemplateId: { type: Schema.Types.ObjectId, ref: 'WaTemplate' },
             secondTemplateId: { type: Schema.Types.ObjectId, ref: 'WaTemplate' },
         },

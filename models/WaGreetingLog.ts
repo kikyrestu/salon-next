@@ -17,6 +17,4 @@ const waGreetingLogSchema = new Schema<IWaGreetingLog>(
     { timestamps: true }
 );
 
-waGreetingLogSchema.index({ phoneNormalized: 1 }, { unique: true });
-
 export default mongoose.models.WaGreetingLog || mongoose.model<IWaGreetingLog>('WaGreetingLog', waGreetingLogSchema);

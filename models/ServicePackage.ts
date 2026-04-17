@@ -32,7 +32,6 @@ const servicePackageSchema = new Schema<IServicePackage>(
 );
 
 servicePackageSchema.index({ name: 1 });
-servicePackageSchema.index({ code: 1 }, { unique: true });
 
 export default mongoose.models.ServicePackage ||
   mongoose.model<IServicePackage>('ServicePackage', servicePackageSchema);

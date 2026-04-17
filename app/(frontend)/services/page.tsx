@@ -29,6 +29,10 @@ interface Service {
         enabled: boolean;
         firstDays: number;
         secondDays: number;
+        firstDelayValue?: number;
+        firstDelayUnit?: 'minute' | 'hour' | 'day';
+        secondDelayValue?: number;
+        secondDelayUnit?: 'minute' | 'hour' | 'day';
         firstTemplateId?: string;
         secondTemplateId?: string;
     };
@@ -62,6 +66,10 @@ export default function ServicesPage() {
             enabled: false,
             firstDays: 0,
             secondDays: 0,
+            firstDelayValue: 0,
+            firstDelayUnit: 'day',
+            secondDelayValue: 0,
+            secondDelayUnit: 'day',
             firstTemplateId: "",
             secondTemplateId: "",
         }
@@ -146,8 +154,8 @@ export default function ServicesPage() {
         e.preventDefault();
 
         if (serviceFormData.waFollowUp.enabled) {
-            if (serviceFormData.waFollowUp.firstDays <= 0) {
-                alert("First follow-up day must be greater than 0");
+            if ((serviceFormData.waFollowUp.firstDelayValue || 0) <= 0) {
+                alert("First follow-up delay must be greater than 0");
                 return;
             }
 
@@ -156,8 +164,8 @@ export default function ServicesPage() {
                 return;
             }
 
-            if (serviceFormData.waFollowUp.secondDays > 0 && !serviceFormData.waFollowUp.secondTemplateId) {
-                alert("Please select second follow-up template or set second follow-up day to 0");
+            if ((serviceFormData.waFollowUp.secondDelayValue || 0) > 0 && !serviceFormData.waFollowUp.secondTemplateId) {
+                alert("Please select second follow-up template or set second follow-up delay to 0");
                 return;
             }
         }
@@ -252,6 +260,10 @@ export default function ServicesPage() {
                     enabled: service.waFollowUp?.enabled || false,
                     firstDays: service.waFollowUp?.firstDays || 0,
                     secondDays: service.waFollowUp?.secondDays || 0,
+                    firstDelayValue: service.waFollowUp?.firstDelayValue ?? service.waFollowUp?.firstDays ?? 0,
+                    firstDelayUnit: service.waFollowUp?.firstDelayUnit || 'day',
+                    secondDelayValue: service.waFollowUp?.secondDelayValue ?? service.waFollowUp?.secondDays ?? 0,
+                    secondDelayUnit: service.waFollowUp?.secondDelayUnit || 'day',
                     firstTemplateId: service.waFollowUp?.firstTemplateId || "",
                     secondTemplateId: service.waFollowUp?.secondTemplateId || "",
                 }
@@ -273,6 +285,10 @@ export default function ServicesPage() {
                     enabled: false,
                     firstDays: 0,
                     secondDays: 0,
+                    firstDelayValue: 0,
+                    firstDelayUnit: 'day',
+                    secondDelayValue: 0,
+                    secondDelayUnit: 'day',
                     firstTemplateId: "",
                     secondTemplateId: "",
                 }
@@ -800,7 +816,7 @@ export default function ServicesPage() {
                         <div className="flex items-start justify-between gap-3">
                             <div>
                                 <h3 className="text-sm font-bold text-emerald-900">WhatsApp Follow Up</h3>
-                                <p className="text-xs text-emerald-700 mt-1">Atur follow-up WA per service: hari kirim dan template yang dipakai.</p>
+                                <p className="text-xs text-emerald-700 mt-1">Atur follow-up WA per service: waktu kirim fleksibel (menit/jam/hari) dan template.</p>
                             </div>
                             <label className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-900">
                                 <input
@@ -820,20 +836,36 @@ export default function ServicesPage() {
 
                         {serviceFormData.waFollowUp.enabled && (
                             <div className="space-y-3 mt-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <FormInput
-                                        label="Follow-up 1 (days after visit)"
+                                        label="Follow-up 1 (delay)"
                                         type="number"
                                         required
                                         min="1"
-                                        value={serviceFormData.waFollowUp.firstDays}
+                                        value={serviceFormData.waFollowUp.firstDelayValue || 0}
                                         onChange={(e) => setServiceFormData({
                                             ...serviceFormData,
                                             waFollowUp: {
                                                 ...serviceFormData.waFollowUp,
-                                                firstDays: parseInt(e.target.value) || 0,
+                                                firstDelayValue: parseInt(e.target.value) || 0,
                                             }
                                         })}
+                                    />
+                                    <FormSelect
+                                        label="Unit Follow-up 1"
+                                        value={serviceFormData.waFollowUp.firstDelayUnit || 'day'}
+                                        onChange={(e: any) => setServiceFormData({
+                                            ...serviceFormData,
+                                            waFollowUp: {
+                                                ...serviceFormData.waFollowUp,
+                                                firstDelayUnit: e.target.value,
+                                            }
+                                        })}
+                                        options={[
+                                            { value: 'minute', label: 'Menit' },
+                                            { value: 'hour', label: 'Jam' },
+                                            { value: 'day', label: 'Hari' },
+                                        ]}
                                     />
                                     <SearchableSelect
                                         label="Template Follow-up 1"
@@ -854,19 +886,35 @@ export default function ServicesPage() {
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <FormInput
-                                        label="Follow-up 2 (optional, days)"
+                                        label="Follow-up 2 (optional)"
                                         type="number"
                                         min="0"
-                                        value={serviceFormData.waFollowUp.secondDays}
+                                        value={serviceFormData.waFollowUp.secondDelayValue || 0}
                                         onChange={(e) => setServiceFormData({
                                             ...serviceFormData,
                                             waFollowUp: {
                                                 ...serviceFormData.waFollowUp,
-                                                secondDays: parseInt(e.target.value) || 0,
+                                                secondDelayValue: parseInt(e.target.value) || 0,
                                             }
                                         })}
+                                    />
+                                    <FormSelect
+                                        label="Unit Follow-up 2"
+                                        value={serviceFormData.waFollowUp.secondDelayUnit || 'day'}
+                                        onChange={(e: any) => setServiceFormData({
+                                            ...serviceFormData,
+                                            waFollowUp: {
+                                                ...serviceFormData.waFollowUp,
+                                                secondDelayUnit: e.target.value,
+                                            }
+                                        })}
+                                        options={[
+                                            { value: 'minute', label: 'Menit' },
+                                            { value: 'hour', label: 'Jam' },
+                                            { value: 'day', label: 'Hari' },
+                                        ]}
                                     />
                                     <SearchableSelect
                                         label="Template Follow-up 2"

@@ -8,12 +8,30 @@ import { sendWhatsApp } from '@/lib/fonnte';
 let schedulerStarted = false;
 
 const DEFAULT_SCHEDULER_TIMEZONE = 'Asia/Jakarta';
+const DEFAULT_SCHEDULER_CRON = '* * * * *';
 
 interface ProcessResult {
     total: number;
     sent: number;
     failed: number;
 }
+
+const addDelay = (baseDate: Date, delayValue: number, delayUnit: 'minute' | 'hour' | 'day'): Date => {
+    const scheduled = new Date(baseDate);
+
+    if (delayUnit === 'minute') {
+        scheduled.setMinutes(scheduled.getMinutes() + delayValue);
+        return scheduled;
+    }
+
+    if (delayUnit === 'hour') {
+        scheduled.setHours(scheduled.getHours() + delayValue);
+        return scheduled;
+    }
+
+    scheduled.setDate(scheduled.getDate() + delayValue);
+    return scheduled;
+};
 
 const fillTemplate = (template: string, vars: Record<string, string>): string => {
     return template.replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, key: string) => vars[key] ?? '');
@@ -78,6 +96,35 @@ export async function processPendingWaSchedules(now: Date = new Date()): Promise
                     status: 'sent',
                     sentAt: new Date(),
                 });
+
+                const repeatEveryValue = Number((schedule as any).repeatEveryValue || 0);
+                const repeatEveryUnit = (((schedule as any).repeatEveryUnit || 'day') as 'minute' | 'hour' | 'day');
+
+                if (repeatEveryValue > 0) {
+                    const nextScheduledAt = addDelay(new Date(schedule.scheduledAt), repeatEveryValue, repeatEveryUnit);
+
+                    await WaSchedule.updateOne(
+                        {
+                            transactionId: schedule.transactionId,
+                            templateId: schedule.templateId,
+                            scheduledAt: nextScheduledAt,
+                        },
+                        {
+                            $setOnInsert: {
+                                customerId: schedule.customerId,
+                                transactionId: schedule.transactionId,
+                                phoneNumber: schedule.phoneNumber,
+                                templateId: schedule.templateId,
+                                scheduledAt: nextScheduledAt,
+                                status: 'pending',
+                                repeatEveryValue,
+                                repeatEveryUnit,
+                            },
+                        },
+                        { upsert: true }
+                    );
+                }
+
                 sent += 1;
             } else {
                 await WaSchedule.findByIdAndUpdate(schedule._id, {
@@ -119,8 +166,11 @@ export function startWaScheduler() {
         }
     }
 
+    const configuredCron = String(process.env.WA_SCHEDULER_CRON || DEFAULT_SCHEDULER_CRON).trim();
+    const schedulerCron = cron.validate(configuredCron) ? configuredCron : DEFAULT_SCHEDULER_CRON;
+
     cron.schedule(
-        '0 9 * * *',
+        schedulerCron,
         async () => {
             await processPendingWaSchedules();
         },

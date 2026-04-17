@@ -225,7 +225,6 @@ invoiceSchema.pre('validate', function preValidate() {
 // Optimize query performance
 invoiceSchema.index({ date: 1, status: 1 });
 invoiceSchema.index({ customer: 1 });
-invoiceSchema.index({ invoiceNumber: 1 }, { unique: true });
 
 if (process.env.NODE_ENV === 'development') {
     delete mongoose.models.Invoice;

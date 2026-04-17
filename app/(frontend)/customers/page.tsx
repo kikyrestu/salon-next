@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Edit, Trash2, Search, User, Mail, Phone, MoreVertical, ChevronLeft, ChevronRight, Package, History } from "lucide-react";
+import { Plus, Edit, Trash2, Search, User, Mail, Phone, MoreVertical, ChevronLeft, ChevronRight, Package, History, ExternalLink } from "lucide-react";
 import Modal from "@/components/dashboard/Modal";
 import CustomerForm from "@/components/dashboard/CustomerForm";
 import PermissionGate from "@/components/PermissionGate";
@@ -58,6 +58,40 @@ interface CustomerHistoryResponse {
     packageUsage: PackageUsageHistoryItem[];
 }
 
+interface InvoicePreviewItem {
+    name: string;
+    quantity: number;
+    price: number;
+    total: number;
+    discount?: number;
+    itemModel?: string;
+}
+
+interface InvoicePreviewData {
+    _id: string;
+    invoiceNumber: string;
+    date: string;
+    status: string;
+    paymentMethod?: string;
+    customer?: {
+        name?: string;
+    };
+    items: InvoicePreviewItem[];
+    subtotal: number;
+    discount: number;
+    tax: number;
+    tips: number;
+    totalAmount: number;
+    amountPaid: number;
+}
+
+interface DepositPreviewItem {
+    _id: string;
+    date: string;
+    amount: number;
+    paymentMethod: string;
+}
+
 interface PaginationState {
     total: number;
     page: number;
@@ -96,6 +130,11 @@ export default function CustomersPage() {
         packageOrders: [],
         packageUsage: [],
     });
+    const [previewInvoice, setPreviewInvoice] = useState<{ id: string; number?: string } | null>(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewError, setPreviewError] = useState<string | null>(null);
+    const [previewInvoiceDetail, setPreviewInvoiceDetail] = useState<InvoicePreviewData | null>(null);
+    const [previewDeposits, setPreviewDeposits] = useState<DepositPreviewItem[]>([]);
 
     const fetchCustomers = useCallback(async () => {
         setLoading(true);
@@ -173,6 +212,48 @@ export default function CustomersPage() {
         setIsHistoryModalOpen(false);
         setHistoryCustomer(null);
         setHistoryData({ invoices: [], packageOrders: [], packageUsage: [] });
+        closeInvoicePreview();
+    };
+
+    const openInvoicePreview = async (invoiceId?: string, invoiceNumber?: string) => {
+        if (!invoiceId) return;
+        setPreviewInvoice({ id: invoiceId, number: invoiceNumber });
+        setPreviewLoading(true);
+        setPreviewError(null);
+        setPreviewInvoiceDetail(null);
+        setPreviewDeposits([]);
+
+        try {
+            const [invoiceRes, depositsRes] = await Promise.all([
+                fetch(`/api/invoices/${invoiceId}`),
+                fetch(`/api/deposits?invoiceId=${invoiceId}`),
+            ]);
+
+            const invoiceData = await invoiceRes.json();
+            const depositsData = await depositsRes.json();
+
+            if (!invoiceData.success) {
+                throw new Error(invoiceData.error || "Gagal memuat invoice");
+            }
+
+            setPreviewInvoiceDetail(invoiceData.data as InvoicePreviewData);
+            if (depositsData.success && Array.isArray(depositsData.data)) {
+                setPreviewDeposits(depositsData.data as DepositPreviewItem[]);
+            }
+        } catch (error) {
+            console.error("Error loading invoice preview:", error);
+            setPreviewError(error instanceof Error ? error.message : "Gagal memuat preview invoice");
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
+
+    const closeInvoicePreview = () => {
+        setPreviewInvoice(null);
+        setPreviewLoading(false);
+        setPreviewError(null);
+        setPreviewInvoiceDetail(null);
+        setPreviewDeposits([]);
     };
 
     return (
@@ -573,7 +654,14 @@ export default function CustomersPage() {
                                         {historyData.invoices.map((inv) => (
                                             <div key={inv._id} className="text-xs border border-gray-200 rounded-lg p-2 bg-gray-50">
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <span className="font-bold text-gray-900">{inv.invoiceNumber}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { void openInvoicePreview(inv._id, inv.invoiceNumber); }}
+                                                        className="inline-flex items-center gap-1 font-bold text-blue-700 hover:text-blue-900 hover:underline"
+                                                    >
+                                                        {inv.invoiceNumber}
+                                                        <ExternalLink className="w-3 h-3" />
+                                                    </button>
                                                     <span className="text-gray-500">{new Date(inv.date || inv._id).toLocaleDateString('id-ID')}</span>
                                                 </div>
                                                 <div className="mt-1 text-gray-600">
@@ -621,7 +709,19 @@ export default function CustomersPage() {
                                                 </div>
                                                 <div className="mt-1 text-blue-800">
                                                     {new Date(usage.usedAt).toLocaleDateString('id-ID')}
-                                                    {usage.invoice?.invoiceNumber ? ` • ${usage.invoice.invoiceNumber}` : ''}
+                                                    {usage.invoice?.invoiceNumber ? (
+                                                        <>
+                                                            {" • "}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { void openInvoicePreview(usage.invoice?._id, usage.invoice?.invoiceNumber); }}
+                                                                className="inline-flex items-center gap-1 font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+                                                            >
+                                                                {usage.invoice.invoiceNumber}
+                                                                <ExternalLink className="w-3 h-3" />
+                                                            </button>
+                                                        </>
+                                                    ) : ''}
                                                 </div>
                                             </div>
                                         ))}
@@ -629,6 +729,123 @@ export default function CustomersPage() {
                                 )}
                             </section>
                         </>
+                    )}
+                </div>
+            </Modal>
+
+            <Modal
+                isOpen={!!previewInvoice}
+                onClose={closeInvoicePreview}
+                title={previewInvoice?.number ? `Preview Invoice - ${previewInvoice.number}` : "Preview Invoice"}
+                size="xl"
+            >
+                <div className="space-y-4 text-black max-h-[75vh] overflow-y-auto pr-1">
+                    {previewLoading ? (
+                        <div className="space-y-2 animate-pulse">
+                            <div className="h-4 bg-gray-100 rounded" />
+                            <div className="h-4 bg-gray-100 rounded" />
+                            <div className="h-4 bg-gray-100 rounded" />
+                            <div className="h-28 bg-gray-100 rounded" />
+                        </div>
+                    ) : previewError ? (
+                        <div className="space-y-3">
+                            <p className="text-sm text-red-600">{previewError}</p>
+                            {previewInvoice?.id && (
+                                <a
+                                    href={`/invoices/print/${previewInvoice.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200"
+                                >
+                                    Buka halaman invoice
+                                    <ExternalLink className="w-3 h-3" />
+                                </a>
+                            )}
+                        </div>
+                    ) : previewInvoiceDetail ? (
+                        <>
+                            <section className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                <div className="border border-gray-200 rounded-lg p-2 bg-gray-50">
+                                    <p className="text-gray-500">Invoice</p>
+                                    <p className="font-bold text-gray-900">{previewInvoiceDetail.invoiceNumber}</p>
+                                </div>
+                                <div className="border border-gray-200 rounded-lg p-2 bg-gray-50">
+                                    <p className="text-gray-500">Tanggal</p>
+                                    <p className="font-bold text-gray-900">{new Date(previewInvoiceDetail.date).toLocaleString('id-ID')}</p>
+                                </div>
+                                <div className="border border-gray-200 rounded-lg p-2 bg-gray-50">
+                                    <p className="text-gray-500">Customer</p>
+                                    <p className="font-bold text-gray-900">{previewInvoiceDetail.customer?.name || 'Walk-in'}</p>
+                                </div>
+                                <div className="border border-gray-200 rounded-lg p-2 bg-gray-50">
+                                    <p className="text-gray-500">Status / Payment</p>
+                                    <p className="font-bold text-gray-900">{previewInvoiceDetail.status} • {previewInvoiceDetail.paymentMethod || '-'}</p>
+                                </div>
+                            </section>
+
+                            <section className="space-y-2">
+                                <h3 className="text-sm font-bold text-gray-900">Item Invoice</h3>
+                                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                    <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-gray-50 text-[11px] font-bold text-gray-600 uppercase tracking-wide">
+                                        <div className="col-span-6">Item</div>
+                                        <div className="col-span-2 text-right">Qty</div>
+                                        <div className="col-span-2 text-right">Harga</div>
+                                        <div className="col-span-2 text-right">Total</div>
+                                    </div>
+                                    <div className="divide-y divide-gray-100">
+                                        {previewInvoiceDetail.items.map((item, index) => (
+                                            <div key={`${item.name}-${index}`} className="grid grid-cols-12 gap-2 px-3 py-2 text-xs">
+                                                <div className="col-span-6 font-semibold text-gray-900">{item.name}</div>
+                                                <div className="col-span-2 text-right text-gray-700">{item.quantity}</div>
+                                                <div className="col-span-2 text-right text-gray-700">{settings.symbol}{Number(item.price || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                                                <div className="col-span-2 text-right font-bold text-gray-900">{settings.symbol}{Number(item.total || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                <div className="border border-gray-200 rounded-lg p-2">
+                                    <div className="flex justify-between"><span className="text-gray-600">Subtotal</span><span className="font-semibold">{settings.symbol}{Number(previewInvoiceDetail.subtotal || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span></div>
+                                    <div className="flex justify-between"><span className="text-gray-600">Diskon</span><span className="font-semibold">-{settings.symbol}{Number(previewInvoiceDetail.discount || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span></div>
+                                    <div className="flex justify-between"><span className="text-gray-600">Tax</span><span className="font-semibold">{settings.symbol}{Number(previewInvoiceDetail.tax || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span></div>
+                                    <div className="flex justify-between"><span className="text-gray-600">Tips</span><span className="font-semibold">{settings.symbol}{Number(previewInvoiceDetail.tips || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span></div>
+                                    <div className="h-px bg-gray-200 my-1" />
+                                    <div className="flex justify-between text-sm"><span className="font-bold text-gray-900">Grand Total</span><span className="font-black text-gray-900">{settings.symbol}{Number(previewInvoiceDetail.totalAmount || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span></div>
+                                    <div className="flex justify-between"><span className="text-gray-600">Dibayar</span><span className="font-bold text-green-700">{settings.symbol}{Number(previewInvoiceDetail.amountPaid || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span></div>
+                                </div>
+                                <div className="border border-gray-200 rounded-lg p-2">
+                                    <h4 className="font-bold text-gray-900 mb-1">Riwayat Pembayaran</h4>
+                                    {previewDeposits.length === 0 ? (
+                                        <p className="text-gray-500">Tidak ada deposit/pembayaran terpisah.</p>
+                                    ) : (
+                                        <div className="space-y-1">
+                                            {previewDeposits.map((dep) => (
+                                                <div key={dep._id} className="flex items-center justify-between text-[11px] border border-gray-100 rounded p-1.5">
+                                                    <span className="text-gray-600">{new Date(dep.date).toLocaleString('id-ID')} • {dep.paymentMethod}</span>
+                                                    <span className="font-bold text-gray-900">{settings.symbol}{Number(dep.amount || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+
+                            {previewInvoice?.id && (
+                                <a
+                                    href={`/invoices/print/${previewInvoice.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200"
+                                >
+                                    Buka halaman invoice
+                                    <ExternalLink className="w-3 h-3" />
+                                </a>
+                            )}
+                        </>
+                    ) : (
+                        <p className="text-sm text-gray-500">Data invoice tidak tersedia.</p>
                     )}
                 </div>
             </Modal>

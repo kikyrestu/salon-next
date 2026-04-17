@@ -5,7 +5,7 @@ export interface SendWhatsAppResult {
 }
 
 export async function sendWhatsApp(phone: string, message: string): Promise<SendWhatsAppResult> {
-    const token = process.env.FONNTE_TOKEN;
+    const token = String(process.env.FONNTE_TOKEN || '').trim();
 
     if (!token) {
         return { success: false, error: 'FONNTE_TOKEN is not configured' };
@@ -43,6 +43,19 @@ export async function sendWhatsApp(phone: string, message: string): Promise<Send
                 error: `Fonnte request failed with status ${response.status}`,
                 data: parsed,
             };
+        }
+
+        // Fonnte can return HTTP 200 with { status: false, reason: "..." }.
+        if (parsed && typeof parsed === 'object' && 'status' in (parsed as Record<string, unknown>)) {
+            const apiStatus = Boolean((parsed as Record<string, unknown>).status);
+            if (!apiStatus) {
+                const reason = String((parsed as Record<string, unknown>).reason || 'Fonnte API returned status=false');
+                return {
+                    success: false,
+                    error: reason,
+                    data: parsed,
+                };
+            }
         }
 
         return { success: true, data: parsed };

@@ -8,11 +8,27 @@ import { initModels } from "@/lib/initModels";
 const normalizeServicePayload = (payload: any) => {
     const body = { ...payload };
 
+    const toLegacyDays = (value: number, unit: string) => {
+        if (!Number.isFinite(value) || value <= 0) return 0;
+        if (unit === 'minute') return value / 1440;
+        if (unit === 'hour') return value / 24;
+        return value;
+    };
+
     if (body?.waFollowUp) {
+        const firstDelayUnit = body.waFollowUp.firstDelayUnit || 'day';
+        const secondDelayUnit = body.waFollowUp.secondDelayUnit || 'day';
+        const firstDelayValue = Number(body.waFollowUp.firstDelayValue ?? body.waFollowUp.firstDays ?? 0);
+        const secondDelayValue = Number(body.waFollowUp.secondDelayValue ?? body.waFollowUp.secondDays ?? 0);
+
         body.waFollowUp = {
             ...body.waFollowUp,
-            firstDays: Number(body.waFollowUp.firstDays || 0),
-            secondDays: Number(body.waFollowUp.secondDays || 0),
+            firstDays: toLegacyDays(firstDelayValue, firstDelayUnit),
+            secondDays: toLegacyDays(secondDelayValue, secondDelayUnit),
+            firstDelayValue,
+            firstDelayUnit,
+            secondDelayValue,
+            secondDelayUnit,
             firstTemplateId: body.waFollowUp.firstTemplateId || undefined,
             secondTemplateId: body.waFollowUp.secondTemplateId || undefined,
         };
