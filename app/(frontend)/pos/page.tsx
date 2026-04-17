@@ -141,6 +141,7 @@ export default function POSPage() {
     const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
     const [isDealsModalOpen, setIsDealsModalOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [isStaffEarningsHidden, setIsStaffEarningsHidden] = useState(false);
     const [isQrisModalOpen, setIsQrisModalOpen] = useState(false);
     const [qrisSession, setQrisSession] = useState<{ externalId: string; checkoutUrl: string; invoiceId: string; status: string; sourceType: 'invoice' | 'package_order' } | null>(null);
     const [checkingQris, setCheckingQris] = useState(false);
@@ -1491,6 +1492,17 @@ export default function POSPage() {
                                 <span>{settings.symbol}{tax.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                             </div>
                             {(commission > 0 || tips > 0) && (
+                                <div className="flex items-center justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsStaffEarningsHidden((prev) => !prev)}
+                                        className="text-[9px] lg:text-[10px] font-semibold text-indigo-600 hover:text-indigo-800"
+                                    >
+                                        {isStaffEarningsHidden ? 'Tampilkan Staff Earnings' : 'Hide Staff Earnings'}
+                                    </button>
+                                </div>
+                            )}
+                            {(commission > 0 || tips > 0) && !isStaffEarningsHidden && (
                                 <div className="space-y-1 bg-indigo-50 px-2 py-1.5 rounded border border-indigo-100/50">
                                     <div className="flex justify-between text-indigo-600 font-bold mb-1 border-b border-indigo-200/50 pb-0.5 px-1">
                                         <span>Staff Earnings</span>
