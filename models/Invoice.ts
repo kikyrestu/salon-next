@@ -1,0 +1,234 @@
+
+import mongoose, { Schema, Document } from 'mongoose';
+
+export interface IInvoice extends Document {
+    invoiceNumber: string;
+    customer: mongoose.Types.ObjectId;
+    appointment?: mongoose.Types.ObjectId;
+    items: {
+        item: mongoose.Types.ObjectId; // Service or Product ID
+        itemModel: 'Service' | 'Product';
+        name: string;
+        price: number;
+        quantity: number;
+        discount: number; // Amount
+        total: number;
+        splitCommissionMode?: 'auto' | 'manual';
+        staffAssignments?: {
+            staff?: mongoose.Types.ObjectId;
+            staffId?: mongoose.Types.ObjectId;
+            percentage?: number;
+            porsiPersen?: number;
+            commission?: number;
+            komisiNominal?: number;
+            tip?: number;
+        }[];
+    }[];
+    subtotal: number;
+    tax: number;
+    discount: number; // Global discount
+    totalAmount: number;
+    amountPaid: number;
+    tips: number;
+    paymentMethod: string; // Cash, Card, etc.
+    status: 'paid' | 'pending' | 'partially_paid' | 'cancelled';
+    staff?: mongoose.Types.ObjectId;
+    staffAssignments: {
+        staff?: mongoose.Types.ObjectId;
+        staffId?: mongoose.Types.ObjectId;
+        percentage?: number;
+        porsiPersen?: number;
+        commission?: number;
+        komisiNominal?: number;
+        tip: number;
+    }[];
+    commission: number;
+    notes?: string;
+    followUpPhoneNumber?: string;
+    sourceType: 'normal_sale' | 'package_redeem';
+    date: Date;
+}
+
+const ALLOWED_SPLIT_ERROR = 0.01;
+
+const toNum = (value: unknown): number => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+};
+
+const normalizedPercentage = (entry: any): number => {
+    return toNum(entry?.porsiPersen ?? entry?.percentage);
+};
+
+const normalizedStaffKey = (entry: any): string => {
+    const id = entry?.staffId ?? entry?.staff;
+    return id ? String(id) : '';
+};
+
+const hasDuplicateStaff = (assignments: any[] = []): boolean => {
+    const ids = assignments
+        .map((entry) => normalizedStaffKey(entry))
+        .filter(Boolean);
+    return ids.length !== new Set(ids).size;
+};
+
+const hasValidTotalPercentage = (assignments: any[] = []): boolean => {
+    if (!assignments.length) return true;
+    const total = assignments.reduce((sum, entry) => sum + normalizedPercentage(entry), 0);
+    return Math.abs(total - 100) <= ALLOWED_SPLIT_ERROR;
+};
+
+const hasPositivePercentages = (assignments: any[] = []): boolean => {
+    return assignments.every((entry) => normalizedPercentage(entry) > 0);
+};
+
+const invoiceSchema = new Schema<IInvoice>(
+    {
+        invoiceNumber: { type: String, required: true, unique: true },
+        customer: { type: Schema.Types.ObjectId, ref: 'Customer' },
+        appointment: { type: Schema.Types.ObjectId, ref: 'Appointment' },
+        items: [
+            {
+                item: { type: Schema.Types.ObjectId, required: true, refPath: 'items.itemModel' },
+                itemModel: { type: String, required: true, enum: ['Service', 'Product'] },
+                name: String,
+                price: Number,
+                quantity: { type: Number, default: 1 },
+                discount: { type: Number, default: 0 },
+                total: Number,
+                splitCommissionMode: {
+                    type: String,
+                    enum: ['auto', 'manual'],
+                    default: 'auto',
+                },
+                staffAssignments: [
+                    {
+                        staff: { type: Schema.Types.ObjectId, ref: 'Staff' },
+                        staffId: { type: Schema.Types.ObjectId, ref: 'Staff' },
+                        percentage: { type: Number, default: 0 },
+                        porsiPersen: { type: Number, default: 0 },
+                        commission: { type: Number, default: 0 },
+                        komisiNominal: { type: Number, default: 0 },
+                        tip: { type: Number, default: 0 },
+                    },
+                ],
+            },
+        ],
+        subtotal: { type: Number, required: true },
+        tax: { type: Number, default: 0 },
+        discount: { type: Number, default: 0 },
+        totalAmount: { type: Number, required: true },
+        amountPaid: { type: Number, default: 0 },
+        tips: { type: Number, default: 0 },
+        paymentMethod: { type: String, default: 'Cash' },
+        status: {
+            type: String,
+            enum: ['paid', 'pending', 'partially_paid', 'cancelled'],
+            default: 'paid',
+        },
+        staff: { type: Schema.Types.ObjectId, ref: 'Staff' },
+        staffAssignments: [
+            {
+                staff: { type: Schema.Types.ObjectId, ref: 'Staff' },
+                staffId: { type: Schema.Types.ObjectId, ref: 'Staff' },
+                percentage: { type: Number, default: 0 },
+                porsiPersen: { type: Number, default: 0 },
+                commission: { type: Number, default: 0 },
+                komisiNominal: { type: Number, default: 0 },
+                tip: { type: Number, default: 0 },
+            },
+        ],
+        commission: { type: Number, default: 0 },
+        notes: String,
+        followUpPhoneNumber: {
+            type: String,
+            trim: true,
+        },
+        sourceType: {
+            type: String,
+            enum: ['normal_sale', 'package_redeem'],
+            default: 'normal_sale',
+        },
+        date: { type: Date, default: Date.now },
+    },
+    { timestamps: true }
+);
+
+invoiceSchema.path('staffAssignments').validate({
+    validator(value: any[] = []) {
+        if (!Array.isArray(value)) return false;
+        if (hasDuplicateStaff(value)) return false;
+        if (!hasPositivePercentages(value)) return false;
+        return hasValidTotalPercentage(value);
+    },
+    message: 'staffAssignments must not contain duplicate staff, each percentage must be greater than 0, and total percentage must equal 100',
+});
+
+invoiceSchema.path('items').validate({
+    validator(items: any[] = []) {
+        if (!Array.isArray(items)) return false;
+
+        return items.every((item) => {
+            const assignments = item?.staffAssignments || [];
+            if (!Array.isArray(assignments) || assignments.length === 0) return true;
+            if (hasDuplicateStaff(assignments)) return false;
+            if (!hasPositivePercentages(assignments)) return false;
+            return hasValidTotalPercentage(assignments);
+        });
+    },
+    message: 'Service item staff split must not contain duplicate staff, each percentage must be greater than 0, and total percentage must equal 100',
+});
+
+invoiceSchema.pre('validate', function preValidate() {
+    this.staffAssignments = (this.staffAssignments || []).map((assignment: any) => {
+        const staffId = assignment.staffId || assignment.staff;
+        const porsiPersen = toNum(assignment.porsiPersen ?? assignment.percentage);
+        const komisiNominal = toNum(assignment.komisiNominal ?? assignment.commission);
+
+        return {
+            ...assignment,
+            staff: staffId,
+            staffId,
+            percentage: porsiPersen,
+            porsiPersen,
+            commission: komisiNominal,
+            komisiNominal,
+        };
+    });
+
+    this.items = (this.items || []).map((item: any) => {
+        const staffAssignments = (item.staffAssignments || []).map((assignment: any) => {
+            const staffId = assignment.staffId || assignment.staff;
+            const porsiPersen = toNum(assignment.porsiPersen ?? assignment.percentage);
+            const komisiNominal = toNum(assignment.komisiNominal ?? assignment.commission);
+
+            return {
+                ...assignment,
+                staff: staffId,
+                staffId,
+                percentage: porsiPersen,
+                porsiPersen,
+                commission: komisiNominal,
+                komisiNominal,
+            };
+        });
+
+        return {
+            ...item,
+            splitCommissionMode: item.splitCommissionMode || 'auto',
+            staffAssignments,
+        };
+    });
+
+});
+
+// Optimize query performance
+invoiceSchema.index({ date: 1, status: 1 });
+invoiceSchema.index({ customer: 1 });
+invoiceSchema.index({ invoiceNumber: 1 }, { unique: true });
+
+if (process.env.NODE_ENV === 'development') {
+    delete mongoose.models.Invoice;
+}
+
+export default mongoose.models.Invoice || mongoose.model<IInvoice>('Invoice', invoiceSchema);
