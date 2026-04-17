@@ -1122,18 +1122,18 @@ export default function POSPage() {
     const availableDeals = getAvailableDeals();
 
     return (
-        <div className="flex h-[100dvh] w-full bg-gray-50 overflow-hidden flex-col md:flex-row">
+        <div className="flex h-[100dvh] w-full bg-gray-50 overflow-hidden flex-col lg:flex-row">
             {/* Left Side: Items Catalog */}
-            <div className={`flex-1 flex flex-col min-w-0 border-r border-gray-200 bg-white ${mobileTab === 'cart' ? 'hidden md:flex' : 'flex'}`}>
+            <div className={`flex-1 flex flex-col min-w-0 border-r border-gray-200 bg-white ${mobileTab === 'cart' ? 'hidden lg:flex' : 'flex'}`}>
                 <div className="bg-white flex flex-col h-full overflow-hidden">
                     {/* Header/Tabs */}
-                    <div className="px-4 py-3 md:px-6 md:py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+                    <div className="px-4 py-3 lg:px-6 lg:py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                            <h1 className="text-lg md:text-xl font-bold text-gray-800">POS System</h1>
-                            <div className="flex items-center gap-2 md:gap-3 flex-wrap sm:flex-nowrap">
+                            <h1 className="text-lg lg:text-xl font-bold text-gray-800">POS System</h1>
+                            <div className="flex items-center gap-2 lg:gap-3 flex-wrap sm:flex-nowrap">
                                 <button
                                     onClick={() => router.push("/dashboard")}
-                                    className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs md:text-sm font-medium hover:bg-gray-200 transition-colors"
+                                    className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs lg:text-sm font-medium hover:bg-gray-200 transition-colors"
                                 >
                                     <LayoutDashboard className="w-4 h-4" />
                                     <span className="hidden xs:inline">Dashboard</span>
@@ -1145,7 +1145,7 @@ export default function POSPage() {
                                         placeholder="Search items..."
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
-                                        className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-900"
+                                        className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-blue-900"
                                     />
                                 </div>
                             </div>
@@ -1153,19 +1153,19 @@ export default function POSPage() {
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setActiveTab('services')}
-                                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${activeTab === 'services' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === 'services' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
                                 Services
                             </button>
                             <button
                                 onClick={() => setActiveTab('products')}
-                                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${activeTab === 'products' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === 'products' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
                                 Products
                             </button>
                             <button
                                 onClick={() => setActiveTab('packages')}
-                                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${activeTab === 'packages' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === 'packages' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
                                 Packages
                             </button>
@@ -1173,7 +1173,7 @@ export default function POSPage() {
                     </div>
 
                     {/* Grid */}
-                    <div className="flex-1 overflow-y-auto p-3 md:p-4 bg-gray-50 pb-20 md:pb-4">
+                    <div className="flex-1 overflow-y-auto p-3 lg:p-4 bg-gray-50 pb-20 lg:pb-4">
                         {loading ? (
                             <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-900 border-t-transparent"></div></div>
                         ) : activeTab === 'packages' && filteredItems.length === 0 ? (
@@ -1192,30 +1192,30 @@ export default function POSPage() {
                                 </button>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 xs:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 md:gap-3">
+                            <div className="grid grid-cols-2 xs:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 lg:gap-3">
                                 {filteredItems.map(item => (
                                     <div
                                         key={item._id}
                                         onClick={() => addToCart(item)}
-                                        className="bg-white p-2 md:p-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow flex flex-col items-center text-center group min-h-[120px] md:min-h-[132px] active:scale-95 duration-75"
+                                        className="bg-white p-2 lg:p-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow flex flex-col items-center text-center group min-h-[120px] lg:min-h-[132px] active:scale-95 duration-75"
                                     >
-                                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center mb-1 md:mb-2 group-hover:scale-110 transition-transform">
+                                        <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center mb-1 lg:mb-2 group-hover:scale-110 transition-transform">
                                             {item.type === 'Service' ? (
-                                                <div className="w-7 h-7 md:w-9 md:h-9 rounded-full bg-purple-100 flex items-center justify-center">
-                                                    <ScissorsIcon className="w-4 h-4 md:w-5 md:h-5 text-purple-600" />
+                                                <div className="w-7 h-7 lg:w-9 lg:h-9 rounded-full bg-purple-100 flex items-center justify-center">
+                                                    <ScissorsIcon className="w-4 h-4 lg:w-5 lg:h-5 text-purple-600" />
                                                 </div>
                                             ) : item.type === 'Product' ? (
-                                                <div className="w-7 h-7 md:w-9 md:h-9 rounded-full bg-green-100 flex items-center justify-center">
-                                                    <Package className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
+                                                <div className="w-7 h-7 lg:w-9 lg:h-9 rounded-full bg-green-100 flex items-center justify-center">
+                                                    <Package className="w-4 h-4 lg:w-5 lg:h-5 text-green-600" />
                                                 </div>
                                             ) : (
-                                                <div className="w-7 h-7 md:w-9 md:h-9 rounded-full bg-amber-100 flex items-center justify-center">
-                                                    <Package className="w-4 h-4 md:w-5 md:h-5 text-amber-600" />
+                                                <div className="w-7 h-7 lg:w-9 lg:h-9 rounded-full bg-amber-100 flex items-center justify-center">
+                                                    <Package className="w-4 h-4 lg:w-5 lg:h-5 text-amber-600" />
                                                 </div>
                                             )}
                                         </div>
-                                        <h3 className="font-semibold text-gray-800 text-[10px] md:text-xs leading-tight line-clamp-2 mb-1 h-8 flex items-center justify-center">{item.name}</h3>
-                                        <p className="text-blue-900 font-bold text-xs md:text-sm">{settings.symbol}{item.price}</p>
+                                        <h3 className="font-semibold text-gray-800 text-[10px] lg:text-xs leading-tight line-clamp-2 mb-1 h-8 flex items-center justify-center">{item.name}</h3>
+                                        <p className="text-blue-900 font-bold text-xs lg:text-sm">{settings.symbol}{item.price}</p>
                                     </div>
                                 ))}
                             </div>
@@ -1225,11 +1225,11 @@ export default function POSPage() {
             </div>
 
             {/* Right Side: Cart */}
-            <div className={`w-full md:w-[460px] lg:w-[540px] xl:w-[600px] md:flex-none flex flex-col bg-white border-l border-gray-200 ${mobileTab === 'catalog' ? 'hidden md:flex' : 'flex'} h-full`}>
+            <div className={`w-full lg:w-[500px] xl:w-[560px] 2xl:w-[620px] lg:flex-none flex flex-col bg-white border-l border-gray-200 ${mobileTab === 'catalog' ? 'hidden lg:flex' : 'flex'} h-full`}>
                 <div className="bg-white flex flex-col h-full overflow-hidden">
-                    <div className="p-3 md:p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0 space-y-3">
+                    <div className="p-3 lg:p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0 space-y-3">
                         <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 md:w-5 md:h-5 text-gray-500 flex-shrink-0" />
+                            <User className="w-4 h-4 lg:w-5 lg:h-5 text-gray-500 flex-shrink-0" />
                             <SearchableSelect
                                 placeholder="Select Customer"
                                 value={selectedCustomer}
@@ -1285,7 +1285,7 @@ export default function POSPage() {
                                     value={followUpPhoneNumber}
                                     onChange={(e) => setFollowUpPhoneNumber(e.target.value)}
                                     placeholder="Contoh: 08123456789"
-                                    className="w-full h-9 px-3 text-xs md:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    className="w-full h-9 px-3 text-xs lg:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                 />
                                 <p className="text-[10px] text-gray-500">
                                     Isi hanya jika customer belum terdaftar. Nomor ini dipakai untuk WA follow-up setelah layanan.
@@ -1295,11 +1295,11 @@ export default function POSPage() {
                     </div>
 
                     {/* Cart Items */}
-                    <div className="flex-grow overflow-y-auto p-2 md:p-3 space-y-2 pb-24 md:pb-2">
+                    <div className="flex-grow overflow-y-auto p-2 lg:p-3 space-y-2 pb-24 lg:pb-2">
                         {cart.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center text-gray-400 py-10">
-                                <ShoppingCart className="w-8 h-8 md:w-10 md:h-10 mb-2 opacity-30" />
-                                <p className="text-xs md:text-sm">Cart is empty</p>
+                                <ShoppingCart className="w-8 h-8 lg:w-10 lg:h-10 mb-2 opacity-30" />
+                                <p className="text-xs lg:text-sm">Cart is empty</p>
                             </div>
                         ) : (
                             cart.map(item => (
@@ -1318,8 +1318,8 @@ export default function POSPage() {
                                                 )}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-[10px] md:text-xs font-semibold text-gray-800 truncate">{item.name}</p>
-                                                <p className="text-[9px] md:text-[10px] text-gray-500">{settings.symbol}{item.price}</p>
+                                                <p className="text-[10px] lg:text-xs font-semibold text-gray-800 truncate">{item.name}</p>
+                                                <p className="text-[9px] lg:text-[10px] text-gray-500">{settings.symbol}{item.price}</p>
                                                 {(() => {
                                                     if (item.type !== 'Service') return null;
                                                     const claim = packageClaims[getCartItemKey(item._id, item.type)];
@@ -1328,7 +1328,7 @@ export default function POSPage() {
                                                     const quota = pkg?.serviceQuotas.find((entry) => String(entry.service) === String(item._id));
 
                                                     return (
-                                                        <p className="text-[9px] md:text-[10px] text-amber-700 font-bold truncate">
+                                                        <p className="text-[9px] lg:text-[10px] text-amber-700 font-bold truncate">
                                                             Reward: {pkg?.packageName || 'Paket'} ({quota ? `${quota.remainingQuota}/${quota.totalQuota}` : 'Claim'})
                                                         </p>
                                                     );
@@ -1470,8 +1470,8 @@ export default function POSPage() {
                     </div>
 
                     {/* Summary - Sticky at bottom */}
-                    <div className="flex-shrink-0 p-3 bg-gray-50 border-t border-gray-200 overflow-y-auto pb-20 md:pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                        <div className="space-y-1 mb-3 text-[10px] md:text-xs">
+                    <div className="flex-shrink-0 p-3 bg-gray-50 border-t border-gray-200 overflow-y-auto pb-20 lg:pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                        <div className="space-y-1 mb-3 text-[10px] lg:text-xs">
                             <div className="flex justify-between text-gray-600">
                                 <span>Subtotal</span>
                                 <span>{settings.symbol}{subtotal.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
@@ -1525,7 +1525,7 @@ export default function POSPage() {
                                     type="number"
                                     value={discount}
                                     onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                                    className="w-16 text-right text-[10px] md:text-xs border border-gray-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-900 outline-none"
+                                    className="w-16 text-right text-[10px] lg:text-xs border border-gray-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-900 outline-none"
                                     min="0"
                                 />
                             </div>
@@ -1545,10 +1545,10 @@ export default function POSPage() {
                                     placeholder={total.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
                                     value={amountPaid}
                                     onChange={(e) => setAmountPaid(e.target.value)}
-                                    className="w-20 text-right text-[10px] md:text-xs border-2 border-blue-900/20 rounded px-1 py-0.5 focus:border-blue-900 outline-none font-bold"
+                                    className="w-20 text-right text-[10px] lg:text-xs border-2 border-blue-900/20 rounded px-1 py-0.5 focus:border-blue-900 outline-none font-bold"
                                 />
                             </div>
-                            <div className="flex justify-between text-sm md:text-base font-black text-gray-900 pt-1 border-t border-gray-200">
+                            <div className="flex justify-between text-sm lg:text-base font-black text-gray-900 pt-1 border-t border-gray-200">
                                 <span> {parseFloat(amountPaid.toString()) < total ? 'Due' : 'Total'}</span>
                                 <span className={parseFloat(amountPaid.toString()) < total ? 'text-red-600' : 'text-blue-900'}>
                                     {settings.symbol}{(parseFloat(amountPaid.toString()) < total ? (total - (parseFloat(amountPaid.toString()) || 0)) : total).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
@@ -1562,7 +1562,7 @@ export default function POSPage() {
                                     <button
                                         key={method}
                                         onClick={() => setPaymentMethod(method)}
-                                        className={`py-1.5 text-[9px] md:text-[10px] uppercase tracking-wider font-bold rounded border transition-all ${paymentMethod === method ? 'bg-blue-900 text-white border-blue-900 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
+                                        className={`py-1.5 text-[9px] lg:text-[10px] uppercase tracking-wider font-bold rounded border transition-all ${paymentMethod === method ? 'bg-blue-900 text-white border-blue-900 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
                                     >
                                         {method}
                                     </button>
@@ -1575,7 +1575,7 @@ export default function POSPage() {
                             loading={submitting}
                             disabled={hasInvalidSplitInCart || cart.length === 0}
                             variant="success"
-                            className="w-full py-4 md:py-4 text-xs md:text-sm uppercase tracking-widest font-black shadow-lg hover:shadow-xl active:translate-y-0.5 transition-all mb-4"
+                            className="w-full py-4 lg:py-4 text-xs lg:text-sm uppercase tracking-widest font-black shadow-lg hover:shadow-xl active:translate-y-0.5 transition-all mb-4"
                             icon={<CreditCard className="w-4 h-4" />}
                         >
                             Complete Order
@@ -1585,7 +1585,7 @@ export default function POSPage() {
             </div>
 
             {/* Mobile Navigation Bar */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around h-16 z-50 px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around h-16 z-50 px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
                 <button
                     onClick={() => setMobileTab('catalog')}
                     className={`flex flex-col items-center justify-center w-20 h-full transition-all ${mobileTab === 'catalog' ? 'text-blue-900 scale-110' : 'text-gray-400'}`}
@@ -1746,7 +1746,7 @@ export default function POSPage() {
             </Modal>
 
             {toastMessage && (
-                <div className="fixed bottom-20 md:bottom-6 right-3 md:right-6 z-[70] px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs md:text-sm font-bold shadow-xl">
+                <div className="fixed bottom-20 lg:bottom-6 right-3 lg:right-6 z-[70] px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs lg:text-sm font-bold shadow-xl">
                     {toastMessage}
                 </div>
             )}
