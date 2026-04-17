@@ -1473,8 +1473,9 @@ export default function POSPage() {
                     </div>
 
                     {/* Summary - Sticky at bottom */}
-                    <div className="flex-shrink-0 p-3 bg-gray-50 border-t border-gray-200 overflow-y-auto pb-20 md:pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                        <div className="space-y-1 mb-3 text-[10px] lg:text-xs">
+                    <div className="flex-shrink-0 p-3 bg-gray-50 border-t border-gray-200 overflow-hidden pb-20 md:pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                        <div className="max-h-[180px] md:max-h-[220px] lg:max-h-[280px] overflow-y-auto pr-1">
+                            <div className="space-y-1 mb-3 text-[10px] lg:text-xs">
                             <div className="flex justify-between text-gray-600">
                                 <span>Subtotal</span>
                                 <span>{settings.symbol}{subtotal.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
@@ -1551,12 +1552,14 @@ export default function POSPage() {
                                     className="w-20 text-right text-[10px] lg:text-xs border-2 border-blue-900/20 rounded px-1 py-0.5 focus:border-blue-900 outline-none font-bold"
                                 />
                             </div>
-                            <div className="flex justify-between text-sm lg:text-base font-black text-gray-900 pt-1 border-t border-gray-200">
-                                <span> {parseFloat(amountPaid.toString()) < total ? 'Due' : 'Total'}</span>
-                                <span className={parseFloat(amountPaid.toString()) < total ? 'text-red-600' : 'text-blue-900'}>
-                                    {settings.symbol}{(parseFloat(amountPaid.toString()) < total ? (total - (parseFloat(amountPaid.toString()) || 0)) : total).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
-                                </span>
                             </div>
+                        </div>
+
+                        <div className="flex justify-between text-sm lg:text-base font-black text-gray-900 pt-1.5 border-t border-gray-200 mb-3">
+                            <span> {parseFloat(amountPaid.toString()) < total ? 'Due' : 'Total'}</span>
+                            <span className={parseFloat(amountPaid.toString()) < total ? 'text-red-600' : 'text-blue-900'}>
+                                {settings.symbol}{(parseFloat(amountPaid.toString()) < total ? (total - (parseFloat(amountPaid.toString()) || 0)) : total).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                            </span>
                         </div>
 
                         <div className="mb-3">
