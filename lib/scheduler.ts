@@ -7,6 +7,8 @@ import { sendWhatsApp } from '@/lib/fonnte';
 
 let schedulerStarted = false;
 
+const DEFAULT_SCHEDULER_TIMEZONE = 'Asia/Jakarta';
+
 interface ProcessResult {
     total: number;
     sent: number;
@@ -99,13 +101,31 @@ export async function processPendingWaSchedules(now: Date = new Date()): Promise
 export function startWaScheduler() {
     if (schedulerStarted) return;
 
+    // Vercel functions are ephemeral. Use Vercel Cron or external scheduler in production.
+    if (process.env.VERCEL === '1') {
+        return;
+    }
+
+    const rawTimezone = (process.env.TZ || '').trim();
+    const normalizedTimezone = rawTimezone.startsWith(':') ? rawTimezone.slice(1) : rawTimezone;
+
+    let schedulerTimezone = DEFAULT_SCHEDULER_TIMEZONE;
+    if (normalizedTimezone) {
+        try {
+            new Intl.DateTimeFormat('en-US', { timeZone: normalizedTimezone });
+            schedulerTimezone = normalizedTimezone;
+        } catch {
+            schedulerTimezone = DEFAULT_SCHEDULER_TIMEZONE;
+        }
+    }
+
     cron.schedule(
         '0 9 * * *',
         async () => {
             await processPendingWaSchedules();
         },
         {
-            timezone: process.env.TZ || 'Asia/Jakarta',
+            timezone: schedulerTimezone,
         }
     );
 
