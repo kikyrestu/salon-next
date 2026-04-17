@@ -1122,9 +1122,9 @@ export default function POSPage() {
     const availableDeals = getAvailableDeals();
 
     return (
-        <div className="flex h-[100dvh] w-full bg-gray-50 overflow-hidden flex-col lg:flex-row">
+        <div className="flex h-[100dvh] w-full bg-gray-50 overflow-hidden flex-col md:flex-row">
             {/* Left Side: Items Catalog */}
-            <div className={`flex-1 flex flex-col min-w-0 border-r border-gray-200 bg-white ${mobileTab === 'cart' ? 'hidden lg:flex' : 'flex'}`}>
+            <div className={`flex-1 flex flex-col min-w-0 border-r border-gray-200 bg-white ${mobileTab === 'cart' ? 'hidden md:flex' : 'flex'}`}>
                 <div className="bg-white flex flex-col h-full overflow-hidden">
                     {/* Header/Tabs */}
                     <div className="px-4 py-3 lg:px-6 lg:py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
@@ -1225,7 +1225,7 @@ export default function POSPage() {
             </div>
 
             {/* Right Side: Cart */}
-            <div className={`w-full lg:w-[500px] xl:w-[560px] 2xl:w-[620px] lg:flex-none flex flex-col bg-white border-l border-gray-200 ${mobileTab === 'catalog' ? 'hidden lg:flex' : 'flex'} h-full`}>
+            <div className={`w-full md:w-[440px] lg:w-[500px] xl:w-[560px] 2xl:w-[620px] md:flex-none flex flex-col bg-white border-l border-gray-200 ${mobileTab === 'catalog' ? 'hidden md:flex' : 'flex'} h-full`}>
                 <div className="bg-white flex flex-col h-full overflow-hidden">
                     <div className="p-3 lg:p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0 space-y-3">
                         <div className="flex items-center gap-2">
@@ -1585,7 +1585,7 @@ export default function POSPage() {
             </div>
 
             {/* Mobile Navigation Bar */}
-            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around h-16 z-50 px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around h-16 z-50 px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
                 <button
                     onClick={() => setMobileTab('catalog')}
                     className={`flex flex-col items-center justify-center w-20 h-full transition-all ${mobileTab === 'catalog' ? 'text-blue-900 scale-110' : 'text-gray-400'}`}
