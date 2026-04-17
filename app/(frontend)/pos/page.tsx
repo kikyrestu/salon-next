@@ -1173,7 +1173,7 @@ export default function POSPage() {
                     </div>
 
                     {/* Grid */}
-                    <div className="flex-1 overflow-y-auto p-3 lg:p-4 bg-gray-50 pb-20 lg:pb-4">
+                    <div className="flex-1 overflow-y-auto p-3 lg:p-4 bg-gray-50 pb-20 md:pb-4">
                         {loading ? (
                             <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-900 border-t-transparent"></div></div>
                         ) : activeTab === 'packages' && filteredItems.length === 0 ? (
@@ -1296,7 +1296,7 @@ export default function POSPage() {
                     </div>
 
                     {/* Cart Items */}
-                    <div className="flex-grow overflow-y-auto p-2 lg:p-3 space-y-2 pb-24 lg:pb-2">
+                    <div className="flex-grow overflow-y-auto p-2 lg:p-3 space-y-2 pb-24 md:pb-2">
                         {cart.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center text-gray-400 py-10">
                                 <ShoppingCart className="w-8 h-8 lg:w-10 lg:h-10 mb-2 opacity-30" />
@@ -1473,7 +1473,7 @@ export default function POSPage() {
                     </div>
 
                     {/* Summary - Sticky at bottom */}
-                    <div className="flex-shrink-0 p-3 bg-gray-50 border-t border-gray-200 overflow-y-auto pb-20 lg:pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                    <div className="flex-shrink-0 p-3 bg-gray-50 border-t border-gray-200 overflow-y-auto pb-20 md:pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                         <div className="space-y-1 mb-3 text-[10px] lg:text-xs">
                             <div className="flex justify-between text-gray-600">
                                 <span>Subtotal</span>
@@ -1749,7 +1749,7 @@ export default function POSPage() {
             </Modal>
 
             {toastMessage && (
-                <div className="fixed bottom-20 lg:bottom-6 right-3 lg:right-6 z-[70] px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs lg:text-sm font-bold shadow-xl">
+                <div className="fixed bottom-20 md:bottom-6 right-3 md:right-6 z-[70] px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs lg:text-sm font-bold shadow-xl">
                     {toastMessage}
                 </div>
             )}
