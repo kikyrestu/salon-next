@@ -5,6 +5,7 @@ import { Plus, QrCode, RefreshCw } from "lucide-react";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
 import Modal from "@/components/dashboard/Modal";
 import { FormButton } from "@/components/dashboard/FormInput";
+import ImageUpload from "@/components/dashboard/ImageUpload";
 import { useSettings } from "@/components/providers/SettingsProvider";
 
 interface ServiceItem {
@@ -66,6 +67,7 @@ export default function PackagesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formName, setFormName] = useState("");
   const [formCode, setFormCode] = useState("");
+  const [formImage, setFormImage] = useState("");
   const [formPrice, setFormPrice] = useState<number | string>("");
   const [formDescription, setFormDescription] = useState("");
   const [formItems, setFormItems] = useState<Array<{ serviceId: string; quota: number | string }>>([]);
@@ -125,6 +127,7 @@ export default function PackagesPage() {
   const resetForm = () => {
     setFormName("");
     setFormCode("");
+    setFormImage("");
     setFormPrice("");
     setFormDescription("");
     setFormItems([]);
@@ -354,6 +357,11 @@ export default function PackagesPage() {
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Buat Master Package">
         <div className="space-y-3">
+          <ImageUpload 
+            label="Package Image" 
+            value={formImage} 
+            onChange={(url) => setFormImage(url)} 
+          />
           <input
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             placeholder="Nama package"

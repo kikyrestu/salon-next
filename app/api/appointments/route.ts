@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
         if (start && end) {
             query.date = {
                 $gte: new Date(start),
-                $lte: new Date(end)
+                $lte: new Date(end + "T23:59:59.999Z")
             };
         }
 

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
 import {
     BarChart3,
     DollarSign,
@@ -18,6 +19,7 @@ import {
     ChevronRight,
     Search,
     Filter,
+    ArrowUpDown,
     ArrowUpRight,
     ArrowDownRight,
     Shield
@@ -34,6 +36,8 @@ export default function ReportsPage() {
     const { settings } = useSettings();
     const [activeTab, setActiveTab] = useState<ReportType>('sales');
     const [loading, setLoading] = useState(true);
+    const [sortConfig, setSortConfig] = useState({ key: null as string | null, direction: 'asc' as 'asc' | 'desc' });
+    const [paymentFilter, setPaymentFilter] = useState<string>('all');
     const [reportData, setReportData] = useState<any>(null);
     const [dateRange, setDateRange] = useState(() => {
         const range = getMonthDateRangeInTimezone(settings.timezone || "UTC");
@@ -233,23 +237,113 @@ export default function ReportsPage() {
         </div>
     );
 
-    const renderTable = (headers: string[], rows: any[]) => (
+    const requestSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+        setSortConfig({ key, direction });
+    };
+
+    const handleExport = () => {
+        if (!reportData || (Array.isArray(reportData) && reportData.length === 0)) {
+            alert('No data to export'); return;
+        }
+        let exportData = Array.isArray(reportData) ? reportData : [reportData];
+        
+        if (activeTab === 'sales') {
+            exportData = reportData.map((inv: any) => ({
+                'Invoice #': inv.invoiceNumber,
+                'Date': formatSafeDate(inv.date),
+                'Customer': inv.customer?.name || 'Walk-in',
+                'Staff': inv.staff?.name || 'N/A',
+                'Total Amount': inv.totalAmount,
+                'Amount Paid': inv.amountPaid,
+                'Payment Method': inv.paymentMethod || 'N/A',
+                'Status': inv.status
+            }));
+        } else if (activeTab === 'staff') {
+            exportData = reportData.map((s: any) => ({
+                'Staff Name': s.name,
+                'Transactions (Sales)': s.sales,
+                'Revenue Contribution': s.revenue,
+                'Commission Earned': s.commission
+            }));
+        } else if (activeTab === 'services') {
+            exportData = reportData.map((s: any) => ({
+                'Service Name': s.name,
+                'Frequency (Sold)': s.count,
+                'Revenue Generated': s.revenue
+            }));
+        } else if (activeTab === 'customers') {
+            exportData = reportData.map((s: any) => ({
+                'Customer Name': s.name,
+                'Phone': s.phone || '-',
+                'Total Spending': s.spending,
+                'Transactions': s.transactions,
+            }));
+        } else if (activeTab === 'profit') {
+            exportData = [{
+                'Gross Revenue': reportData.totalRevenue,
+                'Business Expenses': reportData.totalExpenses,
+                'Staff Payroll': reportData.totalPayroll,
+                'Stock Purchases': reportData.totalPurchases,
+                'Final Net Profit': reportData.netProfit
+            }];
+        }
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Report");
+        XLSX.writeFile(wb, `Salon_Report_${activeTab}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    };
+
+    const renderTable = (headers: string[], rows: any[]) => {
+        const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
+        const sortedRows = [...rows].sort((a, b) => {
+            if (!sortConfig.key) return 0;
+            let aVal = a[sortConfig.key];
+            let bVal = b[sortConfig.key];
+            
+            if (typeof aVal === 'object' && aVal?.props?.children) aVal = aVal.props.children;
+            if (typeof bVal === 'object' && bVal?.props?.children) bVal = bVal.props.children;
+            
+            if (typeof aVal === 'string') {
+               const cleaned = aVal.replace(/[^0-9.-]+/g, "");
+               if (cleaned !== "" && !isNaN(Number(cleaned)) && (aVal.includes(settings.symbol) || aVal.includes('Rp'))) aVal = Number(cleaned);
+            }
+            if (typeof bVal === 'string') {
+               const cleaned = bVal.replace(/[^0-9.-]+/g, "");
+               if (cleaned !== "" && !isNaN(Number(cleaned)) && (bVal.includes(settings.symbol) || bVal.includes('Rp'))) bVal = Number(cleaned);
+            }
+
+            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        return (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden w-full relative">
             <div className="overflow-x-auto w-full max-w-[100vw] sm:max-w-none">
                 <table className="min-w-full text-left whitespace-nowrap">
                     <thead>
                         <tr className="bg-gray-50 border-b border-gray-100">
                             {headers.map((h, i) => (
-                                <th key={i} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">{h}</th>
+                                <th key={i} 
+                                    onClick={() => keys[i] ? requestSort(keys[i]) : null}
+                                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight cursor-pointer hover:bg-gray-100 transition-colors group select-none">
+                                    <div className="flex items-center gap-1">
+                                        {h}
+                                        {keys[i] && <ArrowUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100" />}
+                                    </div>
+                                </th>
                             ))}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                        {rows.map((row, i) => (
+                        {sortedRows.map((row, i) => (
                             <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                {Object.values(row).map((val: any, j) => (
+                                {keys.map((k, j) => (
                                     <td key={j} className="px-6 py-4 text-sm font-medium text-gray-700">
-                                        {val}
+                                        {row[k] !== undefined && row[k] !== null ? row[k] : '-'}
                                     </td>
                                 ))}
                             </tr>
@@ -263,7 +357,7 @@ export default function ReportsPage() {
                 </div>
             )}
         </div>
-    );
+    )};
 
     const renderContent = () => {
         if (loading) return (
@@ -280,7 +374,11 @@ export default function ReportsPage() {
                 return renderSummary();
             case 'sales':
                 if (!Array.isArray(reportData)) return null;
-                const salesSummary = reportData.reduce((acc: any, inv: any) => ({
+                const filteredSales = paymentFilter === 'all' 
+                    ? reportData 
+                    : reportData.filter((inv: any) => (inv.paymentMethod || '').toLowerCase() === paymentFilter.toLowerCase());
+                
+                const salesSummary = filteredSales.reduce((acc: any, inv: any) => ({
                     count: acc.count + 1,
                     total: acc.total + (inv.totalAmount || 0),
                     received: acc.received + (inv.amountPaid || 0),
@@ -288,6 +386,16 @@ export default function ReportsPage() {
 
                 return (
                     <div className="space-y-6">
+                        <div className="flex gap-2 items-center bg-white p-2 rounded-lg border w-max">
+                            <span className="text-xs font-bold text-gray-500 px-2">Payment Method:</span>
+                            <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)} className="border-0 bg-gray-50 text-xs font-bold rounded-lg p-1 outline-none focus:ring-0">
+                                <option value="all">All Methods</option>
+                                <option value="cash">Cash</option>
+                                <option value="transfer">Transfer</option>
+                                <option value="debit">Debit</option>
+                                <option value="qris">QRIS</option>
+                            </select>
+                        </div>
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
                                 <p className="text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 truncate">Total Sales</p>
@@ -307,14 +415,15 @@ export default function ReportsPage() {
                             </div>
                         </div>
                         {renderTable(
-                            ['Invoice #', 'Date', 'Customer', 'Member', 'Total', 'Paid', 'Status'],
-                            reportData.map((inv: any) => ({
+                            ['Invoice #', 'Date', 'Customer', 'Member', 'Total', 'Paid', 'Payment Method', 'Status'],
+                            filteredSales.map((inv: any) => ({
                                 inv: inv.invoiceNumber,
                                 date: formatSafeDate(inv.date),
                                 customer: inv.customer?.name || 'Walk-in',
                                 staff: inv.staff?.name || 'N/A',
                                 total: formatCurrency(inv.totalAmount),
                                 paid: formatCurrency(inv.amountPaid),
+                                method: inv.paymentMethod || 'N/A',
                                 status: <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${inv.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'
                                     }`}>{inv.status?.replace('_', ' ') || 'N/A'}</span>
                             }))
@@ -345,11 +454,13 @@ export default function ReportsPage() {
             case 'customers':
                 if (!Array.isArray(reportData)) return null;
                 return renderTable(
-                    ['Client Name', 'Contact Information', 'Joined Date'],
+                    ['Client Name', 'Contact Information', 'Total Spend', 'Transactions', 'Joined Date'],
                     reportData.map((c: any) => ({
                         name: c.name,
                         phone: c.phone || 'N/A',
-                        date: formatSafeDate(c.createdAt)
+                        spending: formatCurrency(c.spending || 0),
+                        transactions: c.transactions || 0,
+                        date: formatSafeDate(c.date || c.createdAt)
                     }))
                 );
             case 'inventory':
@@ -520,6 +631,15 @@ export default function ReportsPage() {
                                     </>
                                 )}
                             </div>
+
+                            {/* Export to Excel */}
+                            <button
+                                onClick={handleExport}
+                                className="flex items-center justify-center gap-2 bg-green-50 text-green-700 font-bold px-4 py-2 rounded-xl hover:bg-green-100 transition border border-green-200 shadow-sm min-w-max"
+                            >
+                                <Download className="w-4 h-4" />
+                                <span className="text-xs">Export .xlsx</span>
+                            </button>
                         </div>
                     </div>
                 </div>

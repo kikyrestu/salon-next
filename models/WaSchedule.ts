@@ -7,6 +7,7 @@ export interface IWaSchedule extends Document {
     transactionId: mongoose.Types.ObjectId;
     phoneNumber: string;
     templateId: mongoose.Types.ObjectId;
+    serviceName?: string;
     scheduledAt: Date;
     status: WaScheduleStatus;
     repeatEveryValue?: number;
@@ -35,6 +36,10 @@ const waScheduleSchema = new Schema<IWaSchedule>(
             type: Schema.Types.ObjectId,
             ref: 'WaTemplate',
             required: true,
+        },
+        serviceName: {
+            type: String,
+            trim: true,
         },
         scheduledAt: {
             type: Date,

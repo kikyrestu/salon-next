@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { format, addDays, subDays, isSameDay, parse, addMinutes, startOfDay, endOfDay } from "date-fns";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, Plus, X, List, Edit, Trash2, Search, CheckCircle, MoreVertical, Filter, FileText, DollarSign } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, Plus, X, List, Edit, Trash2, Search, CheckCircle, MoreVertical, Filter, FileText, DollarSign, ShoppingCart } from "lucide-react";
 import Modal from "@/components/dashboard/Modal";
 import FormInput, { FormSelect, FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
@@ -78,6 +79,9 @@ export default function AppointmentsPage() {
     const [pagination, setPagination] = useState<any>({ total: 0, page: 1, limit: 10, pages: 0 });
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [formError, setFormError] = useState("");
+    const [startDate, setStartDate] = useState<string>("");
+    const [endDate, setEndDate] = useState<string>("");
+    const router = useRouter();
 
     // Slot system state
     const [availableSlots, setAvailableSlots] = useState<any[]>([]);
@@ -124,7 +128,7 @@ export default function AppointmentsPage() {
 
     useEffect(() => {
         fetchAppointments();
-    }, [page, statusFilter]); // Re-fetch on filter change
+    }, [page, statusFilter, startDate, endDate]); // Re-fetch on filter change
 
     // Debounce search
     useEffect(() => {
@@ -191,7 +195,9 @@ export default function AppointmentsPage() {
 
     const fetchAppointments = async () => {
         setLoading(true);
-        const url = `/api/appointments?page=${page}&limit=10&search=${searchTerm}&status=${statusFilter}`;
+        let url = `/api/appointments?page=${page}&limit=10&search=${searchTerm}&status=${statusFilter}`;
+        if (startDate) url += `&start=${startDate}`;
+        if (endDate) url += `&end=${endDate}`;
 
         try {
             const res = await fetch(url);
@@ -458,6 +464,21 @@ export default function AppointmentsPage() {
                                     />
                                 </div>
                                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                                    <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1 shadow-sm w-full sm:w-auto text-sm">
+                                        <input 
+                                            type="date" 
+                                            value={startDate} 
+                                            onChange={(e) => { setStartDate(e.target.value); setPage(1); }} 
+                                            className="bg-transparent border-none focus:ring-0 text-gray-700 outline-none w-full"
+                                        />
+                                        <span className="text-gray-400">-</span>
+                                        <input 
+                                            type="date" 
+                                            value={endDate} 
+                                            onChange={(e) => { setEndDate(e.target.value); setPage(1); }} 
+                                            className="bg-transparent border-none focus:ring-0 text-gray-700 outline-none w-full"
+                                        />
+                                    </div>
                                     <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm w-full sm:w-auto">
                                         <Filter className="w-4 h-4 text-gray-400" />
                                         <select
@@ -473,7 +494,7 @@ export default function AppointmentsPage() {
                                         </select>
                                     </div>
                                     <button
-                                        onClick={() => { setSearchTerm(""); setStatusFilter(""); setPage(1); }}
+                                        onClick={() => { setSearchTerm(""); setStatusFilter(""); setStartDate(""); setEndDate(""); setPage(1); }}
                                         className="text-gray-500 w-full sm:w-auto hover:text-gray-700 font-medium text-sm px-2 text-center"
                                     >
                                         Reset
@@ -510,7 +531,7 @@ export default function AppointmentsPage() {
                                             </tr>
                                         ) : (
                                             appointments.map((apt) => (
-                                                <tr key={apt._id} className="hover:bg-gray-50/50 transition-colors">
+                                                <tr key={apt._id} className={`transition-colors ${apt.status === 'completed' ? 'bg-gray-100/50 opacity-75 grayscale' : 'hover:bg-gray-50/50'}`}>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center gap-3">
                                                             <div className="p-2 bg-blue-50 rounded-lg">
@@ -564,6 +585,17 @@ export default function AppointmentsPage() {
 
                                                             {activeDropdown === apt._id && (
                                                                 <div className="absolute right-0 mt-10 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-50 py-1 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                                                    {apt.status !== 'completed' && apt.status !== 'cancelled' && (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                router.push(`/pos?appointmentId=${apt._id}`);
+                                                                            }}
+                                                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50/50 hover:bg-blue-100 transition-colors"
+                                                                        >
+                                                                            <ShoppingCart className="w-4 h-4" />
+                                                                            Lanjut ke POS
+                                                                        </button>
+                                                                    )}
                                                                     {apt.status !== 'completed' && (
                                                                         <button
                                                                             onClick={() => {
@@ -573,7 +605,7 @@ export default function AppointmentsPage() {
                                                                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-green-600 hover:bg-green-50 transition-colors"
                                                                         >
                                                                             <CheckCircle className="w-4 h-4" />
-                                                                            Complete
+                                                                            Turn Completed
                                                                         </button>
                                                                     )}
                                                                     <button
@@ -624,7 +656,7 @@ export default function AppointmentsPage() {
                                         </div>
                                     ) : (
                                         appointments.map((apt) => (
-                                            <div key={apt._id} className="p-4 hover:bg-gray-50/50 transition-colors flex flex-col gap-3">
+                                            <div key={apt._id} className={`p-4 transition-colors flex flex-col gap-3 ${apt.status === 'completed' ? 'bg-gray-100/50 opacity-75 grayscale' : 'hover:bg-gray-50/50'}`}>
                                                 <div className="flex justify-between items-start">
                                                     <div className="flex items-center gap-3">
                                                         <div className="p-2 bg-blue-50 rounded-lg">
@@ -641,9 +673,14 @@ export default function AppointmentsPage() {
                                                         </button>
                                                         {activeDropdown === apt._id && (
                                                             <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-50 py-1">
+                                                                {apt.status !== 'completed' && apt.status !== 'cancelled' && (
+                                                                    <button onClick={() => { router.push(`/pos?appointmentId=${apt._id}`); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50/50 hover:bg-blue-100 transition-colors">
+                                                                        <ShoppingCart className="w-4 h-4" /> Lanjut ke POS
+                                                                    </button>
+                                                                )}
                                                                 {apt.status !== 'completed' && (
                                                                     <button onClick={() => { handleStatusUpdate(apt._id, 'completed'); setActiveDropdown(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-green-600 hover:bg-green-50 transition-colors">
-                                                                        <CheckCircle className="w-4 h-4" /> Complete
+                                                                        <CheckCircle className="w-4 h-4" /> Turn Completed
                                                                     </button>
                                                                 )}
                                                                 <button onClick={() => { openEditModal(apt); setActiveDropdown(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors">

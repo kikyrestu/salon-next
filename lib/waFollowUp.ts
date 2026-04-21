@@ -6,12 +6,6 @@ import Service from '@/models/Service';
 import WaSchedule from '@/models/WaSchedule';
 import { normalizeIndonesianPhone } from '@/lib/phone';
 
-interface FollowUpTemplateConfig {
-    delayValue: number;
-    delayUnit: 'minute' | 'hour' | 'day';
-    templateId?: mongoose.Types.ObjectId;
-}
-
 interface ServiceWithFollowUp {
     _id: mongoose.Types.ObjectId;
     waFollowUp?: {
@@ -77,13 +71,29 @@ export async function scheduleFollowUp(transactionId: string | mongoose.Types.Ob
 
     if (!finalPhone) return 0;
 
-    const serviceItemIds: string[] = (invoice.items || [])
-        .filter((item: any) => item?.itemModel === 'Service' && item?.item)
-        .map((item: any) => String(item.item));
+    const rawItems: any[] = Array.isArray(invoice.items) ? invoice.items : [];
+    const serviceItems: { serviceId: string; serviceName: string; lineAmount: number; lineIndex: number }[] = rawItems
+        .map((item: any, index: number) => ({ item, index }))
+        .filter((entry: { item: any; index: number }) => entry.item?.itemModel === 'Service' && entry.item?.item)
+        .map((entry: { item: any; index: number }) => {
+            const item = entry.item;
+            const index = entry.index;
+            const price = Number(item?.price || 0);
+            const quantity = Number(item?.quantity || 1);
+            const total = Number(item?.total || 0);
+            const lineAmount = Number.isFinite(total) && total > 0 ? total : (price * quantity);
 
-    if (serviceItemIds.length === 0) return 0;
+            return {
+                serviceId: String(item.item),
+                serviceName: String(item?.name || '').trim(),
+                lineAmount,
+                lineIndex: index,
+            };
+        });
 
-    const uniqueServiceIds = Array.from(new Set<string>(serviceItemIds))
+    if (serviceItems.length === 0) return 0;
+
+    const uniqueServiceIds = Array.from(new Set<string>(serviceItems.map((item) => item.serviceId)))
         .filter((id) => mongoose.Types.ObjectId.isValid(id))
         .map((id) => new mongoose.Types.ObjectId(id));
 
@@ -94,56 +104,96 @@ export async function scheduleFollowUp(transactionId: string | mongoose.Types.Ob
         .lean<ServiceWithFollowUp[]>();
 
     const createdAtBase = invoice.date ? new Date(invoice.date) : new Date();
-    const docsToInsert: {
+    const eligibleCandidates: {
+        serviceId: string;
+        serviceName: string;
+        lineAmount: number;
+        lineIndex: number;
+        delayValue: number;
+        delayUnit: 'minute' | 'hour' | 'day';
+        templateId: mongoose.Types.ObjectId;
+    }[] = [];
+
+    for (const item of serviceItems) {
+        const service = services.find((entry) => String(entry._id) === item.serviceId);
+        if (!service?.waFollowUp?.enabled) continue;
+
+        const firstDelayUnit = service.waFollowUp.firstDelayUnit || 'day';
+        const firstDelayValue = Number(service.waFollowUp.firstDelayValue ?? service.waFollowUp.firstDays ?? 0);
+        const firstTemplateId = asObjectId(service.waFollowUp.firstTemplateId);
+
+        if (!firstTemplateId || firstDelayValue <= 0) continue;
+
+        eligibleCandidates.push({
+            serviceId: item.serviceId,
+            serviceName: item.serviceName,
+            lineAmount: item.lineAmount,
+            lineIndex: item.lineIndex,
+            delayValue: firstDelayValue,
+            delayUnit: firstDelayUnit,
+            templateId: firstTemplateId,
+        });
+    }
+
+    if (eligibleCandidates.length === 0) return 0;
+
+    eligibleCandidates.sort((a, b) => {
+        if (b.lineAmount !== a.lineAmount) return b.lineAmount - a.lineAmount;
+        return a.lineIndex - b.lineIndex;
+    });
+
+    const selected = eligibleCandidates[0];
+
+    const pendingDocs: {
         customerId: mongoose.Types.ObjectId;
         transactionId: mongoose.Types.ObjectId;
         phoneNumber: string;
         templateId: mongoose.Types.ObjectId;
+        serviceName?: string;
         scheduledAt: Date;
         status: 'pending';
         repeatEveryValue: number;
         repeatEveryUnit: 'minute' | 'hour' | 'day';
-    }[] = [];
+    }[] = [
+        {
+            customerId,
+            transactionId: invoiceId,
+            phoneNumber: finalPhone,
+            templateId: selected.templateId,
+            serviceName: selected.serviceName,
+            scheduledAt: addDelay(createdAtBase, selected.delayValue, selected.delayUnit),
+            status: 'pending',
+            repeatEveryValue: 0,
+            repeatEveryUnit: selected.delayUnit,
+        },
+    ];
 
-    for (const service of services) {
-        const followUp = service.waFollowUp;
-        if (!followUp?.enabled) continue;
+    const failedDocs: {
+        customerId: mongoose.Types.ObjectId;
+        transactionId: mongoose.Types.ObjectId;
+        phoneNumber: string;
+        templateId: mongoose.Types.ObjectId;
+        serviceName?: string;
+        scheduledAt: Date;
+        status: 'failed';
+        repeatEveryValue: number;
+        repeatEveryUnit: 'minute' | 'hour' | 'day';
+        sentAt: Date;
+    }[] = eligibleCandidates.slice(1).map((candidate, index) => ({
+        customerId,
+        transactionId: invoiceId,
+        phoneNumber: finalPhone,
+        templateId: candidate.templateId,
+        serviceName: candidate.serviceName,
+        // Keep unique timestamp to avoid unique index collision for equal template/delay setups.
+        scheduledAt: new Date(createdAtBase.getTime() + index + 1),
+        status: 'failed',
+        repeatEveryValue: 0,
+        repeatEveryUnit: candidate.delayUnit,
+        sentAt: new Date(),
+    }));
 
-        const firstDelayUnit = followUp.firstDelayUnit || 'day';
-        const secondDelayUnit = followUp.secondDelayUnit || 'day';
-        const firstDelayValue = Number(followUp.firstDelayValue ?? followUp.firstDays ?? 0);
-        const secondDelayValue = Number(followUp.secondDelayValue ?? followUp.secondDays ?? 0);
-
-        const candidates: FollowUpTemplateConfig[] = [
-            {
-                delayValue: firstDelayValue,
-                delayUnit: firstDelayUnit,
-                templateId: asObjectId(followUp.firstTemplateId),
-            },
-            {
-                delayValue: secondDelayValue,
-                delayUnit: secondDelayUnit,
-                templateId: asObjectId(followUp.secondTemplateId),
-            },
-        ];
-
-        for (const candidate of candidates) {
-            if (!candidate.templateId || candidate.delayValue <= 0) continue;
-
-            docsToInsert.push({
-                customerId,
-                transactionId: invoiceId,
-                phoneNumber: finalPhone,
-                templateId: candidate.templateId,
-                scheduledAt: addDelay(createdAtBase, candidate.delayValue, candidate.delayUnit),
-                status: 'pending',
-                repeatEveryValue: candidate.delayValue,
-                repeatEveryUnit: candidate.delayUnit,
-            });
-        }
-    }
-
-    if (docsToInsert.length === 0) return 0;
+    const docsToInsert = [...pendingDocs, ...failedDocs];
 
     // Avoid duplicate queue rows for same transaction/template/date.
     await WaSchedule.insertMany(docsToInsert, { ordered: false }).catch((error: any) => {

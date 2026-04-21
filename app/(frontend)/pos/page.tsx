@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, User, Scissors as ScissorsIcon, Package, LayoutDashboard, ChevronRight, Zap, X } from "lucide-react";
 import { FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
@@ -15,6 +15,7 @@ interface Item {
     _id: string;
     name: string;
     price: number;
+    image?: string;
     type: 'Service' | 'Product' | 'Package';
     duration?: number; // Service only
     stock?: number; // Product only
@@ -114,8 +115,9 @@ interface QrisStatusResponse {
 
 export default function POSPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { settings } = useSettings();
-    const [activeTab, setActiveTab] = useState<'services' | 'products' | 'packages'>('services');
+    const [activeTab, setActiveTab] = useState<'all' | 'services' | 'products' | 'packages'>('all');
     const [services, setServices] = useState<Item[]>([]);
     const [products, setProducts] = useState<Item[]>([]);
     const [packages, setPackages] = useState<Item[]>([]);
@@ -149,6 +151,67 @@ export default function POSPage() {
     useEffect(() => {
         fetchResources();
     }, []);
+
+    const appointmentId = searchParams.get("appointmentId");
+    const [appointmentLoaded, setAppointmentLoaded] = useState(false);
+    
+    // Auto-load appointment data to cart if appointmentId is present
+    useEffect(() => {
+        if (!appointmentId || loading || services.length === 0 || appointmentLoaded) return;
+
+        const loadAppointment = async () => {
+            try {
+                const res = await fetch(`/api/appointments/${appointmentId}`);
+                const data = await res.json();
+                
+                if (data.success && data.data) {
+                    const apt = data.data;
+                    
+                    // Set Customer
+                    const customerId = apt.customer?._id || apt.customer;
+                    if (customerId) {
+                        setSelectedCustomer(customerId);
+                    }
+                    
+                    // Add items to cart
+                    const tempCart: CartItem[] = [];
+                    const tempAssignments: Record<string, StaffAssignment[]> = {};
+                    const tempSplitModes: Record<string, SplitMode> = {};
+                    
+                    // Appointment services
+                    apt.services.forEach((s: any) => {
+                        const sId = s.service?._id || s.service;
+                        const matchedService = services.find(svc => svc._id === sId);
+                        if (matchedService) {
+                            const cartKey = getCartItemKey(matchedService._id, 'Service');
+                            tempCart.push({ ...matchedService, quantity: 1, price: s.price }); // use appointment price
+                            
+                            // Assign staff from appointment
+                            const staffId = apt.staff?._id || apt.staff;
+                            if (staffId) {
+                                tempAssignments[cartKey] = [{ staffId, percentage: 100 }];
+                                tempSplitModes[cartKey] = 'auto';
+                            }
+                        }
+                    });
+                    
+                    if (tempCart.length > 0) {
+                        setCart(tempCart);
+                        setServiceStaffAssignments(tempAssignments);
+                        setServiceSplitModes(prev => ({ ...prev, ...tempSplitModes }));
+                        setDiscount(apt.discount || 0);
+                    }
+                    
+                    setToastMessage("Appointment loaded to POS successfully");
+                    setAppointmentLoaded(true);
+                }
+            } catch (err) {
+                console.error("Failed to load appointment", err);
+            }
+        };
+        
+        loadAppointment();
+    }, [appointmentId, loading, services, appointmentLoaded]);
 
     useEffect(() => {
         if (!toastMessage) return;
@@ -230,7 +293,7 @@ export default function POSPage() {
 
 
 
-    const filteredItems = (activeTab === 'services' ? services : activeTab === 'products' ? products : packages).filter(item =>
+    const filteredItems = (activeTab === 'all' ? [...services, ...products, ...packages] : activeTab === 'services' ? services : activeTab === 'products' ? products : packages).filter(item =>
         item.name.toLowerCase().includes(search.toLowerCase())
     );
 
@@ -928,6 +991,7 @@ export default function POSPage() {
 
             const payload = {
                 customer: customerId,
+                appointment: appointmentId || undefined,
                 followUpPhoneNumber: followUpPhoneNumber.trim() || undefined,
                 items: cart.map(item => ({
                     ...(item.type === 'Service' && (packageClaims[getCartItemKey(item._id, item.type)]?.enabled) ? { metadata: { claimedFromPackage: true } } : {}),
@@ -985,6 +1049,19 @@ export default function POSPage() {
             });
             const data = await res.json();
             if (data.success) {
+                // Auto-complete appointment if we have an appointmentId
+                if (appointmentId) {
+                    try {
+                        await fetch(`/api/appointments/${appointmentId}`, {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ status: "completed" }),
+                        });
+                    } catch (err) {
+                        console.error("Failed to auto-complete appointment", err);
+                    }
+                }
+
                 if (redeemItems.length > 0 && customerId) {
                     const redeemRes = await fetch('/api/customer-packages/redeem', {
                         method: 'POST',
@@ -1164,6 +1241,12 @@ export default function POSPage() {
                         </div>
                         <div className="flex gap-2">
                             <button
+                                onClick={() => setActiveTab('all')}
+                                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === 'all' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                            >
+                                All
+                            </button>
+                            <button
                                 onClick={() => setActiveTab('services')}
                                 className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === 'services' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
@@ -1179,7 +1262,7 @@ export default function POSPage() {
                                 onClick={() => setActiveTab('packages')}
                                 className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === 'packages' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
-                                Packages
+                                Paket
                             </button>
                         </div>
                     </div>
@@ -1216,18 +1299,20 @@ export default function POSPage() {
                                         }}
                                         className="bg-white p-2 lg:p-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow flex flex-col items-center text-center group min-h-[120px] lg:min-h-[132px] active:scale-95 duration-75"
                                     >
-                                        <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center mb-1 lg:mb-2 group-hover:scale-110 transition-transform">
-                                            {item.type === 'Service' ? (
-                                                <div className="w-7 h-7 lg:w-9 lg:h-9 rounded-full bg-purple-100 flex items-center justify-center">
-                                                    <ScissorsIcon className="w-4 h-4 lg:w-5 lg:h-5 text-purple-600" />
+                                        <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-full flex items-center justify-center mb-1 lg:mb-2 group-hover:scale-105 transition-transform overflow-hidden bg-gray-100">
+                                            {item.image ? (
+                                                <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                                            ) : item.type === 'Service' ? (
+                                                <div className="w-full h-full bg-purple-100 flex items-center justify-center">
+                                                    <ScissorsIcon className="w-5 h-5 lg:w-6 lg:h-6 text-purple-600" />
                                                 </div>
                                             ) : item.type === 'Product' ? (
-                                                <div className="w-7 h-7 lg:w-9 lg:h-9 rounded-full bg-green-100 flex items-center justify-center">
-                                                    <Package className="w-4 h-4 lg:w-5 lg:h-5 text-green-600" />
+                                                <div className="w-full h-full bg-green-100 flex items-center justify-center">
+                                                    <Package className="w-5 h-5 lg:w-6 lg:h-6 text-green-600" />
                                                 </div>
                                             ) : (
-                                                <div className="w-7 h-7 lg:w-9 lg:h-9 rounded-full bg-amber-100 flex items-center justify-center">
-                                                    <Package className="w-4 h-4 lg:w-5 lg:h-5 text-amber-600" />
+                                                <div className="w-full h-full bg-amber-100 flex items-center justify-center">
+                                                    <Package className="w-5 h-5 lg:w-6 lg:h-6 text-amber-600" />
                                                 </div>
                                             )}
                                         </div>
@@ -1339,7 +1424,7 @@ export default function POSPage() {
                                                 )}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-[10px] lg:text-xs font-semibold text-gray-800 truncate">{item.name}</p>
+                                                <p className="text-xs lg:text-sm font-bold text-gray-800 truncate">{item.name}</p>
                                                 <p className="text-[9px] lg:text-[10px] text-gray-500">{settings.symbol}{item.price}</p>
                                                 {(() => {
                                                     if (item.type !== 'Service') return null;
@@ -1574,19 +1659,19 @@ export default function POSPage() {
                                 </div>
                             )}
                             <div className="flex justify-between items-center text-blue-900 border-t border-gray-200 pt-1.5 mt-1">
-                                <span className="text-[10px] font-bold">Paid</span>
+                                <span className="text-sm lg:text-base font-black">Paid</span>
                                 <input
                                     type="number"
                                     placeholder={total.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
                                     value={amountPaid}
                                     onChange={(e) => setAmountPaid(e.target.value)}
-                                    className="w-20 text-right text-[10px] lg:text-xs border-2 border-blue-900/20 rounded px-1 py-0.5 focus:border-blue-900 outline-none font-bold"
+                                    className="w-28 text-right text-base lg:text-lg border-2 border-blue-900/20 rounded px-2 py-1 focus:border-blue-900 outline-none font-black"
                                 />
                             </div>
                             </div>
                         </div>
 
-                        <div className="flex justify-between text-sm lg:text-base font-black text-gray-900 pt-1.5 border-t border-gray-200 mb-3">
+                        <div className="flex justify-between text-xl lg:text-2xl font-black text-gray-900 pt-1.5 border-t border-gray-200 mb-3">
                             <span> {parseFloat(amountPaid.toString()) < total ? 'Due' : 'Total'}</span>
                             <span className={parseFloat(amountPaid.toString()) < total ? 'text-red-600' : 'text-blue-900'}>
                                 {settings.symbol}{(parseFloat(amountPaid.toString()) < total ? (total - (parseFloat(amountPaid.toString()) || 0)) : total).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
@@ -1594,8 +1679,8 @@ export default function POSPage() {
                         </div>
 
                         <div className="mb-3">
-                            <div className="grid grid-cols-4 gap-1 md:gap-1.5">
-                                {['Cash', 'Card', 'Wallet', 'QRIS'].map(method => (
+                            <div className="grid grid-cols-3 gap-1 md:gap-1.5">
+                                {['Cash', 'Transfer', 'Debit', 'Credit Card', 'QRIS'].map(method => (
                                     <button
                                         key={method}
                                         onClick={() => setPaymentMethod(method)}

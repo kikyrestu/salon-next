@@ -8,7 +8,6 @@ import { initModels } from "@/lib/initModels";
 import { logActivity } from "@/lib/logger";
 import { scheduleFollowUp } from "@/lib/waFollowUp";
 import { normalizeIndonesianPhone } from "@/lib/phone";
-import WaFollowUpContact from "@/models/WaFollowUpContact";
 
 const SPLIT_TOLERANCE = 0.01;
 
@@ -121,29 +120,6 @@ export async function POST(request: NextRequest) {
             ...normalizedBody,
             invoiceNumber
         }) as any;
-
-        let followUpPhone = normalizeIndonesianPhone(normalizedBody.followUpPhoneNumber);
-        if (!followUpPhone && normalizedBody.customer) {
-            const customer = await Customer.findById(normalizedBody.customer).select('phone').lean<any>();
-            followUpPhone = normalizeIndonesianPhone(customer?.phone);
-        }
-
-        if (followUpPhone) {
-            await WaFollowUpContact.findOneAndUpdate(
-                { phoneNumber: followUpPhone },
-                {
-                    $set: {
-                        lastTransactionId: invoice._id,
-                        lastSource: 'pos',
-                        lastSeenAt: new Date(),
-                    },
-                    $setOnInsert: {
-                        isActive: true,
-                    },
-                },
-                { upsert: true, new: true }
-            );
-        }
 
         await scheduleFollowUp(invoice._id);
 

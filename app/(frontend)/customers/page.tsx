@@ -136,8 +136,8 @@ export default function CustomersPage() {
     const [previewInvoiceDetail, setPreviewInvoiceDetail] = useState<InvoicePreviewData | null>(null);
     const [previewDeposits, setPreviewDeposits] = useState<DepositPreviewItem[]>([]);
 
-    const fetchCustomers = useCallback(async () => {
-        setLoading(true);
+    const fetchCustomers = useCallback(async (showLoader: boolean = true) => {
+        if (showLoader) setLoading(true);
         try {
             const query = new URLSearchParams({
                 search,
@@ -153,7 +153,7 @@ export default function CustomersPage() {
         } catch (error) {
             console.error("Error:", error);
         } finally {
-            setLoading(false);
+            if (showLoader) setLoading(false);
         }
     }, [page, search]);
 
@@ -623,9 +623,18 @@ export default function CustomersPage() {
             <Modal isOpen={isModalOpen} onClose={closeModal} title={editingCustomer ? "Edit Customer" : "Add New Customer"}>
                 <CustomerForm 
                     initialData={editingCustomer} 
-                    onSuccess={() => {
-                        void fetchCustomers();
+                    onSuccess={(newCustomer) => {
                         closeModal();
+
+                        if (!editingCustomer?._id) {
+                            setCustomers((prev) => [newCustomer, ...prev].slice(0, 10));
+                            setPagination((prev) => ({
+                                ...prev,
+                                total: prev.total + 1,
+                            }));
+                        }
+
+                        void fetchCustomers(false);
                     }} 
                     onCancel={closeModal} 
                 />

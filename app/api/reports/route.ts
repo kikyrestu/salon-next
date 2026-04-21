@@ -118,11 +118,30 @@ export async function GET(request: Request) {
                 break;
 
             case "customers":
-                // Customer Growth
-                const customers = await Customer.find({
-                    createdAt: { $gte: start, $lte: end }
+                // Top Customer by Spending
+                const customerInvoices = await Invoice.find({
+                    date: { $gte: start, $lte: end }
+                }).populate('customer').lean();
+                
+                const customerStats: any = {};
+                customerInvoices.forEach(inv => {
+                    const c: any = inv.customer;
+                    if (c) {
+                        const id = c._id.toString();
+                        if (!customerStats[id]) {
+                            customerStats[id] = { name: c.name, phone: c.phone, spending: 0, transactions: 0, date: c.createdAt };
+                        }
+                        customerStats[id].spending += inv.totalAmount;
+                        customerStats[id].transactions += 1;
+                    } else {
+                        if (!customerStats['walk-in']) {
+                            customerStats['walk-in'] = { name: 'Walk-in Customer', phone: '-', spending: 0, transactions: 0 };
+                        }
+                        customerStats['walk-in'].spending += inv.totalAmount;
+                        customerStats['walk-in'].transactions += 1;
+                    }
                 });
-                data = customers;
+                data = Object.values(customerStats).sort((a: any, b: any) => b.spending - a.spending);
                 break;
 
             case "inventory":

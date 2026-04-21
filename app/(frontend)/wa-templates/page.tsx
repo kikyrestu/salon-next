@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Edit, Plus, Search, Trash2, MessageSquareText, Phone, ChevronLeft, ChevronRight } from "lucide-react";
+import { Edit, Plus, Search, Trash2, MessageSquareText } from "lucide-react";
 import Modal from "@/components/dashboard/Modal";
 import FormInput, { FormButton, FormSelect, FormTextArea } from "@/components/dashboard/FormInput";
 import PermissionGate from "@/components/PermissionGate";
@@ -13,17 +13,6 @@ interface WaTemplate {
     templateType?: 'greeting' | 'follow_up';
     isGreetingEnabled?: boolean;
     createdAt: string;
-}
-
-interface FollowUpPhoneRow {
-    phoneNumber: string;
-    isActive: boolean;
-    totalSessions: number;
-    pendingCount: number;
-    sentCount: number;
-    failedCount: number;
-    lastScheduledAt?: string;
-    firstCreatedAt?: string;
 }
 
 const SAMPLE_VALUES: Record<string, string> = {
@@ -39,14 +28,6 @@ export default function WaTemplatesPage() {
     const [templates, setTemplates] = useState<WaTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
-    const [activeTab, setActiveTab] = useState<"templates" | "followup-sessions">("templates");
-
-    const [followUpRows, setFollowUpRows] = useState<FollowUpPhoneRow[]>([]);
-    const [followUpLoading, setFollowUpLoading] = useState(false);
-    const [followUpSearch, setFollowUpSearch] = useState("");
-    const [followUpPage, setFollowUpPage] = useState(1);
-    const [followUpLimit, setFollowUpLimit] = useState(5);
-    const [followUpPagination, setFollowUpPagination] = useState({ total: 0, page: 1, limit: 5, pages: 1 });
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState<WaTemplate | null>(null);
@@ -66,9 +47,7 @@ export default function WaTemplatesPage() {
     );
 
     useEffect(() => {
-        if (activeTab === "templates") {
-            fetchTemplates();
-        }
+        fetchTemplates();
     }, []);
 
     const fetchTemplates = async () => {
@@ -88,70 +67,12 @@ export default function WaTemplatesPage() {
     };
 
     useEffect(() => {
-        if (activeTab !== "templates") return;
-
         const timer = setTimeout(() => {
             fetchTemplates();
         }, 300);
 
         return () => clearTimeout(timer);
-    }, [search, activeTab]);
-
-    const fetchFollowUpSessions = async () => {
-        setFollowUpLoading(true);
-        try {
-            const query = new URLSearchParams();
-            query.append("page", String(followUpPage));
-            query.append("limit", String(followUpLimit));
-            if (followUpSearch.trim()) query.append("search", followUpSearch.trim());
-
-            const res = await fetch(`/api/wa/follow-up-sessions?${query.toString()}`);
-            const data = await res.json();
-            if (data.success) {
-                setFollowUpRows(data.data || []);
-                if (data.pagination) {
-                    setFollowUpPagination(data.pagination);
-                }
-            }
-        } finally {
-            setFollowUpLoading(false);
-        }
-    };
-
-    const handleToggleFollowUpStatus = async (row: FollowUpPhoneRow) => {
-        const res = await fetch('/api/wa/follow-up-sessions', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                phoneNumber: row.phoneNumber,
-                isActive: !row.isActive,
-            }),
-        });
-
-        const data = await res.json();
-        if (!data.success) {
-            alert(data.error || 'Gagal update status nomor follow-up');
-            return;
-        }
-
-        setFollowUpRows((prev) =>
-            prev.map((item) =>
-                item.phoneNumber === row.phoneNumber
-                    ? { ...item, isActive: !item.isActive }
-                    : item
-            )
-        );
-    };
-
-    useEffect(() => {
-        if (activeTab !== "followup-sessions") return;
-
-        const timer = setTimeout(() => {
-            fetchFollowUpSessions();
-        }, 300);
-
-        return () => clearTimeout(timer);
-    }, [activeTab, followUpPage, followUpLimit, followUpSearch]);
+    }, [search]);
 
     const openModal = (template?: WaTemplate) => {
         if (template) {
@@ -253,7 +174,7 @@ export default function WaTemplatesPage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Manajemen Template WA</h1>
-                    <p className="text-sm text-gray-500">Kelola template pesan follow up WhatsApp untuk automasi Fonnte.</p>
+                    <p className="text-sm text-gray-500">Kelola template pesan WhatsApp untuk greeting dan follow-up otomatis.</p>
                 </div>
                 <PermissionGate resource="services" action="create">
                     <button
@@ -266,30 +187,6 @@ export default function WaTemplatesPage() {
                 </PermissionGate>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-2">
-                <div className="inline-flex w-full sm:w-auto rounded-lg border border-gray-200 overflow-hidden">
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab("templates")}
-                        className={`px-4 py-2 text-sm font-semibold ${activeTab === "templates" ? "bg-blue-900 text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
-                    >
-                        Template WA
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setActiveTab("followup-sessions");
-                            setFollowUpPage(1);
-                        }}
-                        className={`px-4 py-2 text-sm font-semibold ${activeTab === "followup-sessions" ? "bg-blue-900 text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
-                    >
-                        Nomor Follow Up
-                    </button>
-                </div>
-            </div>
-
-            {activeTab === "templates" && (
-                <>
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
                 {activeGreetingTemplate ? (
                     <div className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
@@ -383,128 +280,6 @@ export default function WaTemplatesPage() {
                     </div>
                 )}
             </div>
-                </>
-            )}
-
-            {activeTab === "followup-sessions" && (
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-gray-200 bg-gray-50/50 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div className="relative max-w-md w-full">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
-                                value={followUpSearch}
-                                onChange={(e) => {
-                                    setFollowUpPage(1);
-                                    setFollowUpSearch(e.target.value);
-                                }}
-                                placeholder="Cari nomor..."
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
-                            />
-                        </div>
-
-                        <div className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-600">Tampilkan</span>
-                            <select
-                                value={followUpLimit}
-                                onChange={(e) => {
-                                    setFollowUpPage(1);
-                                    setFollowUpLimit(parseInt(e.target.value));
-                                }}
-                                className="border border-gray-300 rounded-lg px-2 py-1.5"
-                            >
-                                <option value={5}>5</option>
-                                <option value={10}>10</option>
-                                <option value={25}>25</option>
-                                <option value={50}>50</option>
-                            </select>
-                            <span className="text-gray-600">data</span>
-                        </div>
-                    </div>
-
-                    {followUpLoading ? (
-                        <div className="p-8 text-sm text-gray-500">Memuat nomor follow-up...</div>
-                    ) : followUpRows.length === 0 ? (
-                        <div className="p-10 text-center text-gray-500">
-                            <Phone className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                            Belum ada nomor pada sesi follow-up.
-                        </div>
-                    ) : (
-                        <>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Nomor</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Sesi</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Pending</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sent</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Failed</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Terakhir Dijadwalkan</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-100">
-                                        {followUpRows.map((row) => (
-                                            <tr key={row.phoneNumber} className="hover:bg-gray-50/50">
-                                                <td className="px-4 py-3 text-sm font-semibold text-gray-900">{row.phoneNumber}</td>
-                                                <td className="px-4 py-3 text-sm">
-                                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold border ${row.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                                                        {row.isActive ? 'ACTIVE' : 'INACTIVE'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 text-sm text-gray-700">{row.totalSessions}</td>
-                                                <td className="px-4 py-3 text-sm text-amber-700 font-semibold">{row.pendingCount}</td>
-                                                <td className="px-4 py-3 text-sm text-emerald-700 font-semibold">{row.sentCount}</td>
-                                                <td className="px-4 py-3 text-sm text-red-700 font-semibold">{row.failedCount}</td>
-                                                <td className="px-4 py-3 text-sm text-gray-600">
-                                                    {row.lastScheduledAt ? new Date(row.lastScheduledAt).toLocaleString('id-ID') : '-'}
-                                                </td>
-                                                <td className="px-4 py-3 text-sm">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleToggleFollowUpStatus(row)}
-                                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${row.isActive ? 'border-gray-300 text-gray-700 hover:bg-gray-100' : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'}`}
-                                                    >
-                                                        {row.isActive ? 'Nonaktifkan' : 'Aktifkan'}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-3">
-                                <div className="text-sm text-gray-600">
-                                    Total nomor: <span className="font-semibold text-gray-900">{followUpPagination.total}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setFollowUpPage((prev) => Math.max(1, prev - 1))}
-                                        disabled={followUpPagination.page <= 1}
-                                        className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-                                    >
-                                        <ChevronLeft className="w-4 h-4" />
-                                    </button>
-                                    <span className="text-sm text-gray-700">
-                                        Halaman {followUpPagination.page} / {followUpPagination.pages}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setFollowUpPage((prev) => Math.min(followUpPagination.pages, prev + 1))}
-                                        disabled={followUpPagination.page >= followUpPagination.pages}
-                                        className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-                                    >
-                                        <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
 
             <Modal isOpen={isModalOpen} onClose={closeModal} title={editingTemplate ? "Edit Template WA" : "Tambah Template WA"}>
                 <form onSubmit={handleSubmit}>
