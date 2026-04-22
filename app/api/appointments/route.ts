@@ -207,8 +207,9 @@ export async function POST(request: NextRequest) {
                 staff: appointment.staff,
                 staffAssignments: appointment.staff ? [{
                     staff: appointment.staff,
-                    percentage: staffRate,
-                    commission: commission || 0
+                    percentage: 100,  // ✅ FIXED: Always 100 for single staff
+                    commission: commission || 0,
+                    tip: 0
                 }] : [],
                 status: appointment.status === 'completed' ? 'paid' : 'pending',
                 date: appointment.date || new Date()
