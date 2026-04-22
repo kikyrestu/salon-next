@@ -34,7 +34,7 @@ interface Item {
   name: string;
   price: number;
   image?: string;
-  type: "Service" | "Product" | "Package" | "Bundle";
+  type: "Service" | "Product" | "Package" | "Bundle" | "SalesMaterial";
   duration?: number; // Service only
   stock?: number; // Product only
   commissionType?: "percentage" | "fixed";
@@ -150,10 +150,11 @@ export default function POSPage() {
   const searchParams = useSearchParams();
   const { settings } = useSettings();
   const [activeTab, setActiveTab] = useState<
-    "all" | "services" | "products" | "packages"
+    "all" | "services" | "products" | "packages" | "bundles" | "materials"
   >("all");
   const [services, setServices] = useState<Item[]>([]);
   const [products, setProducts] = useState<Item[]>([]);
+  const [salesMaterials, setSalesMaterials] = useState<Item[]>([]);
   const [packages, setPackages] = useState<Item[]>([]);
   const [serviceBundles, setServiceBundles] = useState<Item[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -179,7 +180,7 @@ export default function POSPage() {
   const [discount, setDiscount] = useState(0);
   const [staffTips, setStaffTips] = useState<Record<string, number>>({});
   const [splitPayments, setSplitPayments] = useState<PaymentEntry[]>([
-    { method: "Cash", amount: "" },
+    { method: "", amount: "" },
   ]);
   const [followUpPhoneNumber, setFollowUpPhoneNumber] = useState("");
   // Voucher redemption
@@ -411,6 +412,7 @@ export default function POSPage() {
       const [
         serviceRes,
         productRes,
+        smRes,
         packageRes,
         bundleRes,
         customerRes,
@@ -418,6 +420,7 @@ export default function POSPage() {
       ] = await Promise.all([
         fetch("/api/services?limit=1000"),
         fetch("/api/products?limit=1000"),
+        fetch("/api/sales-materials?limit=1000"),
         fetch("/api/service-packages?active=true"),
         fetch("/api/service-bundles"),
         fetch("/api/customers?limit=1000"),
@@ -426,6 +429,7 @@ export default function POSPage() {
 
       const sData = await serviceRes.json();
       const pData = await productRes.json();
+      const smData = await smRes.json();
       const pkgData = await packageRes.json();
       const bData = await bundleRes.json();
       const cData = await customerRes.json();
@@ -439,6 +443,11 @@ export default function POSPage() {
       if (pData.success) {
         setProducts(
           (pData.data || []).map((p: Item) => ({ ...p, type: "Product" })),
+        );
+      }
+      if (smData.success) {
+        setSalesMaterials(
+          (smData.data || []).map((sm: Item) => ({ ...sm, type: "SalesMaterial" })),
         );
       }
       if (pkgData.success) {
@@ -476,12 +485,14 @@ export default function POSPage() {
 
   const filteredItems = (
     activeTab === "all"
-      ? [...services, ...serviceBundles, ...products, ...packages]
+      ? [...services, ...serviceBundles, ...products, ...packages, ...salesMaterials]
       : activeTab === "services"
         ? [...services, ...serviceBundles]
         : activeTab === "products"
           ? products
-          : packages
+          : activeTab === "packages"
+          ? packages
+          : salesMaterials
   ).filter((item) => item.name.toLowerCase().includes(search.toLowerCase()));
 
   const getCartItemKey = (itemId: string, type: string, bundleIndex?: number) => bundleIndex !== undefined ? `${type}:${itemId}-${bundleIndex}` : `${type}:${itemId}`;
@@ -1476,7 +1487,7 @@ export default function POSPage() {
           setServiceStaffAssignments({});
           setServiceSplitModes({});
           setPackageClaims({});
-          setSplitPayments([{ method: "Cash", amount: "" }]);
+          setSplitPayments([{ method: "", amount: "" }]);
           setQrisSession({
             externalId: qrisData.data.externalId,
             checkoutUrl: qrisData.data.checkoutUrl,
@@ -1526,7 +1537,7 @@ export default function POSPage() {
         setServiceStaffAssignments({});
         setServiceSplitModes({});
         setPackageClaims({});
-        setSplitPayments([{ method: "Cash", amount: "" }]);
+        setSplitPayments([{ method: "", amount: "" }]);
         return;
       }
 
@@ -1641,7 +1652,7 @@ export default function POSPage() {
                     tip: assignment.tip,
                   })),
                 }
-                : item.type === "Product" &&
+                : (item.type === "Product" || item.type === "SalesMaterial") &&
                   (
                     lineItemSplits[getCartItemKey(item._id, item.type)]
                       ?.staffAssignments || []
@@ -1797,7 +1808,7 @@ export default function POSPage() {
           setServiceStaffAssignments({});
           setServiceSplitModes({});
           setPackageClaims({});
-          setSplitPayments([{ method: "Cash", amount: "" }]);
+          setSplitPayments([{ method: "", amount: "" }]);
           setQrisSession({
             externalId: qrisData.data.externalId,
             checkoutUrl: qrisData.data.checkoutUrl,
@@ -1851,6 +1862,19 @@ export default function POSPage() {
           }
         }
 
+        // Auto-complete appointment if checkout was initiated from a booking
+        if (appointmentId) {
+          try {
+            await fetch(`/api/appointments/${appointmentId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "completed" }),
+            });
+          } catch (err) {
+            console.error("Failed to auto-complete appointment:", err);
+          }
+        }
+
         setCart([]);
         setDiscount(0);
         setStaffTips({});
@@ -1859,7 +1883,7 @@ export default function POSPage() {
         setServiceStaffAssignments({});
         setServiceSplitModes({});
         setPackageClaims({});
-        setSplitPayments([{ method: "Cash", amount: "" }]);
+        setSplitPayments([{ method: "", amount: "" }]);
         setVoucherApplied(null);
         setVoucherCode("");
         setLoyaltyPointsToRedeem(0);
@@ -2005,6 +2029,12 @@ export default function POSPage() {
                 className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "packages" ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
               >
                 Paket
+              </button>
+              <button
+                onClick={() => setActiveTab("materials")}
+                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "materials" ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+              >
+                Materi Penjualan
               </button>
             </div>
           </div>
@@ -2464,7 +2494,7 @@ export default function POSPage() {
                         )}
                     </div>
                   )}
-                  {item.type === "Product" &&
+                  {(item.type === "Product" || item.type === "SalesMaterial") &&
                     Number(item.commissionValue || 0) > 0 && (
                       <div className="pl-8 space-y-1.5 mt-1">
                         <div className="flex items-center gap-1 bg-green-50 border border-green-100 rounded p-1.5">
@@ -2529,6 +2559,43 @@ export default function POSPage() {
                                   maximumFractionDigits: 0,
                                 })}
                               </span>
+                            </div>
+
+                            {/* Auto/Manual Split Toggle */}
+                            <div className="flex items-center justify-between gap-1 bg-slate-50 border border-slate-200 rounded p-1.5 mb-1.5">
+                              <span className="text-[10px] font-bold text-slate-700">
+                                Split Komisi
+                              </span>
+                              <div className="inline-flex rounded border border-slate-300 overflow-hidden text-[10px] font-bold">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateServiceSplitMode(
+                                      item._id,
+                                      item.type,
+                                      "auto",
+                                      i,
+                                    )
+                                  }
+                                  className={`px-2 py-0.5 ${splitMode === "auto" ? "bg-slate-700 text-white" : "bg-white text-slate-600"}`}
+                                >
+                                  Auto
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateServiceSplitMode(
+                                      item._id,
+                                      item.type,
+                                      "manual",
+                                      i,
+                                    )
+                                  }
+                                  className={`px-2 py-0.5 ${splitMode === "manual" ? "bg-slate-700 text-white" : "bg-white text-slate-600"}`}
+                                >
+                                  Manual
+                                </button>
+                              </div>
                             </div>
                             
                             <SearchableSelect
@@ -2867,8 +2934,9 @@ export default function POSPage() {
                   <select
                     value={payment.method}
                     onChange={(e) => updateSplitMethod(index, e.target.value)}
-                    className="flex-1 text-[10px] lg:text-xs font-bold text-gray-900 border border-gray-200 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-900 outline-none bg-white cursor-pointer"
+                    className={`flex-1 text-[10px] lg:text-xs font-bold border border-gray-200 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-900 outline-none cursor-pointer ${payment.method ? 'text-gray-900 bg-white' : 'text-gray-400 bg-gray-50'}`}
                   >
+                    <option value="" disabled className="text-gray-400 font-normal">Pilih Metode...</option>
                     {["Cash", "Transfer", "Debit", "Credit Card", "QRIS"].map(
                       (m) => (
                         <option
@@ -2994,7 +3062,7 @@ export default function POSPage() {
                 void handleCheckout();
               }}
               loading={submitting}
-              disabled={hasInvalidSplitInCart || cart.length === 0}
+              disabled={hasInvalidSplitInCart || cart.length === 0 || !splitPayments.some(p => !!p.method)}
               variant="success"
               className="w-full py-4 lg:py-4 text-xs lg:text-sm uppercase tracking-widest font-black shadow-lg hover:shadow-xl active:translate-y-0.5 transition-all mb-4"
               icon={<CreditCard className="w-4 h-4" />}

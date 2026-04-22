@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown, Search } from "lucide-react";
+import { createPortal } from "react-dom";
 
 interface Option {
     value: string;
@@ -35,12 +36,50 @@ export default function SearchableSelect({
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
     const wrapperRef = useRef<HTMLDivElement>(null);
+    const [mounted, setMounted] = useState(false);
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
     const selectedOption = options.find((opt) => opt.value === value);
 
     useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (isOpen && wrapperRef.current) {
+            const rect = wrapperRef.current.getBoundingClientRect();
+            const windowHeight = window.innerHeight;
+            const openUpwards = rect.bottom + 240 > windowHeight && rect.top > 240;
+
+            setDropdownStyle({
+                position: 'fixed',
+                top: openUpwards ? `${rect.top - 240 - 4}px` : `${rect.bottom + 4}px`,
+                left: `${rect.left}px`,
+                width: `${rect.width}px`,
+                zIndex: 99999,
+            });
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        const handleScroll = (e: Event) => {
+            if ((e.target as HTMLElement).closest('.searchable-select-menu')) return;
+            setIsOpen(false);
+        };
+        if (isOpen) {
+            window.addEventListener('scroll', handleScroll, true);
+        }
+        return () => window.removeEventListener('scroll', handleScroll, true);
+    }, [isOpen]);
+
+    useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
-            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+            const target = event.target as Node;
+            if (
+                wrapperRef.current && 
+                !wrapperRef.current.contains(target) &&
+                !(target instanceof Element && target.closest('.searchable-select-menu'))
+            ) {
                 setIsOpen(false);
             }
         }
@@ -81,10 +120,12 @@ export default function SearchableSelect({
                     </span>
                     <ChevronDown className="w-4 h-4 text-gray-400" />
                 </div>
-
-                {isOpen && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border-2 border-gray-400 rounded-lg shadow-xl max-h-60 overflow-auto">
-                        <div className="p-2 sticky top-0 bg-white border-b-2 border-gray-300">
+                {mounted && isOpen && createPortal(
+                    <div 
+                        className="fixed z-[99999] bg-white border-2 border-gray-400 rounded-lg shadow-xl overflow-auto searchable-select-menu"
+                        style={{ ...dropdownStyle, maxHeight: '240px' }}
+                    >
+                        <div className="p-2 sticky top-0 bg-white border-b-2 border-gray-300 z-10">
                             <div className="relative">
                                 <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-600" />
                                 <input
@@ -123,7 +164,8 @@ export default function SearchableSelect({
                                 ))
                             )}
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
             </div>
             {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
