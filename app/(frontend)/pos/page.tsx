@@ -34,7 +34,7 @@ interface Item {
   name: string;
   price: number;
   image?: string;
-  type: "Service" | "Product" | "Package" | "Bundle" | "SalesMaterial";
+  type: "Service" | "Product" | "Package" | "Bundle";
   duration?: number; // Service only
   stock?: number; // Product only
   commissionType?: "percentage" | "fixed";
@@ -150,11 +150,10 @@ export default function POSPage() {
   const searchParams = useSearchParams();
   const { settings } = useSettings();
   const [activeTab, setActiveTab] = useState<
-    "all" | "services" | "products" | "packages" | "bundles" | "materials"
+    "all" | "services" | "products" | "packages" | "bundles"
   >("all");
   const [services, setServices] = useState<Item[]>([]);
   const [products, setProducts] = useState<Item[]>([]);
-  const [salesMaterials, setSalesMaterials] = useState<Item[]>([]);
   const [packages, setPackages] = useState<Item[]>([]);
   const [serviceBundles, setServiceBundles] = useState<Item[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -412,7 +411,6 @@ export default function POSPage() {
       const [
         serviceRes,
         productRes,
-        smRes,
         packageRes,
         bundleRes,
         customerRes,
@@ -420,7 +418,6 @@ export default function POSPage() {
       ] = await Promise.all([
         fetch("/api/services?limit=1000"),
         fetch("/api/products?limit=1000"),
-        fetch("/api/sales-materials?limit=1000"),
         fetch("/api/service-packages?active=true"),
         fetch("/api/service-bundles"),
         fetch("/api/customers?limit=1000"),
@@ -429,7 +426,6 @@ export default function POSPage() {
 
       const sData = await serviceRes.json();
       const pData = await productRes.json();
-      const smData = await smRes.json();
       const pkgData = await packageRes.json();
       const bData = await bundleRes.json();
       const cData = await customerRes.json();
@@ -443,11 +439,6 @@ export default function POSPage() {
       if (pData.success) {
         setProducts(
           (pData.data || []).map((p: Item) => ({ ...p, type: "Product" })),
-        );
-      }
-      if (smData.success) {
-        setSalesMaterials(
-          (smData.data || []).map((sm: Item) => ({ ...sm, type: "SalesMaterial" })),
         );
       }
       if (pkgData.success) {
@@ -485,14 +476,12 @@ export default function POSPage() {
 
   const filteredItems = (
     activeTab === "all"
-      ? [...services, ...serviceBundles, ...products, ...packages, ...salesMaterials]
+      ? [...services, ...serviceBundles, ...products, ...packages]
       : activeTab === "services"
         ? [...services, ...serviceBundles]
         : activeTab === "products"
           ? products
-          : activeTab === "packages"
-          ? packages
-          : salesMaterials
+          : packages
   ).filter((item) => item.name.toLowerCase().includes(search.toLowerCase()));
 
   const getCartItemKey = (itemId: string, type: string, bundleIndex?: number) => bundleIndex !== undefined ? `${type}:${itemId}-${bundleIndex}` : `${type}:${itemId}`;
@@ -1652,7 +1641,7 @@ export default function POSPage() {
                     tip: assignment.tip,
                   })),
                 }
-                : (item.type === "Product" || item.type === "SalesMaterial") &&
+                : item.type === "Product" &&
                   (
                     lineItemSplits[getCartItemKey(item._id, item.type)]
                       ?.staffAssignments || []
@@ -2029,12 +2018,6 @@ export default function POSPage() {
                 className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "packages" ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
               >
                 Paket
-              </button>
-              <button
-                onClick={() => setActiveTab("materials")}
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "materials" ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-              >
-                Materi Penjualan
               </button>
             </div>
           </div>
@@ -2494,7 +2477,7 @@ export default function POSPage() {
                         )}
                     </div>
                   )}
-                  {(item.type === "Product" || item.type === "SalesMaterial") &&
+                  {item.type === "Product" &&
                     Number(item.commissionValue || 0) > 0 && (
                       <div className="pl-8 space-y-1.5 mt-1">
                         <div className="flex items-center gap-1 bg-green-50 border border-green-100 rounded p-1.5">

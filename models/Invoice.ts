@@ -6,7 +6,7 @@ export interface IInvoice extends Document {
   appointment?: mongoose.Types.ObjectId;
   items: {
     item: mongoose.Types.ObjectId; // Service or Product ID
-    itemModel: "Service" | "Product" | "SalesMaterial";
+    itemModel: "Service" | "Product";
     name: string;
     price: number;
     quantity: number;
@@ -105,7 +105,7 @@ const invoiceSchema = new Schema<IInvoice>(
         itemModel: {
           type: String,
           required: true,
-          enum: ["Service", "Product", "SalesMaterial"],
+          enum: ["Service", "Product"],
         },
         name: String,
         price: Number,
