@@ -259,10 +259,12 @@ export default function ReportsPage() {
                 'Customer': inv.customer?.name || 'Walk-in',
                 'Staff': inv.staff?.name || 'N/A',
                 'Total Amount': inv.totalAmount,
+                'Discount': inv.discount || 0,
                 'Amount Paid': inv.amountPaid,
                 'Payment Method': (inv.paymentMethods && inv.paymentMethods.length > 0) 
                     ? inv.paymentMethods.map((pm: any) => `${pm.method} (${pm.amount})`).join(' + ') 
                     : (inv.paymentMethod || 'N/A'),
+                'Notes': inv.notes || '',
                 'Status': inv.status
             }));
         } else if (activeTab === 'staff') {
@@ -432,17 +434,19 @@ export default function ReportsPage() {
                             </div>
                         </div>
                         {renderTable(
-                            ['Invoice #', 'Date', 'Customer', 'Member', 'Total', 'Paid', 'Payment Method', 'Status'],
+                            ['Invoice #', 'Date', 'Customer', 'Member', 'Total', 'Discount', 'Paid', 'Payment Method', 'Notes', 'Status'],
                             filteredSales.map((inv: any) => ({
                                 inv: inv.invoiceNumber,
                                 date: formatSafeDate(inv.date),
                                 customer: inv.customer?.name || 'Walk-in',
                                 staff: inv.staff?.name || 'N/A',
                                 total: formatCurrency(inv.totalAmount),
+                                discount: formatCurrency(inv.discount || 0),
                                 paid: formatCurrency(inv.amountPaid),
                                 method: (inv.paymentMethods && inv.paymentMethods.length > 0)
                                     ? <div className="flex flex-col gap-1">{inv.paymentMethods.map((pm: any, idx: number) => <span key={idx} className="text-[10px] bg-gray-100 px-1 rounded">{pm.method}: {formatCurrency(pm.amount)}</span>)}</div>
                                     : (inv.paymentMethod || 'N/A'),
+                                notes: <span className="text-[10px] sm:text-xs truncate max-w-[150px] inline-block">{inv.notes || '-'}</span>,
                                 status: <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${inv.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'
                                     }`}>{inv.status?.replace('_', ' ') || 'N/A'}</span>
                             }))
