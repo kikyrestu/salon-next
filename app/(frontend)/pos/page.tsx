@@ -1,3 +1,5 @@
+// app/(frontend)/pos/page.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -642,10 +644,10 @@ export default function POSPage() {
     const effectiveAssignments =
       splitMode === "auto"
         ? nextAssignments.map((assignment, idx) => ({
-            ...assignment,
-            percentage:
-              getEqualSplitPercentages(nextAssignments.length)[idx] || 0,
-          }))
+          ...assignment,
+          percentage:
+            getEqualSplitPercentages(nextAssignments.length)[idx] || 0,
+        }))
         : nextAssignments;
 
     setServiceStaffAssignments((prev) => ({
@@ -1485,49 +1487,49 @@ export default function POSPage() {
           return [
             {
               ...(item.type === "Service" &&
-              packageClaims[getCartItemKey(item._id, item.type)]?.enabled
+                packageClaims[getCartItemKey(item._id, item.type)]?.enabled
                 ? { metadata: { claimedFromPackage: true } }
                 : {}),
               ...(item.type === "Service"
                 ? {
-                    splitCommissionMode:
-                      lineItemSplits[getCartItemKey(item._id, item.type)]
-                        ?.splitCommissionMode ||
-                      serviceSplitModes[getCartItemKey(item._id, item.type)] ||
-                      "auto",
+                  splitCommissionMode:
+                    lineItemSplits[getCartItemKey(item._id, item.type)]
+                      ?.splitCommissionMode ||
+                    serviceSplitModes[getCartItemKey(item._id, item.type)] ||
+                    "auto",
+                  staffAssignments: (
+                    lineItemSplits[getCartItemKey(item._id, item.type)]
+                      ?.staffAssignments || []
+                  ).map((assignment) => ({
+                    staff: assignment.staffId,
+                    staffId: assignment.staffId,
+                    percentage: assignment.percentage,
+                    porsiPersen: assignment.porsiPersen,
+                    commission: assignment.commission,
+                    komisiNominal: assignment.komisiNominal,
+                    tip: assignment.tip,
+                  })),
+                }
+                : item.type === "Product" &&
+                  (
+                    lineItemSplits[getCartItemKey(item._id, item.type)]
+                      ?.staffAssignments || []
+                  ).length > 0
+                  ? {
+                    splitCommissionMode: "auto" as const,
                     staffAssignments: (
                       lineItemSplits[getCartItemKey(item._id, item.type)]
                         ?.staffAssignments || []
                     ).map((assignment) => ({
                       staff: assignment.staffId,
                       staffId: assignment.staffId,
-                      percentage: assignment.percentage,
-                      porsiPersen: assignment.porsiPersen,
-                      commission: assignment.commission,
+                      percentage: 100,
+                      porsiPersen: 100,
+                      commission: assignment.komisiNominal,
                       komisiNominal: assignment.komisiNominal,
-                      tip: assignment.tip,
+                      tip: 0,
                     })),
                   }
-                : item.type === "Product" &&
-                    (
-                      lineItemSplits[getCartItemKey(item._id, item.type)]
-                        ?.staffAssignments || []
-                    ).length > 0
-                  ? {
-                      splitCommissionMode: "auto" as const,
-                      staffAssignments: (
-                        lineItemSplits[getCartItemKey(item._id, item.type)]
-                          ?.staffAssignments || []
-                      ).map((assignment) => ({
-                        staff: assignment.staffId,
-                        staffId: assignment.staffId,
-                        percentage: 100,
-                        porsiPersen: 100,
-                        commission: assignment.komisiNominal,
-                        komisiNominal: assignment.komisiNominal,
-                        tip: 0,
-                      })),
-                    }
                   : {}),
               item: item._id,
               itemModel: item.type === "Bundle" ? "Service" : item.type,
@@ -1536,7 +1538,7 @@ export default function POSPage() {
               quantity: item.quantity,
               total:
                 item.type === "Service" &&
-                packageClaims[getCartItemKey(item._id, item.type)]?.enabled
+                  packageClaims[getCartItemKey(item._id, item.type)]?.enabled
                   ? 0
                   : item.price * item.quantity,
             },
@@ -2211,28 +2213,28 @@ export default function POSPage() {
                         </label>
                         {(!selectedCustomer ||
                           selectedCustomer === "walking-customer") && (
-                          <span className="text-[9px] text-amber-600">
-                            Pilih customer dulu
-                          </span>
-                        )}
+                            <span className="text-[9px] text-amber-600">
+                              Pilih customer dulu
+                            </span>
+                          )}
                       </div>
 
                       {packageClaims[getCartItemKey(item._id, item.type)]
                         ?.enabled && (
-                        <SearchableSelect
-                          placeholder="Pilih paket customer"
-                          value={
-                            packageClaims[getCartItemKey(item._id, item.type)]
-                              ?.customerPackageId || ""
-                          }
-                          onChange={(val) =>
-                            setPackageClaimId(item._id, item.type, val)
-                          }
-                          options={getServicePackageOptions(item._id)}
-                          className="w-full h-8"
-                          controlClassName="px-2.5 py-1 text-[11px] md:text-[11px] lg:text-xs"
-                        />
-                      )}
+                          <SearchableSelect
+                            placeholder="Pilih paket customer"
+                            value={
+                              packageClaims[getCartItemKey(item._id, item.type)]
+                                ?.customerPackageId || ""
+                            }
+                            onChange={(val) =>
+                              setPackageClaimId(item._id, item.type, val)
+                            }
+                            options={getServicePackageOptions(item._id)}
+                            className="w-full h-8"
+                            controlClassName="px-2.5 py-1 text-[11px] md:text-[11px] lg:text-xs"
+                          />
+                        )}
 
                       <SearchableSelect
                         placeholder="Assign staff"
@@ -2249,86 +2251,86 @@ export default function POSPage() {
                       />
                       {(
                         serviceStaffAssignments[
-                          getCartItemKey(item._id, item.type)
+                        getCartItemKey(item._id, item.type)
                         ] || []
                       ).length > 0 && (
-                        <div className="space-y-1">
-                          {(() => {
-                            const previewResult =
-                              getSplitCommissionPreviewForItem(item);
-                            const previewMap = new Map(
-                              previewResult.assignments.map((a) => [
-                                a.staffId,
-                                a.komisiNominal,
-                              ]),
-                            );
-
-                            return getEffectiveServiceAssignments(
-                              item._id,
-                              item.type,
-                            ).map((assignment) => {
-                              const splitMode =
-                                serviceSplitModes[
-                                  getCartItemKey(item._id, item.type)
-                                ] || "auto";
-                              const staff = staffList.find(
-                                (s) => s._id === assignment.staffId,
+                          <div className="space-y-1">
+                            {(() => {
+                              const previewResult =
+                                getSplitCommissionPreviewForItem(item);
+                              const previewMap = new Map(
+                                previewResult.assignments.map((a) => [
+                                  a.staffId,
+                                  a.komisiNominal,
+                                ]),
                               );
-                              return (
-                                <div
-                                  key={assignment.staffId}
-                                  className="flex items-center gap-1.5 bg-blue-50 p-1 rounded border border-blue-100"
-                                >
-                                  <p className="text-[9px] font-bold text-gray-800 flex-1 truncate">
-                                    {staff?.name}
-                                  </p>
-                                  <div className="flex items-center gap-1 bg-white px-1 py-0.5 rounded border border-blue-200">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      value={assignment.percentage}
-                                      onChange={(e) =>
-                                        updateServiceStaffPercentage(
+
+                              return getEffectiveServiceAssignments(
+                                item._id,
+                                item.type,
+                              ).map((assignment) => {
+                                const splitMode =
+                                  serviceSplitModes[
+                                  getCartItemKey(item._id, item.type)
+                                  ] || "auto";
+                                const staff = staffList.find(
+                                  (s) => s._id === assignment.staffId,
+                                );
+                                return (
+                                  <div
+                                    key={assignment.staffId}
+                                    className="flex items-center gap-1.5 bg-blue-50 p-1 rounded border border-blue-100"
+                                  >
+                                    <p className="text-[9px] font-bold text-gray-800 flex-1 truncate">
+                                      {staff?.name}
+                                    </p>
+                                    <div className="flex items-center gap-1 bg-white px-1 py-0.5 rounded border border-blue-200">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={assignment.percentage}
+                                        onChange={(e) =>
+                                          updateServiceStaffPercentage(
+                                            item._id,
+                                            item.type,
+                                            assignment.staffId,
+                                            parseFloat(e.target.value) || 0,
+                                          )
+                                        }
+                                        disabled={splitMode === "auto"}
+                                        className={`w-12 md:w-14 text-right text-xs md:text-sm font-black border border-blue-200 bg-white rounded px-1 disabled:bg-gray-50 disabled:border-transparent focus:outline-none focus:border-blue-400 ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`}
+                                      />
+                                      <span className="text-[10px] md:text-xs font-bold text-blue-900">
+                                        %
+                                      </span>
+                                    </div>
+                                    <button
+                                      onClick={() =>
+                                        removeServiceStaffAssignment(
                                           item._id,
                                           item.type,
                                           assignment.staffId,
-                                          parseFloat(e.target.value) || 0,
                                         )
                                       }
-                                      disabled={splitMode === "auto"}
-                                      className={`w-12 md:w-14 text-right text-xs md:text-sm font-black border border-blue-200 bg-white rounded px-1 disabled:bg-gray-50 disabled:border-transparent focus:outline-none focus:border-blue-400 ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`}
-                                    />
-                                    <span className="text-[10px] md:text-xs font-bold text-blue-900">
-                                      %
+                                      className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded transition-colors"
+                                    >
+                                      <Trash2 className="w-2.5 h-2.5" />
+                                    </button>
+                                    <span className="text-[9px] font-bold text-emerald-700 min-w-[78px] text-right">
+                                      {settings.symbol}
+                                      {(
+                                        previewMap.get(assignment.staffId) || 0
+                                      ).toLocaleString("id-ID", {
+                                        maximumFractionDigits: 0,
+                                      })}
                                     </span>
                                   </div>
-                                  <button
-                                    onClick={() =>
-                                      removeServiceStaffAssignment(
-                                        item._id,
-                                        item.type,
-                                        assignment.staffId,
-                                      )
-                                    }
-                                    className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded transition-colors"
-                                  >
-                                    <Trash2 className="w-2.5 h-2.5" />
-                                  </button>
-                                  <span className="text-[9px] font-bold text-emerald-700 min-w-[78px] text-right">
-                                    {settings.symbol}
-                                    {(
-                                      previewMap.get(assignment.staffId) || 0
-                                    ).toLocaleString("id-ID", {
-                                      maximumFractionDigits: 0,
-                                    })}
-                                  </span>
-                                </div>
-                              );
-                            });
-                          })()}
-                        </div>
-                      )}
+                                );
+                              });
+                            })()}
+                          </div>
+                        )}
                     </div>
                   )}
                   {item.type === "Product" &&
@@ -2409,67 +2411,67 @@ export default function POSPage() {
                       />
                       {(
                         serviceStaffAssignments[
-                          getCartItemKey(item._id, item.type)
+                        getCartItemKey(item._id, item.type)
                         ] || []
                       ).length > 0 && (
-                        <div className="space-y-1">
-                          {getEffectiveServiceAssignments(
-                            item._id,
-                            item.type,
-                          ).map((assignment) => {
-                            const splitMode =
-                              serviceSplitModes[
+                          <div className="space-y-1">
+                            {getEffectiveServiceAssignments(
+                              item._id,
+                              item.type,
+                            ).map((assignment) => {
+                              const splitMode =
+                                serviceSplitModes[
                                 getCartItemKey(item._id, item.type)
-                              ] || "auto";
-                            const staff = staffList.find(
-                              (s) => s._id === assignment.staffId,
-                            );
-                            return (
-                              <div
-                                key={assignment.staffId}
-                                className="flex items-center gap-1.5 bg-white p-1 rounded border border-blue-100"
-                              >
-                                <p className="text-[9px] font-bold text-gray-800 flex-1 truncate">
-                                  {staff?.name}
-                                </p>
-                                <div className="flex items-center gap-1 bg-blue-50 px-1 py-0.5 rounded border border-blue-200">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    value={assignment.percentage}
-                                    onChange={(e) =>
-                                      updateServiceStaffPercentage(
+                                ] || "auto";
+                              const staff = staffList.find(
+                                (s) => s._id === assignment.staffId,
+                              );
+                              return (
+                                <div
+                                  key={assignment.staffId}
+                                  className="flex items-center gap-1.5 bg-white p-1 rounded border border-blue-100"
+                                >
+                                  <p className="text-[9px] font-bold text-gray-800 flex-1 truncate">
+                                    {staff?.name}
+                                  </p>
+                                  <div className="flex items-center gap-1 bg-blue-50 px-1 py-0.5 rounded border border-blue-200">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      value={assignment.percentage}
+                                      onChange={(e) =>
+                                        updateServiceStaffPercentage(
+                                          item._id,
+                                          item.type,
+                                          assignment.staffId,
+                                          parseFloat(e.target.value) || 0,
+                                        )
+                                      }
+                                      disabled={splitMode === "auto"}
+                                      className={`w-12 text-right text-xs font-black border border-blue-200 bg-white rounded px-1 disabled:bg-gray-50 disabled:border-transparent focus:outline-none focus:border-blue-400 ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`}
+                                    />
+                                    <span className="text-[10px] font-bold text-blue-900">
+                                      %
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() =>
+                                      removeServiceStaffAssignment(
                                         item._id,
                                         item.type,
                                         assignment.staffId,
-                                        parseFloat(e.target.value) || 0,
                                       )
                                     }
-                                    disabled={splitMode === "auto"}
-                                    className={`w-12 text-right text-xs font-black border border-blue-200 bg-white rounded px-1 disabled:bg-gray-50 disabled:border-transparent focus:outline-none focus:border-blue-400 ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`}
-                                  />
-                                  <span className="text-[10px] font-bold text-blue-900">
-                                    %
-                                  </span>
+                                    className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded transition-colors"
+                                  >
+                                    <Trash2 className="w-2.5 h-2.5" />
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={() =>
-                                    removeServiceStaffAssignment(
-                                      item._id,
-                                      item.type,
-                                      assignment.staffId,
-                                    )
-                                  }
-                                  className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded transition-colors"
-                                >
-                                  <Trash2 className="w-2.5 h-2.5" />
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                              );
+                            })}
+                          </div>
+                        )}
                     </div>
                   )}
                   {item.type === "Package" && <div className="pl-8"></div>}
@@ -2754,23 +2756,23 @@ export default function POSPage() {
                     placeholder={
                       splitPayments.length === 1
                         ? total.toLocaleString("id-ID", {
+                          maximumFractionDigits: 0,
+                        })
+                        : index === splitPayments.length - 1 &&
+                          totalSplitPaidComputed < total
+                          ? (
+                            total -
+                            splitPayments
+                              .slice(0, -1)
+                              .reduce(
+                                (s, p) =>
+                                  s +
+                                  (parseFloat(String(p.amount || "0")) || 0),
+                                0,
+                              )
+                          ).toLocaleString("id-ID", {
                             maximumFractionDigits: 0,
                           })
-                        : index === splitPayments.length - 1 &&
-                            totalSplitPaidComputed < total
-                          ? (
-                              total -
-                              splitPayments
-                                .slice(0, -1)
-                                .reduce(
-                                  (s, p) =>
-                                    s +
-                                    (parseFloat(String(p.amount || "0")) || 0),
-                                  0,
-                                )
-                            ).toLocaleString("id-ID", {
-                              maximumFractionDigits: 0,
-                            })
                           : "0"
                     }
                     value={payment.amount}
@@ -2792,13 +2794,12 @@ export default function POSPage() {
               {/* Running total for split mode */}
               {splitPayments.length > 1 && (
                 <div
-                  className={`flex justify-between text-[10px] font-bold px-1 py-0.5 rounded ${
-                    Math.abs(totalSplitPaidComputed - total) < 1
-                      ? "text-emerald-700 bg-emerald-50"
-                      : totalSplitPaidComputed > total
-                        ? "text-red-600 bg-red-50"
-                        : "text-amber-700 bg-amber-50"
-                  }`}
+                  className={`flex justify-between text-[10px] font-bold px-1 py-0.5 rounded ${Math.abs(totalSplitPaidComputed - total) < 1
+                    ? "text-emerald-700 bg-emerald-50"
+                    : totalSplitPaidComputed > total
+                      ? "text-red-600 bg-red-50"
+                      : "text-amber-700 bg-amber-50"
+                    }`}
                 >
                   <span>Total dibayar:</span>
                   <span>
@@ -2834,24 +2835,24 @@ export default function POSPage() {
             <div className="flex justify-between text-xl lg:text-2xl font-black text-gray-900 pt-1.5 border-t border-gray-200 mb-3">
               <span>
                 {splitPayments.length === 1 &&
-                totalSplitPaidComputed > 0 &&
-                totalSplitPaidComputed < total
+                  totalSplitPaidComputed > 0 &&
+                  totalSplitPaidComputed < total
                   ? "Due"
                   : "Total"}
               </span>
               <span
                 className={
                   splitPayments.length === 1 &&
-                  totalSplitPaidComputed > 0 &&
-                  totalSplitPaidComputed < total
+                    totalSplitPaidComputed > 0 &&
+                    totalSplitPaidComputed < total
                     ? "text-red-600"
                     : "text-blue-900"
                 }
               >
                 {settings.symbol}
                 {(splitPayments.length === 1 &&
-                totalSplitPaidComputed > 0 &&
-                totalSplitPaidComputed < total
+                  totalSplitPaidComputed > 0 &&
+                  totalSplitPaidComputed < total
                   ? total - totalSplitPaidComputed
                   : total
                 ).toLocaleString("id-ID", { maximumFractionDigits: 0 })}

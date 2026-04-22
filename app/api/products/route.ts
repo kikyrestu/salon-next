@@ -1,3 +1,4 @@
+// app/api/products/routes.tsx
 
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDB } from "@/lib/mongodb";
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
         // Security Check
         const permissionError = await checkPermission(request, 'products', 'view');
         if (permissionError) return permissionError;
-        
+
         await connectToDB();
         initModels();
         const { searchParams } = new URL(request.url);
@@ -50,10 +51,10 @@ export async function POST(request: NextRequest) {
         // Security Check
         const permissionError = await checkPermission(request, 'products', 'create');
         if (permissionError) return permissionError;
-        
+
         await connectToDB();
         const body = await request.json();
-        
+
         // Validate and sanitize input
         const validation = validateAndSanitize(body, {
             required: ['name', 'price', 'costPrice', 'stock'],
@@ -69,11 +70,11 @@ export async function POST(request: NextRequest) {
                 { field: 'sku', length: 50 }
             ]
         });
-        
+
         if (!validation.isValid) {
             return validationErrorResponse(validation.errors);
         }
-        
+
         const product = await Product.create(validation.sanitizedData);
         return NextResponse.json({ success: true, data: product });
     } catch (error: any) {

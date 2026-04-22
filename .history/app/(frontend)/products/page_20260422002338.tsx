@@ -1,5 +1,3 @@
-// app/(frontend)/products/page.tsx
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -570,10 +568,11 @@ export default function ProductsPage() {
                         <button
                           key={pageNum}
                           onClick={() => setPage(pageNum)}
-                          className={`w-8 h-8 rounded-lg text-sm font-semibold transition-all ${page === pageNum
+                          className={`w-8 h-8 rounded-lg text-sm font-semibold transition-all ${
+                            page === pageNum
                               ? "bg-blue-900 text-white"
                               : "text-gray-600 hover:bg-gray-100"
-                            }`}
+                          }`}
                         >
                           {pageNum}
                         </button>

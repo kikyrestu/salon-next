@@ -30,7 +30,7 @@ import StatCard from "@/components/dashboard/StatCard";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { getCurrentDateInTimezone, getMonthDateRangeInTimezone } from "@/lib/dateUtils";
 
-type ReportType = 'summary' | 'sales' | 'services' | 'staff' | 'customers' | 'inventory' | 'expenses' | 'profit' | 'daily' | 'activity-log';
+type ReportType = 'summary' | 'sales' | 'services' | 'products' | 'staff' | 'customers' | 'inventory' | 'expenses' | 'profit' | 'daily' | 'activity-log';
 
 export default function ReportsPage() {
     const { settings } = useSettings();
@@ -52,6 +52,9 @@ export default function ReportsPage() {
     const reportTabs: { id: ReportType, label: string, icon: any }[] = [
         { id: 'sales', label: 'Sales Report', icon: FileText },
         { id: 'services', label: 'Service Analytics', icon: Scissors },
+        { id: 'products', label: 'Product Analytics', icon: Package },
+        { id: 'customers', label: 'Top Spenders', icon: Users },
+        { id: 'inventory', label: 'Inventory Level', icon: Package },
         { id: 'staff', label: 'Staff Performance', icon: Users },
         { id: 'expenses', label: 'Expense Tracking', icon: ShoppingBag },
         { id: 'profit', label: 'Profit & Loss', icon: TrendingUp },
@@ -273,6 +276,12 @@ export default function ReportsPage() {
                 'Frequency (Sold)': s.count,
                 'Revenue Generated': s.revenue
             }));
+        } else if (activeTab === 'products') {
+            exportData = reportData.map((p: any) => ({
+                'Product Name': p.name,
+                'Frequency (Sold)': p.count,
+                'Revenue Generated': p.revenue
+            }));
         } else if (activeTab === 'customers') {
             exportData = reportData.map((s: any) => ({
                 'Customer Name': s.name,
@@ -439,6 +448,16 @@ export default function ReportsPage() {
                         name: s.name,
                         count: s.count,
                         revenue: formatCurrency(s.revenue)
+                    }))
+                );
+            case 'products':
+                if (!Array.isArray(reportData)) return null;
+                return renderTable(
+                    ['Product Name', 'Total Frequency', 'Revenue Amount'],
+                    reportData.map((p: any) => ({
+                        name: p.name,
+                        count: p.count,
+                        revenue: formatCurrency(p.revenue)
                     }))
                 );
             case 'staff':

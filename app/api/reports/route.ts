@@ -63,6 +63,28 @@ export async function GET(request: Request) {
                 data = Object.values(serviceStats).sort((a: any, b: any) => b.revenue - a.revenue);
                 break;
 
+            case "products":
+                // Product Report: Revenue per product
+                const productInvoices = await Invoice.find({
+                    date: { $gte: start, $lte: end }
+                }).lean();
+                const productStats: any = {};
+
+                productInvoices.forEach(inv => {
+                    inv.items.forEach((item: any) => {
+                        if (item.itemModel === 'Product') {
+                            const name = item.name;
+                            if (!productStats[name]) {
+                                productStats[name] = { name, count: 0, revenue: 0 };
+                            }
+                            productStats[name].count += item.quantity;
+                            productStats[name].revenue += item.total;
+                        }
+                    });
+                });
+                data = Object.values(productStats).sort((a: any, b: any) => b.revenue - a.revenue);
+                break;
+
             case "staff":
                 // Staff Performance: Account for multi-staff assignments
                 const staffInvoices = await Invoice.find({
