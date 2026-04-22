@@ -1,3 +1,4 @@
+// appointments/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDB } from "@/lib/mongodb";
@@ -14,7 +15,6 @@ import { scheduleFollowUp } from "@/lib/waFollowUp";
 
 export async function GET(request: NextRequest) {
     try {
-        // Security Check
         const permissionError = await checkPermission(request, 'appointments', 'view');
         if (permissionError) return permissionError;
 
@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
         initModels();
         const { searchParams } = new URL(request.url);
 
-        // Pagination & Search params
         const page = parseInt(searchParams.get("page") || "1");
         const limit = parseInt(searchParams.get("limit") || "10");
         const search = searchParams.get("search") || "";
@@ -39,38 +38,17 @@ export async function GET(request: NextRequest) {
             };
         }
 
-        if (status) {
-            query.status = status;
-        }
+        if (status) query.status = status;
+        if (staffId) query.staff = new mongoose.Types.ObjectId(staffId);
 
-        if (staffId) {
-            query.staff = new mongoose.Types.ObjectId(staffId);
-        }
-
-        // Using aggregation for advanced searching and pagination
         const pipeline: any[] = [
             { $match: query },
-            {
-                $lookup: {
-                    from: 'customers',
-                    localField: 'customer',
-                    foreignField: '_id',
-                    as: 'customer'
-                }
-            },
+            { $lookup: { from: 'customers', localField: 'customer', foreignField: '_id', as: 'customer' } },
             { $unwind: '$customer' },
-            {
-                $lookup: {
-                    from: 'staffs',
-                    localField: 'staff',
-                    foreignField: '_id',
-                    as: 'staff'
-                }
-            },
+            { $lookup: { from: 'staffs', localField: 'staff', foreignField: '_id', as: 'staff' } },
             { $unwind: '$staff' }
         ];
 
-        // Search filter (name or phone)
         if (search) {
             pipeline.push({
                 $match: {
@@ -83,23 +61,18 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        // Sorting (by date and time)
         pipeline.push({ $sort: { date: -1, startTime: -1 } });
 
-        // Total count before pagination
         const countPipeline = [...pipeline, { $count: 'total' }];
         const countResult = await Appointment.aggregate(countPipeline);
         const total = countResult.length > 0 ? countResult[0].total : 0;
 
-        // Apply Pagination (only if requested)
         const isPaginated = searchParams.has("page");
         if (isPaginated) {
             const skip = (page - 1) * limit;
             pipeline.push({ $skip: skip });
             pipeline.push({ $limit: limit });
         } else {
-            // For calendar, we might still want a safety limit, 
-            // but usually a day doesn't have 1000s of appointments
             pipeline.push({ $limit: 1000 });
         }
 
@@ -123,7 +96,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        // Security Check
         const permissionError = await checkPermission(request, 'appointments', 'create');
         if (permissionError) return permissionError;
 
@@ -131,17 +103,14 @@ export async function POST(request: NextRequest) {
         initModels();
         const body = await request.json();
 
-        // Basic validation
         if (!body.customer || !body.staff || !body.startTime || !body.services || !Array.isArray(body.services) || body.services.length === 0) {
             return NextResponse.json({ success: false, error: "Customer, staff, time slot and at least one service are required" }, { status: 400 });
         }
 
-        // Robustness: Handle if status is accidentally sent as an object
         if (body.status && typeof body.status === 'object' && body.status.target) {
             body.status = body.status.target.value;
         }
 
-        // Generate totals based on settings
         const settings = await Settings.findOne();
         const taxRate = settings?.taxRate || 0;
 
@@ -150,10 +119,6 @@ export async function POST(request: NextRequest) {
         const discount = parseFloat(body.discount) || 0;
         const tax = subtotal * (taxRate / 100);
         const totalAmount = (subtotal + tax) - discount;
-
-        // Calculate commission
-        const staff = await Staff.findById(body.staff);
-        const staffRate = staff?.commissionRate || 0;
 
         let commission = 0;
         for (const item of body.services) {
@@ -172,17 +137,13 @@ export async function POST(request: NextRequest) {
             commission
         }) as unknown as IAppointment;
 
-        // Create invoice automatically for confirmed/completed appointments
         if (appointment.status === 'confirmed' || appointment.status === 'completed' || !appointment.status) {
-            // More robust invoice number generation: Find the latest invoice number and increment it
             const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });
             let nextNum = 1;
 
             if (lastInvoice && lastInvoice.invoiceNumber) {
                 const lastNum = parseInt(lastInvoice.invoiceNumber.split('-').pop() || "0");
-                if (!isNaN(lastNum)) {
-                    nextNum = lastNum + 1;
-                }
+                if (!isNaN(lastNum)) nextNum = lastNum + 1;
             }
 
             const invoiceNumber = `INV-${new Date().getFullYear()}-${nextNum.toString().padStart(5, '0')}`;
@@ -207,7 +168,8 @@ export async function POST(request: NextRequest) {
                 staff: appointment.staff,
                 staffAssignments: appointment.staff ? [{
                     staff: appointment.staff,
-                    percentage: 100,  // ✅ FIXED: Always 100 for single staff
+                    percentage: 100,
+                    porsiPersen: 100,  // ✅ FIX
                     commission: commission || 0,
                     tip: 0
                 }] : [],

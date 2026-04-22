@@ -1,3 +1,5 @@
+// appointments/[id]/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDB } from "@/lib/mongodb";
 import Appointment from "@/models/Appointment";
@@ -13,7 +15,6 @@ import { scheduleFollowUp } from "@/lib/waFollowUp";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        // Security Check
         const permissionError = await checkPermission(request, 'appointments', 'view');
         if (permissionError) return permissionError;
 
@@ -37,7 +38,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        // Security Check
         const permissionError = await checkPermission(request, 'appointments', 'edit');
         if (permissionError) return permissionError;
 
@@ -45,7 +45,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         const { id } = await params;
         const body = await request.json();
 
-        const initRes = initModels();
+        initModels();
         const settings = await Settings.findOne();
         const taxRate = settings?.taxRate || 0;
 
@@ -56,7 +56,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
         const { _id, __v, createdAt, updatedAt, ...cleanBody } = body;
 
-        // Robustness: Handle if status is accidentally sent as an object (e.g. from a React event)
         if (cleanBody.status && typeof cleanBody.status === 'object' && cleanBody.status.target) {
             cleanBody.status = cleanBody.status.target.value;
         }
@@ -65,14 +64,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         const staffId = cleanBody.staff || existingAppointment.staff;
         const discount = cleanBody.discount !== undefined ? cleanBody.discount : (existingAppointment.discount || 0);
 
-        // Recalculate financial breakdown
         const subtotal = services.reduce((acc: number, s: any) => acc + s.price, 0);
         const tax = subtotal * (taxRate / 100);
         const totalAmount = (subtotal + tax) - discount;
-
-        // Commission logic
-        const staff = await Staff.findById(staffId);
-        const staffRate = staff?.commissionRate || 0;
 
         let totalCommission = 0;
         for (const item of services) {
@@ -90,18 +84,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             commission: totalCommission
         }, { new: true });
 
-        // If updated to confirmed or completed, check if invoice exists, if not create one
         if (appointment && (appointment.status === 'confirmed' || appointment.status === 'completed')) {
             initModels();
             const existingInvoice = await Invoice.findOne({ appointment: id });
             if (!existingInvoice) {
-                const settings = await Settings.findOne();
-                const taxRate = settings?.taxRate || 0;
-                const subtotal = appointment.subtotal;
-                const tax = appointment.tax;
-                const totalAmount = appointment.totalAmount;
-                const discount = appointment.discount || 0;
-
                 const count = await Invoice.countDocuments();
                 const invoiceNumber = `INV-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;
 
@@ -117,16 +103,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
                         quantity: 1,
                         total: s.price
                     })),
-                    subtotal,
-                    tax,
-                    discount,
-                    totalAmount,
+                    subtotal: appointment.subtotal,
+                    tax: appointment.tax,
+                    discount: appointment.discount || 0,
+                    totalAmount: appointment.totalAmount,
                     commission: totalCommission,
                     staff: appointment.staff,
                     staffAssignments: appointment.staff ? [{
                         staff: appointment.staff,
-                        percentage: staffRate,
-                        commission: totalCommission
+                        percentage: 100,
+                        porsiPersen: 100,  // ✅ FIX
+                        commission: totalCommission,
+                        tip: 0
                     }] : [],
                     status: appointment.status === 'completed' ? 'paid' : 'pending',
                     date: appointment.date
@@ -134,9 +122,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
                 await scheduleFollowUp(createdInvoice._id);
             } else if (appointment.status === 'completed' && existingInvoice.status !== 'paid') {
-                // Update existing invoice status to paid if appointment is completed
-                existingInvoice.status = 'paid';
-                await existingInvoice.save();
+                await Invoice.findByIdAndUpdate(existingInvoice._id, { status: 'paid' });
             }
         }
 
@@ -148,14 +134,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        // Security Check
         const permissionError = await checkPermission(request, 'appointments', 'delete');
         if (permissionError) return permissionError;
 
         await connectToDB();
         const { id } = await params;
 
-        // Cascade delete: deposits -> invoices -> appointment
         const linkedInvoices = await Invoice.find({ appointment: id }).select('_id');
         const invoiceIds = linkedInvoices.map((inv: any) => inv._id);
 
