@@ -260,7 +260,9 @@ export default function ReportsPage() {
                 'Staff': inv.staff?.name || 'N/A',
                 'Total Amount': inv.totalAmount,
                 'Amount Paid': inv.amountPaid,
-                'Payment Method': inv.paymentMethod || 'N/A',
+                'Payment Method': (inv.paymentMethods && inv.paymentMethods.length > 0) 
+                    ? inv.paymentMethods.map((pm: any) => `${pm.method} (${pm.amount})`).join(' + ') 
+                    : (inv.paymentMethod || 'N/A'),
                 'Status': inv.status
             }));
         } else if (activeTab === 'staff') {
@@ -385,7 +387,12 @@ export default function ReportsPage() {
                 if (!Array.isArray(reportData)) return null;
                 const filteredSales = paymentFilter === 'all' 
                     ? reportData 
-                    : reportData.filter((inv: any) => (inv.paymentMethod || '').toLowerCase() === paymentFilter.toLowerCase());
+                    : reportData.filter((inv: any) => {
+                        if (inv.paymentMethods && inv.paymentMethods.length > 0) {
+                            return inv.paymentMethods.some((pm: any) => (pm.method || '').toLowerCase() === paymentFilter.toLowerCase());
+                        }
+                        return (inv.paymentMethod || '').toLowerCase() === paymentFilter.toLowerCase();
+                    });
                 
                 const salesSummary = filteredSales.reduce((acc: any, inv: any) => ({
                     count: acc.count + 1,
@@ -433,7 +440,9 @@ export default function ReportsPage() {
                                 staff: inv.staff?.name || 'N/A',
                                 total: formatCurrency(inv.totalAmount),
                                 paid: formatCurrency(inv.amountPaid),
-                                method: inv.paymentMethod || 'N/A',
+                                method: (inv.paymentMethods && inv.paymentMethods.length > 0)
+                                    ? <div className="flex flex-col gap-1">{inv.paymentMethods.map((pm: any, idx: number) => <span key={idx} className="text-[10px] bg-gray-100 px-1 rounded">{pm.method}: {formatCurrency(pm.amount)}</span>)}</div>
+                                    : (inv.paymentMethod || 'N/A'),
                                 status: <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${inv.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'
                                     }`}>{inv.status?.replace('_', ' ') || 'N/A'}</span>
                             }))

@@ -211,9 +211,17 @@ export async function GET(request: Request) {
                     date: { $gte: start, $lte: end }
                 }).lean();
 
-                const payments: any = { Cash: 0, Card: 0, Wallet: 0 };
+                const payments: any = { Cash: 0, Card: 0, Wallet: 0, Transfer: 0, QRIS: 0 };
                 dailyInvoices.forEach(inv => {
-                    payments[inv.paymentMethod] = (payments[inv.paymentMethod] || 0) + inv.amountPaid;
+                    if (inv.paymentMethods && inv.paymentMethods.length > 0) {
+                        inv.paymentMethods.forEach((pm: any) => {
+                            if (pm.method) {
+                                payments[pm.method] = (payments[pm.method] || 0) + (pm.amount || 0);
+                            }
+                        });
+                    } else if (inv.paymentMethod) {
+                        payments[inv.paymentMethod] = (payments[inv.paymentMethod] || 0) + (inv.amountPaid || inv.totalAmount || 0);
+                    }
                 });
 
                 data = {

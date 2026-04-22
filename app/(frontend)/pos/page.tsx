@@ -484,7 +484,7 @@ export default function POSPage() {
           : packages
   ).filter((item) => item.name.toLowerCase().includes(search.toLowerCase()));
 
-  const getCartItemKey = (itemId: string, type: string) => `${type}:${itemId}`;
+  const getCartItemKey = (itemId: string, type: string, bundleIndex?: number) => bundleIndex !== undefined ? `${type}:${itemId}-${bundleIndex}` : `${type}:${itemId}`;
 
   const roundTwo = (value: number) => Math.round(value * 100) / 100;
 
@@ -524,8 +524,9 @@ export default function POSPage() {
   const getEffectiveServiceAssignments = (
     itemId: string,
     type: string,
+    bundleIndex?: number,
   ): StaffAssignment[] => {
-    const key = getCartItemKey(itemId, type);
+    const key = getCartItemKey(itemId, type, bundleIndex);
     const splitMode = serviceSplitModes[key] || "auto";
     const deduped = dedupeAssignments(serviceStaffAssignments[key] || []);
 
@@ -575,12 +576,18 @@ export default function POSPage() {
     });
     if (item.type === "Service") {
       const key = getCartItemKey(item._id, item.type);
-      setServiceStaffAssignments((prev) =>
-        prev[key] ? prev : { ...prev, [key]: [] },
-      );
-      setServiceSplitModes((prev) =>
-        prev[key] ? prev : { ...prev, [key]: "auto" },
-      );
+      setServiceStaffAssignments((prev) => prev[key] ? prev : { ...prev, [key]: [] });
+      setServiceSplitModes((prev) => prev[key] ? prev : { ...prev, [key]: "auto" });
+    } else if (item.type === "Bundle" && item.bundleServices) {
+      const newStaffAssignments: any = {};
+      const newSplitModes: any = {};
+      item.bundleServices.forEach((bs, i) => {
+        const key = getCartItemKey(item._id, item.type, i);
+        newStaffAssignments[key] = [];
+        newSplitModes[key] = "auto";
+      });
+      setServiceStaffAssignments((prev) => ({ ...prev, ...newStaffAssignments }));
+      setServiceSplitModes((prev) => ({ ...prev, ...newSplitModes }));
     }
   };
 
@@ -590,21 +597,23 @@ export default function POSPage() {
     );
     if (type === "Service") {
       const key = getCartItemKey(itemId, type);
-      setServiceStaffAssignments((prev) => {
-        const rest = { ...prev };
-        delete rest[key];
-        return rest;
-      });
-      setServiceSplitModes((prev) => {
-        const rest = { ...prev };
-        delete rest[key];
-        return rest;
-      });
-      setPackageClaims((prev) => {
-        const rest = { ...prev };
-        delete rest[key];
-        return rest;
-      });
+      setServiceStaffAssignments((prev) => { const rest = { ...prev }; delete rest[key]; return rest; });
+      setServiceSplitModes((prev) => { const rest = { ...prev }; delete rest[key]; return rest; });
+      setPackageClaims((prev) => { const rest = { ...prev }; delete rest[key]; return rest; });
+    } else if (type === "Bundle") {
+      const item = cart.find(i => i._id === itemId && i.type === type);
+      if (item && item.bundleServices) {
+        setServiceStaffAssignments((prev) => {
+          const rest = { ...prev };
+          item.bundleServices!.forEach((bs, i) => delete rest[getCartItemKey(itemId, type, i)]);
+          return rest;
+        });
+        setServiceSplitModes((prev) => {
+          const rest = { ...prev };
+          item.bundleServices!.forEach((bs, i) => delete rest[getCartItemKey(itemId, type, i)]);
+          return rest;
+        });
+      }
     }
   };
 
@@ -627,8 +636,9 @@ export default function POSPage() {
     itemId: string,
     type: string,
     staffId: string,
+    bundleIndex?: number,
   ) => {
-    const key = getCartItemKey(itemId, type);
+    const key = getCartItemKey(itemId, type, bundleIndex);
     const current = serviceStaffAssignments[key] || [];
     if (current.find((a) => a.staffId === staffId)) return;
     const splitMode = serviceSplitModes[key] || "auto";
@@ -660,8 +670,9 @@ export default function POSPage() {
     itemId: string,
     type: string,
     staffId: string,
+    bundleIndex?: number,
   ) => {
-    const key = getCartItemKey(itemId, type);
+    const key = getCartItemKey(itemId, type, bundleIndex);
     const splitMode = serviceSplitModes[key] || "auto";
 
     setServiceStaffAssignments((prev) => ({
@@ -684,8 +695,9 @@ export default function POSPage() {
     type: string,
     staffId: string,
     percentage: number,
+    bundleIndex?: number,
   ) => {
-    const key = getCartItemKey(itemId, type);
+    const key = getCartItemKey(itemId, type, bundleIndex);
     const splitMode = serviceSplitModes[key] || "auto";
     if (splitMode === "auto") return;
 
@@ -703,8 +715,9 @@ export default function POSPage() {
     itemId: string,
     type: string,
     mode: SplitMode,
+    bundleIndex?: number,
   ) => {
-    const key = getCartItemKey(itemId, type);
+    const key = getCartItemKey(itemId, type, bundleIndex);
 
     setServiceSplitModes((prev) => ({
       ...prev,
@@ -1012,6 +1025,69 @@ export default function POSPage() {
       };
     });
 
+    // Bundle commission — processing internal service splits
+    cart.forEach((item) => {
+      if (item.type !== "Bundle" || !item.bundleServices) return;
+      const totalOriginalPrice = item.bundleServices.reduce((sum, bs) => sum + bs.servicePrice, 0);
+
+      item.bundleServices.forEach((bs, i) => {
+        const bsKey = getCartItemKey(item._id, item.type, i);
+        const splitCommissionMode = serviceSplitModes[bsKey] || "auto";
+        const serviceAssignments = getEffectiveServiceAssignments(item._id, item.type, i);
+        const serviceLineAssignments: any[] = [];
+        
+        const proportion = totalOriginalPrice > 0 ? bs.servicePrice / totalOriginalPrice : 1 / item.bundleServices!.length;
+        const subItemPrice = Math.round(item.price * proportion);
+
+        if (serviceAssignments.length === 0) {
+          lineItemSplits[bsKey] = { splitCommissionMode, staffAssignments: [] };
+          return;
+        }
+
+        const splitResult = calculateSplitCommission({
+          splitMode: splitCommissionMode,
+          assignments: serviceAssignments.map((assignment) => ({
+            staffId: assignment.staffId,
+            percentage: assignment.percentage,
+            staffCommissionRate: getStaffRate(assignment.staffId),
+          })),
+          servicePrice: subItemPrice,
+          quantity: item.quantity,
+          commissionType: (bs.commissionType as "fixed" | "percentage") || "fixed",
+          commissionValue: Number(bs.commissionValue || 0),
+          sourceType: "normal_sale",
+        });
+
+        if (!splitResult.isValid) {
+          lineItemSplits[bsKey] = { splitCommissionMode, staffAssignments: [] };
+          return;
+        }
+
+        totalCommission += splitResult.totalCommission;
+
+        splitResult.assignments.forEach((assignment) => {
+          if (!perStaff[assignment.staffId]) {
+            perStaff[assignment.staffId] = { staffId: assignment.staffId, commission: 0, tip: 0 };
+          }
+          perStaff[assignment.staffId].commission += assignment.komisiNominal;
+
+          serviceLineAssignments.push({
+            staffId: assignment.staffId,
+            percentage: assignment.percentage,
+            porsiPersen: assignment.porsiPersen,
+            commission: assignment.komisiNominal,
+            komisiNominal: assignment.komisiNominal,
+            tip: 0,
+          });
+        });
+
+        lineItemSplits[bsKey] = {
+          splitCommissionMode,
+          staffAssignments: serviceLineAssignments,
+        };
+      });
+    });
+
     // Product commission — single staff, no split
     cart.forEach((item) => {
       if (item.type !== "Product") return;
@@ -1178,7 +1254,64 @@ export default function POSPage() {
         }
       }
     }
-    for (const item of serviceItems) {
+    for (const item of cart.filter(i => i.type === "Service" || i.type === "Bundle")) {
+      if (item.type === "Bundle" && item.bundleServices) {
+        const totalOriginalPrice = item.bundleServices.reduce((s, bs) => s + bs.servicePrice, 0);
+        for (let i = 0; i < item.bundleServices.length; i++) {
+          const bs = item.bundleServices[i];
+          const bsKey = getCartItemKey(item._id, item.type, i);
+          const rawAssignments = serviceStaffAssignments[bsKey] || [];
+          const itemAssignments = getEffectiveServiceAssignments(item._id, item.type, i);
+          const splitMode = serviceSplitModes[bsKey] || "auto";
+          const commissionType = bs.commissionType || "fixed";
+          const commissionValue = Number(bs.commissionValue || 0);
+
+          if (commissionType === "fixed" && commissionValue <= 0) {
+            alert(`Komisi service "${bs.serviceName}" dalam bundle "${item.name}" belum diisi. Isi Komisi Nominal lebih dari 0 terlebih dahulu di Master.`);
+            return;
+          }
+
+          if (commissionType === "percentage" && commissionValue <= 0) {
+            alert(`Komisi service "${bs.serviceName}" dalam bundle "${item.name}" belum diisi. Isi Komisi Persentase lebih dari 0 terlebih dahulu di Master.`);
+            return;
+          }
+
+          if (itemAssignments.length === 0) {
+            alert(`Please assign at least 1 staff for service "${bs.serviceName}" in bundle "${item.name}"`);
+            return;
+          }
+
+          const ids = rawAssignments.map((assignment) => assignment.staffId);
+          if (ids.length !== new Set(ids).size) {
+            alert(`Duplicate staff found in service "${bs.serviceName}" split across "${item.name}"`);
+            return;
+          }
+
+          const proportion = totalOriginalPrice > 0 ? bs.servicePrice / totalOriginalPrice : 1 / item.bundleServices.length;
+          const itemPrice = Math.round(item.price * proportion);
+
+          const splitResult = calculateSplitCommission({
+            splitMode,
+            assignments: itemAssignments.map((assignment) => ({
+              staffId: assignment.staffId,
+              percentage: assignment.percentage,
+              staffCommissionRate: getStaffRate(assignment.staffId),
+            })),
+            servicePrice: itemPrice,
+            quantity: item.quantity,
+            commissionType: (commissionType as "fixed" | "percentage"),
+            commissionValue,
+            sourceType: "normal_sale",
+          });
+
+          if (!splitResult.isValid) {
+            alert(`${bs.serviceName} in ${item.name}: ${splitResult.errors[0] || "Split komisi tidak valid"}`);
+            return;
+          }
+        }
+        continue;
+      }
+
       const key = getCartItemKey(item._id, item.type);
       const rawAssignments = serviceStaffAssignments[key] || [];
       const itemAssignments = getEffectiveServiceAssignments(
@@ -1439,8 +1572,6 @@ export default function POSPage() {
             item.bundleServices &&
             item.bundleServices.length > 0
           ) {
-            const bundleKey = getCartItemKey(item._id, item.type);
-            const bundleStaffArr = serviceStaffAssignments[bundleKey] || [];
             const totalOriginalPrice = item.bundleServices.reduce(
               (s, bs) => s + bs.servicePrice,
               0,
@@ -1448,18 +1579,18 @@ export default function POSPage() {
             const qty = item.quantity;
 
             return Array.from({ length: qty }, () =>
-              (item.bundleServices || []).map((bs) => {
+              (item.bundleServices || []).map((bs, i) => {
+                const bundleKey = getCartItemKey(item._id, item.type, i);
+                const splitData = lineItemSplits[bundleKey];
+                
                 const proportion =
                   totalOriginalPrice > 0
                     ? bs.servicePrice / totalOriginalPrice
                     : 1 / (item.bundleServices?.length || 1);
                 const itemPrice = Math.round(item.price * proportion);
-                const commType = bs.commissionType || "fixed";
-                const commVal = Number(bs.commissionValue || 0);
-                const komisi =
-                  commType === "percentage"
-                    ? Math.round((itemPrice * commVal) / 100)
-                    : commVal;
+                
+                const splitMode = splitData?.splitCommissionMode || "auto";
+                const assignments = splitData?.staffAssignments || [];
 
                 return {
                   item: bs.service,
@@ -1468,14 +1599,14 @@ export default function POSPage() {
                   price: itemPrice,
                   quantity: 1,
                   total: itemPrice,
-                  splitCommissionMode: "auto" as const,
-                  staffAssignments: bundleStaffArr.map((a) => ({
+                  splitCommissionMode: splitMode,
+                  staffAssignments: assignments.map((a: any) => ({
                     staff: a.staffId,
                     staffId: a.staffId,
                     percentage: a.percentage,
                     porsiPersen: a.percentage,
-                    commission: komisi,
-                    komisiNominal: komisi,
+                    commission: a.commission,
+                    komisiNominal: a.commission,
                     tip: 0,
                   })),
                 };
@@ -2374,104 +2505,103 @@ export default function POSPage() {
                       </div>
                     )}
                   {item.type === "Bundle" && (
-                    <div className="pl-8 space-y-1.5 mt-1">
+                    <div className="pl-8 space-y-2 mt-1">
                       {/* Services list inside bundle */}
-                      <div className="bg-blue-50 border border-blue-100 rounded p-1.5 space-y-0.5">
+                      <div className="bg-blue-50 border border-blue-100 rounded p-1.5 mb-2">
                         <p className="text-[9px] font-black text-blue-800 uppercase tracking-wide mb-1">
-                          Jasa dalam bundle:
+                          Pembagian komisi per jasa:
                         </p>
-                        {(item.bundleServices || []).map((bs, i) => (
-                          <div
-                            key={i}
-                            className="flex justify-between text-[9px] text-blue-700"
-                          >
-                            <span className="truncate">{bs.serviceName}</span>
-                            <span className="font-bold flex-shrink-0 ml-1">
-                              {settings.symbol}
-                              {bs.servicePrice.toLocaleString("id-ID", {
-                                maximumFractionDigits: 0,
-                              })}
-                            </span>
-                          </div>
-                        ))}
                       </div>
-                      {/* Staff assignment for bundle (applies to all services inside) */}
-                      <SearchableSelect
-                        placeholder="Assign staff (semua jasa dalam bundle)"
-                        value=""
-                        onChange={(val) =>
-                          addServiceStaffAssignment(item._id, item.type, val)
-                        }
-                        options={staffList.map((s) => ({
-                          value: s._id,
-                          label: s.name,
-                        }))}
-                        className="w-full h-8"
-                        controlClassName="px-2.5 py-1 text-[11px] md:text-[11px] lg:text-xs"
-                      />
-                      {(
-                        serviceStaffAssignments[
-                        getCartItemKey(item._id, item.type)
-                        ] || []
-                      ).length > 0 && (
-                          <div className="space-y-1">
-                            {getEffectiveServiceAssignments(
-                              item._id,
-                              item.type,
-                            ).map((assignment) => {
-                              const splitMode =
-                                serviceSplitModes[
-                                getCartItemKey(item._id, item.type)
-                                ] || "auto";
-                              const staff = staffList.find(
-                                (s) => s._id === assignment.staffId,
-                              );
-                              return (
-                                <div
-                                  key={assignment.staffId}
-                                  className="flex items-center gap-1.5 bg-white p-1 rounded border border-blue-100"
-                                >
-                                  <p className="text-[9px] font-bold text-gray-800 flex-1 truncate">
-                                    {staff?.name}
-                                  </p>
-                                  <div className="flex items-center gap-1 bg-blue-50 px-1 py-0.5 rounded border border-blue-200">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      value={assignment.percentage}
-                                      onChange={(e) =>
-                                        updateServiceStaffPercentage(
-                                          item._id,
-                                          item.type,
-                                          assignment.staffId,
-                                          parseFloat(e.target.value) || 0,
-                                        )
-                                      }
-                                      disabled={splitMode === "auto"}
-                                      className={`w-12 text-right text-xs font-black border border-blue-200 bg-white rounded px-1 disabled:bg-gray-50 disabled:border-transparent focus:outline-none focus:border-blue-400 ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`}
-                                    />
-                                    <span className="text-[10px] font-bold text-blue-900">
-                                      %
-                                    </span>
-                                  </div>
-                                  <button
-                                    onClick={() =>
-                                      removeServiceStaffAssignment(
-                                        item._id,
-                                        item.type,
-                                        assignment.staffId,
-                                      )
-                                    }
-                                    className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded transition-colors"
-                                  >
-                                    <Trash2 className="w-2.5 h-2.5" />
-                                  </button>
-                                </div>
-                              );
-                            })}
+                      
+                      {(item.bundleServices || []).map((bs, i) => {
+                        const bsKey = getCartItemKey(item._id, item.type, i);
+                        const bsAssignments = serviceStaffAssignments[bsKey] || [];
+                        const bsEffective = getEffectiveServiceAssignments(item._id, item.type, i);
+                        const splitMode = serviceSplitModes[bsKey] || "auto";
+                        
+                        return (
+                          <div key={i} className="mb-2 p-2 border border-blue-100 bg-white rounded shadow-sm">
+                            <div className="flex justify-between text-[10px] text-blue-800 font-bold mb-1.5">
+                              <span className="truncate">{bs.serviceName}</span>
+                              <span className="flex-shrink-0 ml-1">
+                                {settings.symbol}
+                                {bs.servicePrice.toLocaleString("id-ID", {
+                                  maximumFractionDigits: 0,
+                                })}
+                              </span>
+                            </div>
+                            
+                            <SearchableSelect
+                              placeholder={`Assign staff untuk ${bs.serviceName}`}
+                              value=""
+                              onChange={(val) =>
+                                addServiceStaffAssignment(item._id, item.type, val, i)
+                              }
+                              options={staffList.map((s) => ({
+                                value: s._id,
+                                label: s.name,
+                              }))}
+                              className="w-full h-8 mb-1.5"
+                              controlClassName="px-2.5 py-1 text-[11px] md:text-[11px] lg:text-xs"
+                            />
+                            
+                            {bsAssignments.length > 0 && (
+                              <div className="space-y-1">
+                                {bsEffective.map((assignment) => {
+                                  const staff = staffList.find(
+                                    (s) => s._id === assignment.staffId,
+                                  );
+                                  return (
+                                    <div
+                                      key={assignment.staffId}
+                                      className="flex items-center gap-1.5 bg-blue-50/50 p-1 rounded border border-blue-100"
+                                    >
+                                      <p className="text-[9px] font-bold text-gray-800 flex-1 truncate">
+                                        {staff?.name}
+                                      </p>
+                                      <div className="flex items-center gap-1 bg-white px-1 py-0.5 rounded border border-blue-200">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max="100"
+                                          value={assignment.percentage}
+                                          onChange={(e) =>
+                                            updateServiceStaffPercentage(
+                                              item._id,
+                                              item.type,
+                                              assignment.staffId,
+                                              parseFloat(e.target.value) || 0,
+                                              i
+                                            )
+                                          }
+                                          disabled={splitMode === "auto"}
+                                          className={`w-12 md:w-14 text-right text-xs md:text-sm font-black border border-blue-200 bg-white rounded px-1 disabled:bg-gray-50 disabled:border-transparent focus:outline-none focus:border-blue-400 ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`}
+                                        />
+                                        <span className="text-[10px] md:text-xs font-bold text-blue-900">
+                                          %
+                                        </span>
+                                      </div>
+                                      <button
+                                        onClick={() =>
+                                          removeServiceStaffAssignment(
+                                            item._id,
+                                            item.type,
+                                            assignment.staffId,
+                                            i
+                                          )
+                                        }
+                                        className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded transition-colors"
+                                      >
+                                        <Trash2 className="w-2.5 h-2.5" />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
-                        )}
+                        );
+                      })}
                     </div>
                   )}
                   {item.type === "Package" && <div className="pl-8"></div>}
