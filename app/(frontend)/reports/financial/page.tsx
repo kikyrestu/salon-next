@@ -52,35 +52,35 @@ export default function FinancialReportPage() {
                         <p className="text-xs text-blue-700 mt-1">Timezone: {settings.timezone}</p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3 bg-white p-2 rounded-xl shadow-sm border border-gray-100">
+                    <div className="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-xl shadow-md border-2 border-gray-300">
                         <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-gray-500 uppercase px-2">From</span>
+                            <span className="text-xs font-bold text-gray-700 uppercase px-2">From</span>
                             <input
                                 type="date"
                                 value={dateRange.startDate}
                                 onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
-                                className="border-none bg-gray-50 rounded-lg text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-blue-900/20 py-1.5 px-3"
+                                className="border-2 border-gray-400 bg-white rounded-lg text-sm font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 py-2 px-3"
                             />
                         </div>
-                        <div className="hidden sm:block w-px bg-gray-200" />
+                        <div className="hidden sm:block w-px bg-gray-300" />
                         <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-gray-500 uppercase px-2">To</span>
+                            <span className="text-xs font-bold text-gray-700 uppercase px-2">To</span>
                             <input
                                 type="date"
                                 value={dateRange.endDate}
                                 onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-                                className="border-none bg-gray-50 rounded-lg text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-blue-900/20 py-1.5 px-3"
+                                className="border-2 border-gray-400 bg-white rounded-lg text-sm font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 py-2 px-3"
                             />
                         </div>
-                        <div className="hidden sm:block w-px bg-gray-200" />
+                        <div className="hidden sm:block w-px bg-gray-300" />
                         <FormButton
                             onClick={fetchReport}
                             loading={loading}
                             variant="ghost"
-                            className="p-2"
+                            className="p-2.5"
                             title="Refresh Data"
                         >
-                            <RefreshCcw className="w-4 h-4" />
+                            <RefreshCcw className="w-5 h-5" />
                         </FormButton>
                     </div>
                 </div>

@@ -14,6 +14,7 @@ interface PackageUpdateBody {
   code?: string;
   description?: string;
   price?: number;
+  image?: string;
   isActive?: boolean;
   items?: PackageInputItem[];
 }
@@ -77,6 +78,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.price !== undefined) updatePayload.price = Number(body.price || 0);
     if (body.code !== undefined) updatePayload.code = sanitizeCode(String(body.code));
     if (body.isActive !== undefined) updatePayload.isActive = Boolean(body.isActive);
+    if (body.image !== undefined) updatePayload.image = body.image ? String(body.image).trim() : undefined;
 
     if (body.items !== undefined) {
       const itemValidationError = validateItems(body.items);

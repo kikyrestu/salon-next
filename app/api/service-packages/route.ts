@@ -14,6 +14,7 @@ interface PackageBody {
   code: string;
   description?: string;
   price: number;
+  image?: string;
   items: PackageInputItem[];
   isActive?: boolean;
 }
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
     initModels();
 
     const body = (await request.json()) as PackageBody;
-    const { name, code, description, price, items } = body;
+    const { name, code, description, price, image, items } = body;
 
     if (!name || !code) {
       return NextResponse.json({ success: false, error: 'name and code are required' }, { status: 400 });
@@ -108,6 +109,7 @@ export async function POST(request: NextRequest) {
       code: normalizedCode,
       description: description ? String(description).trim() : undefined,
       price: Number(price || 0),
+      image: image ? String(image).trim() : undefined,
       items: items.map((item) => ({
         service: item.service,
         serviceName: serviceNameMap.get(String(item.service)) || item.serviceName || 'Service',

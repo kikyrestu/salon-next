@@ -37,7 +37,7 @@ export default function Modal({ isOpen, onClose, title, children, size = "md" }:
                         <h3 className="text-xl font-bold text-gray-900">{title}</h3>
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                            className="text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors p-1 rounded-md"
                         >
                             <X className="w-6 h-6" />
                         </button>

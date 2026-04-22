@@ -105,14 +105,14 @@ export default function LoginPage() {
                                 Email
                             </label>
                             <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-400/50" />
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-300" />
                                 <input
                                     id="email"
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
-                                    className="w-full pl-10 pr-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-blue-300/40 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+                                    className="w-full pl-10 pr-3 py-2.5 bg-white/10 border-2 border-white/30 rounded-lg text-sm text-white placeholder-blue-200/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all"
                                     placeholder="you@example.com"
                                 />
                             </div>
@@ -124,14 +124,14 @@ export default function LoginPage() {
                                 Password
                             </label>
                             <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-400/50" />
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-300" />
                                 <input
                                     id="password"
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
-                                    className="w-full pl-10 pr-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-blue-300/40 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+                                    className="w-full pl-10 pr-3 py-2.5 bg-white/10 border-2 border-white/30 rounded-lg text-sm text-white placeholder-blue-200/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all"
                                     placeholder="••••••••"
                                 />
                             </div>
@@ -139,10 +139,10 @@ export default function LoginPage() {
 
                         {/* Remember Me */}
                         <div className="flex items-center">
-                            <label className="flex items-center gap-2 text-xs text-blue-200/60 cursor-pointer hover:text-blue-200 transition-colors">
+                            <label className="flex items-center gap-2 text-xs text-blue-100 cursor-pointer hover:text-white transition-colors">
                                 <input
                                     type="checkbox"
-                                    className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer"
+                                    className="w-4 h-4 rounded border-2 border-white/40 bg-white/10 text-blue-500 focus:ring-blue-400 focus:ring-offset-0 cursor-pointer"
                                 />
                                 Remember me
                             </label>

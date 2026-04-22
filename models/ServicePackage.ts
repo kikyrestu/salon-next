@@ -10,6 +10,7 @@ export interface IServicePackage extends Document {
     serviceName: string;
     quota: number;
   }[];
+  image?: string;
   isActive: boolean;
 }
 
@@ -19,6 +20,7 @@ const servicePackageSchema = new Schema<IServicePackage>(
     code: { type: String, required: true, trim: true, uppercase: true, unique: true },
     description: { type: String, trim: true },
     price: { type: Number, required: true, min: 0 },
+    image: { type: String },
     items: [
       {
         service: { type: Schema.Types.ObjectId, ref: 'Service', required: true },

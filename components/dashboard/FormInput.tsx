@@ -16,7 +16,7 @@ export default function FormInput({ label, error, className = "", ...props }: Fo
                 {props.required && <span className="text-red-500 ml-1">*</span>}
             </label>
             <input
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${error ? "border-red-500" : ""
+                className={`w-full px-4 py-2 border-2 border-gray-400 rounded-lg bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 ${error ? "border-red-500 focus:ring-red-500 focus:border-red-500" : ""
                     } ${className}`}
                 {...props}
             />
@@ -40,7 +40,7 @@ export function FormTextArea({ label, error, rows = 3, className = "", ...props 
             </label>
             <textarea
                 rows={rows}
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${error ? "border-red-500" : ""
+                className={`w-full px-4 py-2 border-2 border-gray-400 rounded-lg bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 ${error ? "border-red-500 focus:ring-red-500 focus:border-red-500" : ""
                     } ${className}`}
                 {...props}
             />

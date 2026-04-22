@@ -386,13 +386,14 @@ export default function ReportsPage() {
 
                 return (
                     <div className="space-y-6">
-                        <div className="flex gap-2 items-center bg-white p-2 rounded-lg border w-max">
-                            <span className="text-xs font-bold text-gray-500 px-2">Payment Method:</span>
-                            <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)} className="border-0 bg-gray-50 text-xs font-bold rounded-lg p-1 outline-none focus:ring-0">
+                        <div className="flex gap-2 items-center bg-white p-3 rounded-lg border-2 border-gray-300 shadow-sm w-max">
+                            <span className="text-xs font-bold text-gray-700 px-2">Payment Method:</span>
+                            <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)} className="border-2 border-gray-400 bg-white text-sm font-bold text-gray-900 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600">
                                 <option value="all">All Methods</option>
                                 <option value="cash">Cash</option>
                                 <option value="transfer">Transfer</option>
                                 <option value="debit">Debit</option>
+                                <option value="credit card">Credit Card</option>
                                 <option value="qris">QRIS</option>
                             </select>
                         </div>
@@ -605,28 +606,28 @@ export default function ReportsPage() {
                         </div>
 
                         <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-                            <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-200 w-full sm:w-auto justify-center">
-                                <button onClick={() => setPresetRange('thisMonth')} className="px-4 py-2 text-xs font-bold rounded-lg hover:bg-white hover:shadow-sm transition-all flex-1 sm:flex-none">Month</button>
-                                <button onClick={() => setPresetRange('last3Months')} className="px-4 py-2 text-xs font-bold rounded-lg hover:bg-white hover:shadow-sm transition-all flex-1 sm:flex-none">Quarter</button>
-                                {activeTab === 'daily' && <button onClick={() => setPresetRange('today')} className="px-4 py-2 text-xs font-bold rounded-lg bg-white shadow-sm transition-all flex-1 sm:flex-none">Today</button>}
+                            <div className="flex items-center gap-2 bg-white p-2 rounded-xl border-2 border-gray-300 shadow-sm w-full sm:w-auto justify-center">
+                                <button onClick={() => setPresetRange('thisMonth')} className="px-4 py-2 text-sm font-bold text-gray-900 rounded-lg bg-gray-100 hover:bg-blue-600 hover:text-white border-2 border-gray-300 hover:border-blue-600 transition-all flex-1 sm:flex-none">Month</button>
+                                <button onClick={() => setPresetRange('last3Months')} className="px-4 py-2 text-sm font-bold text-gray-900 rounded-lg bg-gray-100 hover:bg-blue-600 hover:text-white border-2 border-gray-300 hover:border-blue-600 transition-all flex-1 sm:flex-none">Quarter</button>
+                                {activeTab === 'daily' && <button onClick={() => setPresetRange('today')} className="px-4 py-2 text-sm font-bold text-white rounded-lg bg-blue-600 border-2 border-blue-700 shadow-sm transition-all flex-1 sm:flex-none hover:bg-blue-700">Today</button>}
                             </div>
 
-                            <div className="flex justify-center items-center gap-2 bg-white px-3 py-2 rounded-xl border border-gray-200 shadow-sm w-full sm:w-auto">
-                                <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+                            <div className="flex justify-center items-center gap-2 bg-white px-4 py-2.5 rounded-xl border-2 border-gray-300 shadow-sm w-full sm:w-auto">
+                                <Calendar className="w-4 h-4 text-gray-600 shrink-0" />
                                 <input
                                     type="date"
                                     value={dateRange.start}
                                     onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                                    className="border-none text-xs font-bold p-0 focus:ring-0 w-28 bg-transparent"
+                                    className="border-2 border-gray-400 rounded-md text-sm font-bold text-gray-900 px-2 py-1 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 w-32 bg-white"
                                 />
                                 {activeTab !== 'daily' && (
                                     <>
-                                        <span className="text-gray-200 font-bold px-1">/</span>
+                                        <span className="text-gray-400 font-bold px-1">/</span>
                                         <input
                                             type="date"
                                             value={dateRange.end}
                                             onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                                            className="border-none text-xs font-bold p-0 focus:ring-0 w-28 bg-transparent"
+                                            className="border-2 border-gray-400 rounded-md text-sm font-bold text-gray-900 px-2 py-1 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 w-32 bg-white"
                                         />
                                     </>
                                 )}

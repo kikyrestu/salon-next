@@ -155,6 +155,7 @@ export default function PackagesPage() {
           code: formCode,
           description: formDescription,
           price: Number(formPrice),
+          image: formImage || undefined,
           items: formItems.map((item) => ({ service: item.serviceId, quota: Number(item.quota) })),
         }),
       });

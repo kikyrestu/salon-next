@@ -141,12 +141,12 @@ export default function SetupForm() {
                                     Full Name
                                 </label>
                                 <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
                                     <input
                                         type="text"
                                         value={formData.name}
                                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg text-black placeholder:text-gray-400 caret-black focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        className="w-full pl-11 pr-4 py-3 border-2 border-gray-400 rounded-lg text-black placeholder:text-gray-500 caret-black focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all"
                                         placeholder="Enter your full name"
                                     />
                                 </div>
@@ -158,13 +158,13 @@ export default function SetupForm() {
                                     Email Address <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
                                     <input
                                         type="email"
                                         required
                                         value={formData.email}
                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg text-black placeholder:text-gray-400 caret-black focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        className="w-full pl-11 pr-4 py-3 border-2 border-gray-400 rounded-lg text-black placeholder:text-gray-500 caret-black focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all"
                                         placeholder="admin@example.com"
                                     />
                                 </div>
@@ -176,18 +176,18 @@ export default function SetupForm() {
                                     Password <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
                                     <input
                                         type="password"
                                         required
                                         value={formData.password}
                                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg text-black placeholder:text-gray-400 caret-black focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        className="w-full pl-11 pr-4 py-3 border-2 border-gray-400 rounded-lg text-black placeholder:text-gray-500 caret-black focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all"
                                         placeholder="Minimum 8 characters"
                                         minLength={8}
                                     />
                                 </div>
-                                <p className="mt-1.5 text-xs text-gray-500">
+                                <p className="mt-1.5 text-xs text-gray-600">
                                     Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character
                                 </p>
                             </div>
@@ -198,13 +198,13 @@ export default function SetupForm() {
                                     Confirm Password <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
                                     <input
                                         type="password"
                                         required
                                         value={formData.confirmPassword}
                                         onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg text-black placeholder:text-gray-400 caret-black focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        className="w-full pl-11 pr-4 py-3 border-2 border-gray-400 rounded-lg text-black placeholder:text-gray-500 caret-black focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all"
                                         placeholder="Re-enter your password"
                                     />
                                 </div>

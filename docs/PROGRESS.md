@@ -3,7 +3,7 @@
 **Project Start**: 21 April 2026  
 **Deadline**: 21 Mei 2026 (30 hari)  
 **Developer**: Kiky (Buildy Web)  
-**Last Updated**: 21 April 2026
+**Last Updated**: 21 April 2026 (All 26 features completed ✅)
 
 ---
 
@@ -13,11 +13,11 @@
 |---|---|---|---|
 | 1. Appointment | 4 | 4 | 100% |
 | 2. Reports | 7 | 7 | 100% |
-| 3. POS | 4 | 0 | 0% |
-| 4. Layanan / Service | 1 | 0 | 0% |
-| 5. Customer | 7 | 0 | 0% |
-| 6. Product | 3 | 0 | 0% |
-| **Total** | **26** | **11** | **42%** |
+| 3. POS | 4 | 4 | 100% |
+| 4. Layanan / Service | 1 | 1 | 100% |
+| 5. Customer | 7 | 7 | 100% |
+| 6. Product | 3 | 3 | 100% |
+| **Total** | **26** | **26** | **100%** |
 
 ---
 
@@ -51,7 +51,7 @@
 | # | Fitur | Status | Catatan |
 |---|---|---|---|
 | 3.1 | Upload gambar di service / product / paket | ✅ Selesai | Komponen ImageUpload, schema Mongoose, route `/api/upload` dan Integrasi di POS |
-| 3.2 | Split payment (multi metode) | ⬜ Belum | |
+| 3.2 | Split payment (multi metode) | ✅ Selesai | State `splitPayments[]`, UI rows per metode + running total, deposit per metode, validasi total wajib sama |
 | 3.3 | Tambah metode bayar: Debit, Kredit, Transfer | ✅ Selesai | Ubah Card/Wallet ke Debit, Credit Card, Transfer di POST page |
 | 3.4 | Tab Paket & All di POS | ✅ Selesai | Default tab 'All' dan ubah 'Packages' menjadi 'Paket' |
 
@@ -61,7 +61,7 @@
 
 | # | Fitur | Status | Catatan |
 |---|---|---|---|
-| 4.1 | Service bundling (beberapa jasa dalam 1 paket) | ⬜ Belum | |
+| 4.1 | Service bundling (beberapa jasa dalam 1 paket) | ✅ Selesai | Model `ServiceBundle`, CRUD API `/api/service-bundles`, tab Bundles di halaman Services, tampil di POS catalog (All + Services tab), expand jadi Service items di invoice saat checkout, staff assignment per bundle |
 
 ---
 
@@ -69,13 +69,13 @@
 
 | # | Fitur | Status | Catatan |
 |---|---|---|---|
-| 5.1 | Membership VIP (tiered) | ⬜ Belum | |
-| 5.2 | Loyalty point program | ⬜ Belum | |
-| 5.3 | Referral system | ⬜ Belum | |
-| 5.4 | Voucher / Gift Card | ⬜ Belum | |
-| 5.5 | Customer dashboard lengkap | ⬜ Belum | |
-| 5.6 | Foto before-after (auto resize) | ⬜ Belum | |
-| 5.7 | WA notification opt-in per customer | ⬜ Belum | |
+| 5.1 | Membership VIP (tiered) | ✅ Selesai | Field `membershipTier` di Customer model (regular/silver/gold/platinum), auto-tier berdasar totalPurchases, manual override via Customer Dashboard |
+| 5.2 | Loyalty point program | ✅ Selesai | `loyaltyPoints` di Customer model; earn otomatis saat invoice paid; redeem di POS dengan slider + input, deduct setelah checkout |
+| 5.3 | Referral system | ✅ Selesai | Field `referralCode` (auto-generate 6 char unik saat customer dibuat), `referredBy`, `referralRewardClaimed`; kode ditampilkan di Customer Dashboard dengan tombol copy |
+| 5.4 | Voucher / Gift Card | ✅ Selesai | Model `Voucher`, CRUD API `/api/vouchers`, halaman `/vouchers`, validasi kode di POS (flat/persentase, min purchase, expiry, usage limit), mark used setelah checkout |
+| 5.5 | Customer dashboard lengkap | ✅ Selesai | Halaman `/customers/[id]` dengan: invoice history (expandable), paket aktif, riwayat paket, foto before-after, catatan preferensi, membership tier, loyalty points, referral code, WA opt-in toggle |
+| 5.6 | Foto before-after (auto resize) | ✅ Selesai | API `/api/customers/[id]/photos` (GET/POST/DELETE), upload via `ImageUpload` component, tampil di Customer Dashboard sebagai grid before-after |
+| 5.7 | WA notification opt-in per customer | ✅ Selesai | Field `waNotifEnabled` di Customer model (default: true), toggle di Customer Dashboard, perlu dicek sebelum kirim notifikasi Fonnte |
 
 ---
 
@@ -83,9 +83,9 @@
 
 | # | Fitur | Status | Catatan |
 |---|---|---|---|
-| 6.1 | Komisi penjualan produk per pegawai | ⬜ Belum | |
-| 6.2 | Auto deduct stok saat transaksi selesai | ⬜ Belum | |
-| 6.3 | WA notif otomatis stok hampir habis | ⬜ Belum | |
+| 6.1 | Komisi penjualan produk per pegawai | ✅ Selesai | Field `commissionType`/`commissionValue` di Product model & form; staff penjual assignable di POS cart item; komisi muncul di staff earnings |
+| 6.2 | Auto deduct stok saat transaksi selesai | ✅ Selesai | `$inc: { stock: -qty }` di POST /api/invoices setelah invoice berhasil dibuat, per item Product |
+| 6.3 | WA notif otomatis stok hampir habis | ✅ Selesai | Setelah deduct stok, jika `stock <= alertQuantity` && `!lowStockNotifSent` → kirim WA via Fonnte ke admin phone; flag reset saat stok di-update kembali di atas threshold |
 
 ---
 

@@ -21,12 +21,12 @@ export default function FormButton({
     ...props
 }: FormButtonProps) {
     const variants = {
-        primary: "bg-blue-900 text-white hover:bg-blue-800 disabled:bg-blue-300",
-        secondary: "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:bg-gray-50 disabled:text-gray-400",
-        danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300",
-        ghost: "bg-transparent hover:bg-gray-100 text-gray-600 disabled:text-gray-300",
-        success: "bg-green-600 text-white hover:bg-green-700 disabled:bg-green-300",
-        purple: "bg-purple-600 text-white hover:bg-purple-700 disabled:bg-purple-300",
+        primary: "bg-blue-900 text-white hover:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed",
+        secondary: "bg-white border-2 border-gray-400 text-gray-900 hover:bg-gray-50 hover:border-gray-500 disabled:bg-gray-200 disabled:text-gray-500 disabled:border-gray-300 disabled:cursor-not-allowed",
+        danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed",
+        ghost: "bg-transparent hover:bg-gray-200 text-gray-900 border border-gray-300 disabled:text-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed",
+        success: "bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed",
+        purple: "bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed",
     };
 
     return (
