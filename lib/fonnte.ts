@@ -1,3 +1,6 @@
+import mongoose from "mongoose";
+import Settings from "@/models/Settings";
+
 export interface SendWhatsAppResult {
     success: boolean;
     data?: unknown;
@@ -5,10 +8,26 @@ export interface SendWhatsAppResult {
 }
 
 export async function sendWhatsApp(phone: string, message: string): Promise<SendWhatsAppResult> {
-    const token = String(process.env.FONNTE_TOKEN || '').trim();
+    // Try to connect to DB and get settings if not already connected
+    if (mongoose.connection.readyState !== 1) {
+        try {
+            await mongoose.connect(process.env.MONGODB_URI as string);
+        } catch (e) {
+            console.error("Fonnte DB connect error:", e);
+        }
+    }
+    
+    let token = String(process.env.FONNTE_TOKEN || '').trim();
+    
+    try {
+        const settings = await Settings.findOne({});
+        if (settings && settings.fonnteToken) {
+            token = String(settings.fonnteToken).trim();
+        }
+    } catch (e) {}
 
     if (!token) {
-        return { success: false, error: 'FONNTE_TOKEN is not configured' };
+        return { success: false, error: 'FONNTE_TOKEN is not configured in settings or env' };
     }
 
     if (!phone || !message) {

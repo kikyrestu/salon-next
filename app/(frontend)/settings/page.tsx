@@ -24,6 +24,9 @@ interface Settings {
     receiptFooter: string;
     termsAndConditions: string;
 
+    // WhatsApp Settings (Fonnte)
+    fonnteToken: string;
+
     // SMS Settings
     smsEnabled: boolean;
     twilioAccountSid: string;
@@ -70,6 +73,8 @@ export default function SettingsPage() {
         businessHours: "Mon-Fri: 9:00 AM - 6:00 PM",
         receiptFooter: "Thank you for your business!",
         termsAndConditions: "",
+        // WhatsApp Settings
+        fonnteToken: "",
         // SMS Settings
         smsEnabled: false,
         twilioAccountSid: "",
@@ -149,6 +154,8 @@ export default function SettingsPage() {
                     receiptFooter: data.data.receiptFooter || "Thank you for your business!",
                     termsAndConditions: data.data.termsAndConditions || "",
 
+                    // WhatsApp Settings
+                    fonnteToken: data.data.fonnteToken || "",
                     // SMS Settings
                     smsEnabled: data.data.smsEnabled || false,
                     twilioAccountSid: data.data.twilioAccountSid || "",
@@ -194,7 +201,7 @@ export default function SettingsPage() {
             });
             const data = await res.json();
             if (data.success) {
-                setSettings(data.data);
+                setSettings(prev => ({ ...prev, ...data.data }));
                 await refreshSettings();
                 setMessage({ type: "success", text: "Settings saved successfully!" });
             } else {
@@ -537,6 +544,30 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+
+                {/* WhatsApp Settings (Fonnte) */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <MessageSquare className="w-5 h-5 text-green-600" />
+                        WhatsApp Settings (Fonnte API)
+                    </h2>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 gap-4">
+                            <FormInput
+                                label="Fonnte API Token"
+                                type="password"
+                                value={settings.fonnteToken}
+                                onChange={(e) => setSettings({ ...settings, fonnteToken: e.target.value })}
+                                placeholder="Your Fonnte Token"
+                            />
+                            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <p className="text-xs text-yellow-800">
+                                    <strong>Note:</strong> Get your Token from <a href="https://fonnte.com" target="_blank" rel="noopener noreferrer" className="underline">Fonnte API Dashboard</a>. This will override the token from `.env` file if provided.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

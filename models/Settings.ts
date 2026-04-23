@@ -55,6 +55,10 @@ const SettingsSchema = new mongoose.Schema({
         default: ''
     },
 
+    fonnteToken: {
+        type: String,
+        default: ''
+    },
     // SMS Settings (Twilio)
     smsEnabled: {
         type: Boolean,
@@ -128,8 +132,10 @@ const SettingsSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Settings should be a singleton, but we'll handle that in the API logic
-// by always fetching/updating the first document
-const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
+// Force re-register model on hot-reload so schema changes (like new fonnteToken field) take effect
+if (mongoose.models.Settings) {
+    delete mongoose.models.Settings;
+}
+const Settings = mongoose.model('Settings', SettingsSchema);
 
 export default Settings;
