@@ -17,6 +17,7 @@ export interface IProduct extends Document {
   status: "active" | "inactive";
   commissionType?: "percentage" | "fixed";
   commissionValue?: number;
+  lowStockAlertEnabled: boolean;
   lowStockNotifSent?: boolean;
 }
 
@@ -44,6 +45,7 @@ const productSchema = new Schema<IProduct>(
       default: "fixed",
     },
     commissionValue: { type: Number, default: 0, min: 0 },
+    lowStockAlertEnabled: { type: Boolean, default: true },
     lowStockNotifSent: { type: Boolean, default: false },
     supplier: { type: Schema.Types.ObjectId, ref: "Supplier" },
     status: {

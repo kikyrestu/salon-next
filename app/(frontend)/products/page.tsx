@@ -39,6 +39,7 @@ interface Product {
   status: string;
   commissionType?: "fixed" | "percentage";
   commissionValue?: number;
+  lowStockAlertEnabled?: boolean;
 }
 
 export default function ProductsPage() {
@@ -84,6 +85,7 @@ export default function ProductsPage() {
     status: "active",
     commissionType: "fixed" as "fixed" | "percentage",
     commissionValue: 0,
+    lowStockAlertEnabled: true,
   });
 
   useEffect(() => {
@@ -169,6 +171,7 @@ export default function ProductsPage() {
         status: product.status,
         commissionType: product.commissionType || "fixed",
         commissionValue: product.commissionValue ?? 0,
+        lowStockAlertEnabled: product.lowStockAlertEnabled !== false,
       });
     } else {
       setEditingProduct(null);
@@ -185,6 +188,7 @@ export default function ProductsPage() {
         status: "active",
         commissionType: "fixed",
         commissionValue: 0,
+        lowStockAlertEnabled: true,
       });
     }
     setIsModalOpen(true);
@@ -719,6 +723,20 @@ export default function ProductsPage() {
               }
               min="0"
             />
+          </div>
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <input
+              type="checkbox"
+              id="lowStockAlert"
+              checked={formData.lowStockAlertEnabled}
+              onChange={(e) =>
+                setFormData({ ...formData, lowStockAlertEnabled: e.target.checked })
+              }
+              className="w-4 h-4 rounded border-gray-300 text-blue-900 focus:ring-blue-900"
+            />
+            <label htmlFor="lowStockAlert" className="text-sm text-amber-800 font-medium cursor-pointer">
+              Aktifkan pengingat WA saat stok rendah
+            </label>
           </div>
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6 pt-2">
             <button

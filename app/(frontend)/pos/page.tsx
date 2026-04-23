@@ -2298,7 +2298,7 @@ export default function POSPage() {
                       </button>
                     </div>
                   </div>
-                  {item.type === "Service" && (
+                  {(item.type === "Service" || item.type === "Product") && (
                     <div className="pl-8 space-y-1.5">
                       {(() => {
                         const key = getCartItemKey(item._id, item.type);
@@ -2363,6 +2363,7 @@ export default function POSPage() {
                         );
                       })()}
 
+                      {item.type === "Service" && (
                       <div className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-100 rounded p-1.5">
                         <label className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700">
                           <input
@@ -2392,6 +2393,7 @@ export default function POSPage() {
                             </span>
                           )}
                       </div>
+                      )}
 
                       {packageClaims[getCartItemKey(item._id, item.type)]
                         ?.enabled && (

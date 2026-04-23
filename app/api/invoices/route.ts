@@ -187,7 +187,8 @@ export async function POST(request: NextRequest) {
 
         if (
           updatedProduct.stock <= updatedProduct.alertQuantity &&
-          !updatedProduct.lowStockNotifSent
+          !updatedProduct.lowStockNotifSent &&
+          updatedProduct.lowStockAlertEnabled !== false
         ) {
           // Send WA low-stock notification to admin — error must NOT fail invoice creation
           try {
