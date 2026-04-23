@@ -51,3 +51,7 @@ next-env.d.ts
 # sensitive local files
 secret_api_key xendit.csv
 xendit api key.txt
+
+# project docs & github config
+/docs
+.github/
