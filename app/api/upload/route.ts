@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
+import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 
 export async function POST(request: Request) {
@@ -8,7 +8,7 @@ export async function POST(request: Request) {
         const file = formData.get('file') as File | null;
 
         if (!file) {
-            return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+            return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 });
         }
 
         const bytes = await file.arrayBuffer();
@@ -16,8 +16,11 @@ export async function POST(request: Request) {
 
         const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
         const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-        const filePath = path.join(uploadDir, fileName);
 
+        // Ensure uploads directory exists
+        await mkdir(uploadDir, { recursive: true });
+
+        const filePath = path.join(uploadDir, fileName);
         await writeFile(filePath, buffer);
 
         return NextResponse.json({ 
@@ -26,6 +29,6 @@ export async function POST(request: Request) {
         });
     } catch (error: any) {
         console.error('File upload error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: error.message || 'Upload failed' }, { status: 500 });
     }
 }
