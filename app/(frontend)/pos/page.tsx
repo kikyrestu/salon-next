@@ -1489,6 +1489,8 @@ export default function POSPage() {
         }
 
         if (isMarkedPaid) {
+          let lastInvoiceId: string | null = null;
+
           for (const payment of createdPayments) {
             const markPaidRes = await fetch(
               `/api/package-orders/${payment.sourceId}`,
@@ -1507,26 +1509,46 @@ export default function POSPage() {
               alert(markPaidData.error || "Gagal konfirmasi pembayaran paket");
               return;
             }
+
+            // Capture the invoice ID for receipt redirect
+            if (markPaidData.invoice?._id) {
+              lastInvoiceId = markPaidData.invoice._id;
+            }
           }
 
-          alert(
-            `Pembayaran ${createdPayments.length} paket tersimpan dan paket customer langsung aktif.`,
-          );
+          setCart([]);
+          setDiscount(0);
+          setStaffTips({});
+          setSelectedCustomer("");
+          setFollowUpPhoneNumber("");
+          setServiceStaffAssignments({});
+          setServiceSplitModes({});
+          setPackageClaims({});
+          setSplitPayments([{ method: "", amount: "" }]);
+
+          // Redirect to receipt if invoice was created
+          if (lastInvoiceId) {
+            router.push(`/invoices/print/${lastInvoiceId}`);
+          } else {
+            alert(
+              `Pembayaran ${createdPayments.length} paket tersimpan dan paket customer langsung aktif.`,
+            );
+          }
         } else {
           alert(
             `Order ${createdPayments.length} paket dibuat sebagai belum dibayar (pending). Paket akan aktif setelah dilunasi.`,
           );
-        }
 
-        setCart([]);
-        setDiscount(0);
-        setStaffTips({});
-        setSelectedCustomer("");
-        setFollowUpPhoneNumber("");
-        setServiceStaffAssignments({});
-        setServiceSplitModes({});
-        setPackageClaims({});
-        setSplitPayments([{ method: "", amount: "" }]);
+          setCart([]);
+          setDiscount(0);
+          setStaffTips({});
+          setSelectedCustomer("");
+          setFollowUpPhoneNumber("");
+          setServiceStaffAssignments({});
+          setServiceSplitModes({});
+          setPackageClaims({});
+          setSplitPayments([{ method: "", amount: "" }]);
+        }
         return;
       }
 

@@ -50,7 +50,7 @@ export interface IInvoice extends Document {
   commission: number;
   notes?: string;
   followUpPhoneNumber?: string;
-  sourceType: "normal_sale" | "package_redeem";
+  sourceType: "normal_sale" | "package_redeem" | "package_purchase";
   date: Date;
 }
 
@@ -170,7 +170,7 @@ const invoiceSchema = new Schema<IInvoice>(
     },
     sourceType: {
       type: String,
-      enum: ["normal_sale", "package_redeem"],
+      enum: ["normal_sale", "package_redeem", "package_purchase"],
       default: "normal_sale",
     },
     date: { type: Date, default: Date.now },

@@ -128,10 +128,11 @@ export default function Sidebar({
       "WA Templates": "services",
       Packages: "services",
       Products: "products",
+      Vouchers: "vouchers",
       Purchases: "purchases",
       "Usage Logs": "usageLogs",
       Staff: "staff",
-      "Staff Slots": "staffSlots", // Use staffSlots permission for staff slots
+      "Staff Slots": "staffSlots",
       Customers: "customers",
       Suppliers: "suppliers",
       Payroll: "payroll",

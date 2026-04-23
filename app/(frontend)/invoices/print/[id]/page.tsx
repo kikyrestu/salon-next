@@ -169,10 +169,10 @@ export default function PrintInvoicePage() {
                         <span>{currencySymbol}{invoice.totalAmount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                     </div>
 
-                    {/* Staff Recognition & Commissions */}
+                    {/* Staff Recognition (Commission hidden from customer receipt) */}
                     {invoice.staffAssignments && invoice.staffAssignments.length > 0 && (
                         <div className="mt-8 pt-6 border-t border-gray-100">
-                            <p className="mb-3 uppercase font-black tracking-widest text-[9px] text-gray-400 border-l-2 border-gray-200 pl-2">Service Execution & Staff Details</p>
+                            <p className="mb-3 uppercase font-black tracking-widest text-[9px] text-gray-400 border-l-2 border-gray-200 pl-2">Served By</p>
                             <div className="space-y-1.5 px-1 py-1">
                                 {invoice.staffAssignments.map((a: any, i: number) => (
                                     <div key={i} className="flex items-center justify-between text-[11px] bg-gray-50/50 p-2 rounded border border-gray-100/50">
@@ -180,12 +180,9 @@ export default function PrintInvoicePage() {
                                             <div className="w-1.5 h-1.5 bg-gray-300 rounded-full"></div>
                                             <span className="font-bold text-gray-800 uppercase tracking-tight">{a.staff?.name || 'Staff Member'}</span>
                                         </div>
-                                        <div className="flex divide-x divide-gray-200 items-center">
-                                            <span className="px-2 text-gray-500 font-medium">Comm: {currencySymbol}{a.commission.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                                            {a.tip > 0 && (
-                                                <span className="px-2 text-indigo-600 font-black italic underline decoration-indigo-200 underline-offset-2">Tip: {currencySymbol}{a.tip.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                                            )}
-                                        </div>
+                                        {a.tip > 0 && (
+                                            <span className="px-2 text-indigo-600 font-black italic underline decoration-indigo-200 underline-offset-2">Tip: {currencySymbol}{a.tip.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                        )}
                                     </div>
                                 ))}
                             </div>

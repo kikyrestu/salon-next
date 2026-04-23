@@ -32,6 +32,8 @@ interface ServicePackage {
   code: string;
   description?: string;
   price: number;
+  commissionType?: 'percentage' | 'fixed';
+  commissionValue?: number;
   isActive: boolean;
   items: ServicePackageItem[];
 }
@@ -71,6 +73,9 @@ export default function PackagesPage() {
   const [formPrice, setFormPrice] = useState<number | string>("");
   const [formDescription, setFormDescription] = useState("");
   const [formItems, setFormItems] = useState<Array<{ serviceId: string; quota: number | string }>>([]);
+  const [formCommissionType, setFormCommissionType] = useState<'percentage' | 'fixed'>('fixed');
+  const [formCommissionValue, setFormCommissionValue] = useState<number | string>(0);
+  const [editingPackage, setEditingPackage] = useState<ServicePackage | null>(null);
 
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedPackage, setSelectedPackage] = useState("");
@@ -131,6 +136,9 @@ export default function PackagesPage() {
     setFormPrice("");
     setFormDescription("");
     setFormItems([]);
+    setFormCommissionType('fixed');
+    setFormCommissionValue(0);
+    setEditingPackage(null);
   };
 
   const createPackage = async () => {
@@ -147,8 +155,9 @@ export default function PackagesPage() {
 
     setSaving(true);
     try {
-      const res = await fetch("/api/service-packages", {
-        method: "POST",
+      const url = editingPackage ? `/api/service-packages/${editingPackage._id}` : "/api/service-packages";
+      const res = await fetch(url, {
+        method: editingPackage ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formName,
@@ -156,6 +165,8 @@ export default function PackagesPage() {
           description: formDescription,
           price: Number(formPrice),
           image: formImage || undefined,
+          commissionType: formCommissionType,
+          commissionValue: Number(formCommissionValue || 0),
           items: formItems.map((item) => ({ service: item.serviceId, quota: Number(item.quota) })),
         }),
       });
@@ -319,11 +330,44 @@ export default function PackagesPage() {
                     {pkg.isActive ? "active" : "inactive"}
                   </span>
                 </div>
-                <p className="text-sm font-bold text-blue-900 mt-2">{settings.symbol}{pkg.price}</p>
+                <p className="text-sm font-bold text-blue-900 mt-2">{settings.symbol}{pkg.price.toLocaleString('id-ID')}</p>
+                {(pkg.commissionValue || 0) > 0 && (
+                  <p className="text-xs text-green-600 font-semibold">Komisi: {pkg.commissionType === 'percentage' ? `${pkg.commissionValue}%` : `${settings.symbol}${(pkg.commissionValue || 0).toLocaleString('id-ID')}`}</p>
+                )}
                 <div className="mt-2 space-y-1">
                   {pkg.items.map((item, idx) => (
                     <p key={idx} className="text-xs text-gray-700">- {item.serviceName}: {item.quota}x</p>
                   ))}
+                </div>
+                <div className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-2">
+                  <button
+                    onClick={() => {
+                      setEditingPackage(pkg);
+                      setFormName(pkg.name);
+                      setFormCode(pkg.code);
+                      setFormPrice(pkg.price);
+                      setFormDescription(pkg.description || "");
+                      setFormCommissionType(pkg.commissionType || 'fixed');
+                      setFormCommissionValue(pkg.commissionValue || 0);
+                      setFormItems(pkg.items.map(i => ({ serviceId: typeof i.service === 'string' ? i.service : (i.service as any)?._id || '', quota: i.quota })));
+                      setIsModalOpen(true);
+                    }}
+                    className="text-xs text-blue-700 font-bold hover:underline"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Hapus package "${pkg.name}"?`)) return;
+                      const res = await fetch(`/api/service-packages/${pkg._id}`, { method: 'DELETE' });
+                      const data = await res.json();
+                      if (data.success) loadData();
+                      else alert(data.error || 'Gagal hapus');
+                    }}
+                    className="text-xs text-red-600 font-bold hover:underline"
+                  >
+                    Hapus
+                  </button>
                 </div>
               </div>
             ))}
@@ -356,7 +400,7 @@ export default function PackagesPage() {
         </div>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Buat Master Package">
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title={editingPackage ? "Edit Package" : "Buat Master Package"}>
         <div className="space-y-3">
           <ImageUpload 
             label="Package Image" 
@@ -383,6 +427,30 @@ export default function PackagesPage() {
             value={formPrice}
             onChange={(e) => setFormPrice(e.target.value)}
           />
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Tipe Komisi</label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                value={formCommissionType}
+                onChange={(e) => setFormCommissionType(e.target.value as 'percentage' | 'fixed')}
+              >
+                <option value="fixed">Nominal (Rp)</option>
+                <option value="percentage">Persentase (%)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Nilai Komisi</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                placeholder={formCommissionType === 'percentage' ? 'Misal: 10' : 'Misal: 50000'}
+                type="number"
+                min="0"
+                value={formCommissionValue}
+                onChange={(e) => setFormCommissionValue(e.target.value)}
+              />
+            </div>
+          </div>
           <textarea
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             placeholder="Deskripsi"
@@ -416,7 +484,7 @@ export default function PackagesPage() {
           <button onClick={addFormItem} className="text-sm text-blue-700 font-semibold">+ tambah service kuota</button>
 
           <div className="pt-2">
-            <FormButton onClick={createPackage} loading={saving} variant="success">Simpan Package</FormButton>
+            <FormButton onClick={createPackage} loading={saving} variant="success">{editingPackage ? "Update Package" : "Simpan Package"}</FormButton>
           </div>
         </div>
       </Modal>

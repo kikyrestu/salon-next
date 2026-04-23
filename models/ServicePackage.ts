@@ -5,6 +5,8 @@ export interface IServicePackage extends Document {
   code: string;
   description?: string;
   price: number;
+  commissionType: 'percentage' | 'fixed';
+  commissionValue: number;
   items: {
     service: mongoose.Types.ObjectId;
     serviceName: string;
@@ -20,6 +22,8 @@ const servicePackageSchema = new Schema<IServicePackage>(
     code: { type: String, required: true, trim: true, uppercase: true, unique: true },
     description: { type: String, trim: true },
     price: { type: Number, required: true, min: 0 },
+    commissionType: { type: String, enum: ['percentage', 'fixed'], default: 'fixed' },
+    commissionValue: { type: Number, default: 0, min: 0 },
     image: { type: String },
     items: [
       {

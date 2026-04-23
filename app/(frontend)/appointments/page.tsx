@@ -1151,22 +1151,36 @@ export default function AppointmentsPage() {
             />
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6">
-            <button
-              type="button"
-              onClick={closeModal}
-              className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-            <FormButton
-              type="submit"
-              loading={isSubmitting}
-              className="w-full sm:w-auto"
-            >
-              {editingAppointment ? "Update Appointment" : "Book Appointment"}
-            </FormButton>
+          <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 mt-6">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              {editingAppointment && (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/pos?appointmentId=${editingAppointment._id}`)}
+                  className="w-full sm:w-auto px-5 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 hover:-translate-y-0.5"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  POS
+                </button>
+              )}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <FormButton
+                type="submit"
+                loading={isSubmitting}
+                className="w-full sm:w-auto"
+              >
+                {editingAppointment ? "Update Appointment" : "Book Appointment"}
+              </FormButton>
+            </div>
           </div>
         </form>
       </Modal>

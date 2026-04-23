@@ -21,11 +21,18 @@ export interface IRole {
         customers: IPermission;
         suppliers: IPermission;
         expenses: IPermission;
+        purchases: IPermission;
+        invoices: IPermission;
+        payroll: IPermission;
+        vouchers: IPermission;
+        usageLogs: IPermission;
         reports: IPermission;
         users: IPermission;
         roles: IPermission;
         staffSlots: IPermission;
         aiReports: { view: boolean };
+        calendarView: { view: boolean };
+        activityLogs: { view: boolean };
         settings: { view: boolean; edit: boolean };
         [key: string]: any; // Allow dynamic permissions for future modules
     };
@@ -73,11 +80,18 @@ const RoleSchema = new Schema<IRole>(
                 customers: { view: 'none', create: false, edit: false, delete: false },
                 suppliers: { view: 'none', create: false, edit: false, delete: false },
                 expenses: { view: 'none', create: false, edit: false, delete: false },
+                purchases: { view: 'none', create: false, edit: false, delete: false },
+                invoices: { view: 'none', create: false, edit: false, delete: false },
+                payroll: { view: 'none', create: false, edit: false, delete: false },
+                vouchers: { view: 'none', create: false, edit: false, delete: false },
+                usageLogs: { view: 'none', create: false, edit: false, delete: false },
                 reports: { view: 'none', create: false, edit: false, delete: false },
                 users: { view: 'none', create: false, edit: false, delete: false },
                 roles: { view: 'none', create: false, edit: false, delete: false },
                 staffSlots: { view: 'none', create: false, edit: false, delete: false },
                 aiReports: { view: false },
+                calendarView: { view: false },
+                activityLogs: { view: false },
                 settings: { view: false, edit: false }
             }
         }

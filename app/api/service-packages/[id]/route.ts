@@ -16,6 +16,8 @@ interface PackageUpdateBody {
   price?: number;
   image?: string;
   isActive?: boolean;
+  commissionType?: 'percentage' | 'fixed';
+  commissionValue?: number;
   items?: PackageInputItem[];
 }
 
@@ -79,6 +81,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.code !== undefined) updatePayload.code = sanitizeCode(String(body.code));
     if (body.isActive !== undefined) updatePayload.isActive = Boolean(body.isActive);
     if (body.image !== undefined) updatePayload.image = body.image ? String(body.image).trim() : undefined;
+    if (body.commissionType !== undefined) updatePayload.commissionType = body.commissionType;
+    if (body.commissionValue !== undefined) updatePayload.commissionValue = Number(body.commissionValue || 0);
 
     if (body.items !== undefined) {
       const itemValidationError = validateItems(body.items);

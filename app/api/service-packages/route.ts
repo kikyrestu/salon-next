@@ -17,6 +17,8 @@ interface PackageBody {
   image?: string;
   items: PackageInputItem[];
   isActive?: boolean;
+  commissionType?: 'percentage' | 'fixed';
+  commissionValue?: number;
 }
 
 function sanitizeCode(code: string): string {
@@ -116,6 +118,8 @@ export async function POST(request: NextRequest) {
         quota: Number(item.quota),
       })),
       isActive: body.isActive !== false,
+      commissionType: body.commissionType || 'fixed',
+      commissionValue: Number(body.commissionValue || 0),
     });
 
     return NextResponse.json({ success: true, data: created });

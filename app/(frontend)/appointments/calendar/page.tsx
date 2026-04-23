@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { format, parse, addMinutes } from "date-fns";
-import { Plus, Clock, User, DollarSign, RefreshCw, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Clock, User, DollarSign, RefreshCw, Trash2, ShoppingCart } from "lucide-react";
 import Modal from "@/components/dashboard/Modal";
 import FormInput, { FormSelect, FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
@@ -48,6 +49,7 @@ interface Appointment {
 
 export default function CalendarPage() {
     const { settings } = useSettings();
+    const router = useRouter();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
@@ -389,17 +391,29 @@ export default function CalendarPage() {
                     </div>
 
                     <div className="flex flex-col-reverse sm:flex-row items-center justify-between pt-4 gap-4">
-                        {editingAppointment && (
-                            <button
-                                type="button"
-                                onClick={handleDelete}
-                                className="w-full sm:w-auto px-6 py-3 border border-red-200 text-red-600 rounded-2xl text-sm font-bold hover:bg-red-50 transition-all flex items-center justify-center gap-2"
-                                disabled={isSubmitting}
-                            >
-                                <Trash2 className="w-4 h-4" />
-                                Delete
-                            </button>
-                        )}
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                            {editingAppointment && (
+                                <button
+                                    type="button"
+                                    onClick={handleDelete}
+                                    className="w-full sm:w-auto px-6 py-3 border border-red-200 text-red-600 rounded-2xl text-sm font-bold hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                                    disabled={isSubmitting}
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete
+                                </button>
+                            )}
+                            {editingAppointment && (
+                                <button
+                                    type="button"
+                                    onClick={() => router.push(`/pos?appointmentId=${editingAppointment._id}`)}
+                                    className="w-full sm:w-auto px-6 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 hover:-translate-y-0.5"
+                                >
+                                    <ShoppingCart className="w-4 h-4" />
+                                    POS
+                                </button>
+                            )}
+                        </div>
                         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto ml-auto">
                             <button
                                 type="button"
