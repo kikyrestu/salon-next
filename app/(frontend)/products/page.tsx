@@ -33,6 +33,7 @@ interface Product {
   price: number;
   costPrice: number;
   stock: number;
+  alertQuantity: number;
   type: string;
   image?: string;
   status: string;
@@ -164,7 +165,7 @@ export default function ProductsPage() {
         stock: product.stock,
         type: product.type,
         image: product.image || "",
-        alertQuantity: 5, // Default or fetch
+        alertQuantity: product.alertQuantity ?? 5,
         status: product.status,
         commissionType: product.commissionType || "fixed",
         commissionValue: product.commissionValue ?? 0,
@@ -318,11 +319,11 @@ export default function ProductsPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
                             <span
-                              className={`text-sm font-bold ${product.stock <= 5 ? "text-red-600" : "text-gray-900"}`}
+                              className={`text-sm font-bold ${product.stock <= (product.alertQuantity ?? 5) ? "text-red-600" : "text-gray-900"}`}
                             >
                               {product.stock}
                             </span>
-                            {product.stock <= 5 && (
+                            {product.stock <= (product.alertQuantity ?? 5) && (
                               <AlertCircle className="w-3.5 h-3.5 text-red-500" />
                             )}
                           </div>
@@ -489,14 +490,14 @@ export default function ProductsPage() {
                           <div className="flex items-center gap-1.5 font-semibold">
                             <span
                               className={
-                                product.stock <= 5
+                                product.stock <= (product.alertQuantity ?? 5)
                                   ? "text-red-600"
                                   : "text-gray-900"
                               }
                             >
                               {product.stock} units
                             </span>
-                            {product.stock <= 5 && (
+                            {product.stock <= (product.alertQuantity ?? 5) && (
                               <AlertCircle className="w-3.5 h-3.5 text-red-500" />
                             )}
                           </div>
@@ -656,7 +657,7 @@ export default function ProductsPage() {
               }
             />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <FormInput
               label="Stock"
               type="number"
@@ -664,6 +665,15 @@ export default function ProductsPage() {
               value={formData.stock}
               onChange={(e) =>
                 setFormData({ ...formData, stock: parseInt(e.target.value) })
+              }
+            />
+            <FormInput
+              label="Batas Stok Minimum"
+              type="number"
+              required
+              value={formData.alertQuantity}
+              onChange={(e) =>
+                setFormData({ ...formData, alertQuantity: parseInt(e.target.value) || 0 })
               }
             />
             <FormSelect
