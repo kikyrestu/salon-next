@@ -478,10 +478,12 @@ export default function POSPage() {
     activeTab === "all"
       ? [...services, ...serviceBundles, ...products, ...packages]
       : activeTab === "services"
-        ? [...services, ...serviceBundles]
+        ? services
         : activeTab === "products"
           ? products
-          : packages
+          : activeTab === "bundles"
+            ? serviceBundles
+            : packages
   ).filter((item) => item.name.toLowerCase().includes(search.toLowerCase()));
 
   const getCartItemKey = (itemId: string, type: string, bundleIndex?: number) => bundleIndex !== undefined ? `${type}:${itemId}-${bundleIndex}` : `${type}:${itemId}`;
@@ -2040,6 +2042,12 @@ export default function POSPage() {
                 className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "packages" ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
               >
                 Paket
+              </button>
+              <button
+                onClick={() => setActiveTab("bundles")}
+                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "bundles" ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+              >
+                Bundling
               </button>
             </div>
           </div>
