@@ -33,6 +33,7 @@ interface Item {
   _id: string;
   name: string;
   price: number;
+  memberPrice?: number;
   image?: string;
   type: "Service" | "Product" | "Package" | "Bundle";
   duration?: number; // Service only
@@ -71,6 +72,9 @@ interface Customer {
   _id: string;
   name: string;
   phone?: string;
+  membershipTier?: string;
+  membershipExpiry?: string;
+  loyaltyPoints?: number;
   packageSummary?: {
     activePackages?: number;
   };
@@ -177,6 +181,7 @@ export default function POSPage() {
     Record<string, PackageClaim>
   >({});
   const [discount, setDiscount] = useState(0);
+  const [discountType, setDiscountType] = useState<"nominal" | "percentage">("nominal");
   const [staffTips, setStaffTips] = useState<Record<string, number>>({});
   const [splitPayments, setSplitPayments] = useState<PaymentEntry[]>([
     { method: "", amount: "" },
@@ -487,6 +492,28 @@ export default function POSPage() {
   ).filter((item) => item.name.toLowerCase().includes(search.toLowerCase()));
 
   const getCartItemKey = (itemId: string, type: string, bundleIndex?: number) => bundleIndex !== undefined ? `${type}:${itemId}-${bundleIndex}` : `${type}:${itemId}`;
+
+  const isPremiumActive = () => {
+    if (!selectedCustomer || selectedCustomer === "walking-customer") return false;
+    const c = customers.find((x) => x._id === selectedCustomer);
+    if (!c) return false;
+    return (
+      c.membershipTier === "premium" &&
+      !!c.membershipExpiry &&
+      new Date(c.membershipExpiry) > new Date()
+    );
+  };
+
+  const getEffectivePrice = (item: Item) => {
+    if (
+      isPremiumActive() &&
+      item.memberPrice !== undefined &&
+      item.memberPrice > 0
+    ) {
+      return item.memberPrice;
+    }
+    return item.price;
+  };
 
   const roundTwo = (value: number) => Math.round(value * 100) / 100;
 
@@ -872,7 +899,7 @@ export default function POSPage() {
           staffCommissionRate: getStaffRate(assignment.staffId),
         }),
       ),
-      servicePrice: item.price,
+      servicePrice: getEffectivePrice(item),
       quantity: item.quantity,
       commissionType: item.commissionType || "fixed",
       commissionValue: Number(item.commissionValue || 0),
@@ -882,17 +909,17 @@ export default function POSPage() {
 
   const calculateTotal = () => {
     const subtotal = cart.reduce(
-      (sum, item) => sum + item.price * item.quantity,
+      (sum, item) => sum + getEffectivePrice(item) * item.quantity,
       0,
     );
     const payableSubtotal = cart.reduce((sum, item) => {
-      if (item.type !== "Service") return sum + item.price * item.quantity;
+      if (item.type !== "Service") return sum + getEffectivePrice(item) * item.quantity;
 
       const key = getCartItemKey(item._id, item.type);
       const claim = packageClaims[key];
       if (claim?.enabled && claim.customerPackageId) return sum;
 
-      return sum + item.price * item.quantity;
+      return sum + getEffectivePrice(item) * item.quantity;
     }, 0);
 
     // Voucher discount
@@ -900,9 +927,12 @@ export default function POSPage() {
     // Loyalty point discount: 1 point = 1 currency unit
     const loyaltyDiscount = Math.min(loyaltyPointsToRedeem, payableSubtotal);
 
+    // Discount flat vs percentage
+    const effectiveDiscount = discountType === "percentage" ? (payableSubtotal * discount) / 100 : discount;
+
     const taxableAmount = Math.max(
       0,
-      payableSubtotal - discount - voucherDiscount - loyaltyDiscount,
+      payableSubtotal - effectiveDiscount - voucherDiscount - loyaltyDiscount,
     );
     const tax = taxableAmount * (settings.taxRate / 100);
 
@@ -981,7 +1011,7 @@ export default function POSPage() {
           percentage: assignment.percentage,
           staffCommissionRate: getStaffRate(assignment.staffId),
         })),
-        servicePrice: item.price,
+        servicePrice: getEffectivePrice(item),
         quantity: item.quantity,
         commissionType: item.commissionType || "fixed",
         commissionValue: Number(item.commissionValue || 0),
@@ -1039,7 +1069,7 @@ export default function POSPage() {
         const serviceLineAssignments: any[] = [];
         
         const proportion = totalOriginalPrice > 0 ? bs.servicePrice / totalOriginalPrice : 1 / item.bundleServices!.length;
-        const subItemPrice = Math.round(item.price * proportion);
+        const subItemPrice = Math.round(getEffectivePrice(item) * proportion);
 
         if (serviceAssignments.length === 0) {
           lineItemSplits[bsKey] = { splitCommissionMode, staffAssignments: [] };
@@ -1106,7 +1136,7 @@ export default function POSPage() {
 
       let komisi = 0;
       if (commissionType === "percentage") {
-        komisi = item.price * qty * (commissionValue / 100);
+        komisi = getEffectivePrice(item) * qty * (commissionValue / 100);
       } else {
         komisi = commissionValue * qty;
       }
@@ -2791,7 +2821,17 @@ export default function POSPage() {
                   </div>
                 )}
                 <div className="flex justify-between text-gray-600 items-center">
-                  <span>Discount</span>
+                  <div className="flex items-center gap-2">
+                    <span>Discount</span>
+                    <select
+                      value={discountType}
+                      onChange={(e) => setDiscountType(e.target.value as "nominal" | "percentage")}
+                      className="text-[10px] border border-gray-300 rounded px-1 py-0.5 focus:outline-none"
+                    >
+                      <option value="nominal">{settings.symbol}</option>
+                      <option value="percentage">%</option>
+                    </select>
+                  </div>
                   <input
                     type="number"
                     value={discount}
@@ -2933,15 +2973,33 @@ export default function POSPage() {
                 <span className="text-[10px] lg:text-xs font-black text-gray-700 flex items-center gap-1">
                   <CreditCard className="w-3 h-3" /> Metode Pembayaran
                 </span>
-                {!isQrisOnly && (
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={addSplitPayment}
-                    className="text-[9px] lg:text-[10px] font-bold text-blue-900 hover:text-blue-700 flex items-center gap-0.5 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-50 transition-colors"
+                    onClick={() => {
+                        if (splitPayments.length > 0) {
+                            const lastIdx = splitPayments.length - 1;
+                            const paidBeforeLast = splitPayments.slice(0, lastIdx).reduce((sum, p) => sum + (parseFloat(String(p.amount || "0")) || 0), 0);
+                            const remainder = Math.max(0, total - paidBeforeLast);
+                            updateSplitAmount(lastIdx, remainder.toString());
+                        } else {
+                            setSplitPayments([{ method: "Cash", amount: total.toString() }]);
+                        }
+                    }}
+                    className="text-[9px] lg:text-[10px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 border border-emerald-200 rounded px-1.5 py-0.5 hover:bg-emerald-50 transition-colors"
                   >
-                    <Plus className="w-2.5 h-2.5" /> Tambah Metode
+                    Isi Pas
                   </button>
-                )}
+                  {!isQrisOnly && (
+                    <button
+                      type="button"
+                      onClick={addSplitPayment}
+                      className="text-[9px] lg:text-[10px] font-bold text-blue-900 hover:text-blue-700 flex items-center gap-0.5 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-50 transition-colors"
+                    >
+                      <Plus className="w-2.5 h-2.5" /> Tambah Metode
+                    </button>
+                  )}
+                </div>
               </div>
 
               {splitPayments.map((payment, index) => (

@@ -7,6 +7,7 @@ export interface IService extends Document {
     description?: string;
     duration: number; // in minutes
     price: number;
+    memberPrice?: number;
     gender: 'male' | 'female' | 'unisex';
     image?: string;
     commissionType: 'percentage' | 'fixed';
@@ -36,6 +37,7 @@ const serviceSchema = new Schema<IService>(
         description: { type: String, trim: true },
         duration: { type: Number, required: true, min: 0 },
         price: { type: Number, required: true, min: 0 },
+        memberPrice: { type: Number, min: 0 },
         gender: {
             type: String,
             enum: ['male', 'female', 'unisex'],

@@ -19,6 +19,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         address: initialData?.address || "",
         notes: initialData?.notes || "",
         status: initialData?.status || "active",
+        birthday: initialData?.birthday ? new Date(initialData.birthday).toISOString().split("T")[0] : "",
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -30,7 +31,10 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
             const res = await fetch(url, {
                 method: initialData?._id ? "PUT" : "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({
+                    ...formData,
+                    birthday: formData.birthday ? new Date(formData.birthday) : undefined,
+                }),
             });
             const data = await res.json();
             if (data.success) {
@@ -74,6 +78,12 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="08..., 62..., atau +62... (otomatis dinormalisasi)"
+            />
+            <FormInput
+                label="Tanggal Lahir"
+                type="date"
+                value={formData.birthday}
+                onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
             />
             <FormInput
                 label="Address"

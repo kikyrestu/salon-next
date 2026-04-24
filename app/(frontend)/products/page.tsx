@@ -31,6 +31,7 @@ interface Product {
   category: string;
   brand: string;
   price: number;
+  memberPrice?: number;
   costPrice: number;
   stock: number;
   alertQuantity: number;
@@ -77,6 +78,7 @@ export default function ProductsPage() {
     category: "",
     brand: "",
     price: 0,
+    memberPrice: 0,
     costPrice: 0,
     stock: 0,
     type: "retail",
@@ -163,6 +165,7 @@ export default function ProductsPage() {
         category: product.category,
         brand: product.brand,
         price: product.price,
+        memberPrice: (product as any).memberPrice || 0,
         costPrice: product.costPrice,
         stock: product.stock,
         type: product.type,
@@ -180,6 +183,7 @@ export default function ProductsPage() {
         category: "",
         brand: "",
         price: 0,
+        memberPrice: 0,
         costPrice: 0,
         stock: 0,
         image: "",
@@ -661,6 +665,16 @@ export default function ProductsPage() {
               }
             />
           </div>
+          <FormInput
+            label={`Harga Member (${settings.symbol})`}
+            type="number"
+            value={formData.memberPrice}
+            onChange={(e) =>
+              setFormData({ ...formData, memberPrice: parseFloat(e.target.value) || 0 })
+            }
+            min="0"
+            placeholder="Kosongkan jika tidak ada harga member"
+          />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <FormInput
               label="Stock"

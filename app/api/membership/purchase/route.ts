@@ -1,0 +1,120 @@
+import { NextRequest, NextResponse } from "next/server";
+import { connectToDB } from "@/lib/mongodb";
+import Customer from "@/models/Customer";
+import Settings from "@/models/Settings";
+import Invoice from "@/models/Invoice";
+import { checkPermission } from "@/lib/rbac";
+
+export async function POST(request: NextRequest) {
+  try {
+    const permissionError = await checkPermission(request, "customers", "edit");
+    if (permissionError) return permissionError;
+
+    await connectToDB();
+    const body = await request.json();
+    const { customerId, paymentMethod, staffId } = body;
+
+    if (!customerId) {
+      return NextResponse.json(
+        { success: false, error: "Customer ID diperlukan" },
+        { status: 400 }
+      );
+    }
+
+    const settings = await Settings.findOne();
+    if (!settings || !settings.membershipPrice || settings.membershipPrice <= 0) {
+      return NextResponse.json(
+        { success: false, error: "Harga membership belum diatur di Settings" },
+        { status: 400 }
+      );
+    }
+
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return NextResponse.json(
+        { success: false, error: "Customer tidak ditemukan" },
+        { status: 404 }
+      );
+    }
+
+    // Check if already premium and not expired
+    if (
+      customer.membershipTier === "premium" &&
+      customer.membershipExpiry &&
+      new Date(customer.membershipExpiry) > new Date()
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Customer sudah premium member sampai ${new Date(customer.membershipExpiry).toLocaleDateString("id-ID")}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const durationDays = settings.membershipDurationDays || 365;
+    const membershipExpiry = new Date();
+    membershipExpiry.setDate(membershipExpiry.getDate() + durationDays);
+
+    // Update customer to premium
+    customer.membershipTier = "premium";
+    customer.membershipJoinDate = new Date();
+    customer.membershipExpiry = membershipExpiry;
+    await customer.save();
+
+    // Create invoice for membership purchase
+    const invoice = await Invoice.create({
+      customer: customerId,
+      items: [
+        {
+          item: customerId, // reference to customer as the "item"
+          itemModel: "Service", // use Service model reference for compatibility
+          name: `Premium Membership (${durationDays} hari)`,
+          price: settings.membershipPrice,
+          quantity: 1,
+          total: settings.membershipPrice,
+        },
+      ],
+      subtotal: settings.membershipPrice,
+      tax: 0,
+      discount: 0,
+      tips: 0,
+      totalAmount: settings.membershipPrice,
+      commission: 0,
+      sourceType: "membership_purchase",
+      paymentMethod: paymentMethod || "cash",
+      paymentMethods: [
+        {
+          method: paymentMethod || "cash",
+          amount: settings.membershipPrice,
+        },
+      ],
+      status: "paid",
+      amountPaid: settings.membershipPrice,
+      staffAssignments: staffId
+        ? [{ staff: staffId, staffId, percentage: 100, porsiPersen: 100, commission: 0, komisiNominal: 0, tip: 0 }]
+        : [],
+      staff: staffId || undefined,
+      notes: `Pembelian Premium Membership - berlaku sampai ${membershipExpiry.toLocaleDateString("id-ID")}`,
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        invoiceId: invoice._id,
+        customer: {
+          _id: customer._id,
+          name: customer.name,
+          membershipTier: customer.membershipTier,
+          membershipExpiry: customer.membershipExpiry,
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error("Membership purchase error:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Gagal memproses pembelian membership" },
+      { status: 500 }
+    );
+  }
+}

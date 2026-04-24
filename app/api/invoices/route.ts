@@ -228,7 +228,20 @@ export async function POST(request: NextRequest) {
     // Loyalty Point Logic: Calculate points if status is 'paid'
     let pointsToGain = 0;
     if (invoice.status === "paid" && invoice.customer) {
-      pointsToGain = Math.floor(invoice.totalAmount / 10);
+      const customerData = await Customer.findById(invoice.customer);
+      const isPremium =
+        customerData &&
+        customerData.membershipTier === "premium" &&
+        customerData.membershipExpiry &&
+        new Date(customerData.membershipExpiry) > new Date();
+
+      if (isPremium) {
+        const systemSettings = await Settings.findOne();
+        const spendRule = systemSettings?.loyaltyPointPerSpend || 0;
+        if (spendRule > 0) {
+          pointsToGain = Math.floor(invoice.totalAmount / spendRule);
+        }
+      }
       
       const loyaltyUpdates: any = {
         $inc: { totalPurchases: invoice.totalAmount },

@@ -127,6 +127,31 @@ const SettingsSchema = new mongoose.Schema({
     openaiModel: {
         type: String,
         default: 'gpt-4o'
+    },
+    // Premium Membership Settings
+    membershipPrice: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    membershipDurationDays: {
+        type: Number,
+        default: 365,
+        min: 1
+    },
+    loyaltyPointPerSpend: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    loyaltyPointValue: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    birthdayVoucherId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Voucher'
     }
 }, {
     timestamps: true

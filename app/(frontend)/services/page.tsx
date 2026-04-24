@@ -38,6 +38,7 @@ interface Service {
   category: Category;
   duration: number;
   price: number;
+  memberPrice?: number;
   commissionValue?: number;
   gender: string;
   image?: string;
@@ -102,6 +103,7 @@ export default function ServicesPage() {
     category: "",
     duration: 30,
     price: 0,
+    memberPrice: 0,
     gender: "unisex",
     status: "active",
     commissionType: "fixed",
@@ -364,6 +366,7 @@ export default function ServicesPage() {
         category: service.category._id,
         duration: service.duration,
         price: service.price,
+        memberPrice: (service as any).memberPrice || 0,
         gender: service.gender,
         status: service.status,
         commissionType: "fixed",
@@ -396,6 +399,7 @@ export default function ServicesPage() {
         category: categories[0]?._id || "",
         duration: 30,
         price: 0,
+        memberPrice: 0,
         gender: "unisex",
         status: "active",
         commissionType: "fixed",
@@ -1361,6 +1365,19 @@ export default function ServicesPage() {
               min="0"
             />
           </div>
+          <FormInput
+            label={`Harga Member (${settings.symbol})`}
+            type="number"
+            value={serviceFormData.memberPrice}
+            onChange={(e) =>
+              setServiceFormData({
+                ...serviceFormData,
+                memberPrice: parseFloat(e.target.value) || 0,
+              })
+            }
+            min="0"
+            placeholder="Kosongkan jika tidak ada harga member"
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

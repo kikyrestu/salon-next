@@ -1,0 +1,100 @@
+import { NextRequest, NextResponse } from "next/server";
+import { connectToDB } from "@/lib/mongodb";
+import Customer from "@/models/Customer";
+import Settings from "@/models/Settings";
+import Voucher from "@/models/Voucher";
+import { sendWhatsApp } from "@/lib/fonnte";
+
+// GET /api/cron/birthday-voucher
+// Called daily by external cron (crontab / cron-job.org)
+export async function GET(request: NextRequest) {
+  try {
+    // Optional: protect with a secret key
+    const authHeader = request.headers.get("authorization");
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    await connectToDB();
+
+    const settings = await Settings.findOne();
+    if (!settings?.birthdayVoucherId) {
+      return NextResponse.json({
+        success: true,
+        message: "Birthday voucher belum diatur di Settings",
+        sent: 0,
+      });
+    }
+
+    const voucher = await Voucher.findById(settings.birthdayVoucherId);
+    if (!voucher || !voucher.isActive) {
+      return NextResponse.json({
+        success: true,
+        message: "Voucher birthday tidak aktif atau tidak ditemukan",
+        sent: 0,
+      });
+    }
+
+    const today = new Date();
+    const currentMonth = today.getMonth() + 1; // 1-12
+    const currentDay = today.getDate();
+    const currentYear = today.getFullYear();
+
+    // Find premium customers whose birthday is today and haven't received voucher this year
+    const customers = await Customer.find({
+      membershipTier: "premium",
+      birthday: { $exists: true, $ne: null },
+      status: "active",
+      $or: [
+        { birthdayVoucherSentYear: { $exists: false } },
+        { birthdayVoucherSentYear: { $ne: currentYear } },
+      ],
+    });
+
+    const birthdayCustomers = customers.filter((c) => {
+      const bday = new Date(c.birthday);
+      return bday.getMonth() + 1 === currentMonth && bday.getDate() === currentDay;
+    });
+
+    let sentCount = 0;
+    const errors: string[] = [];
+
+    for (const customer of birthdayCustomers) {
+      if (!customer.phone) continue;
+
+      try {
+        const message =
+          `🎂 *Selamat Ulang Tahun, ${customer.name}!* 🎉\n\n` +
+          `Sebagai hadiah dari kami untuk member premium, gunakan kode voucher berikut:\n\n` +
+          `🎁 Kode: *${voucher.code}*\n` +
+          `💰 Diskon: ${voucher.discountType === "percentage" ? `${voucher.discountValue}%` : `Rp${voucher.discountValue.toLocaleString("id-ID")}`}\n` +
+          (voucher.expiresAt ? `📅 Berlaku sampai: ${new Date(voucher.expiresAt).toLocaleDateString("id-ID")}\n` : "") +
+          `\nTerima kasih sudah menjadi member premium kami! 💕\n- ${settings.storeName || "Salon"}`;
+
+        await sendWhatsApp(customer.phone, message);
+
+        // Mark as sent for this year
+        customer.birthdayVoucherSentYear = currentYear;
+        await customer.save();
+        sentCount++;
+      } catch (err: any) {
+        errors.push(`${customer.name}: ${err.message}`);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Birthday voucher sent to ${sentCount} customer(s)`,
+      sent: sentCount,
+      total: birthdayCustomers.length,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (error: any) {
+    console.error("Birthday voucher cron error:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Cron failed" },
+      { status: 500 }
+    );
+  }
+}

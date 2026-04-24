@@ -28,6 +28,7 @@ import {
   MessageSquare,
   Gift,
   Layers,
+  Crown,
 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import { signOut } from "next-auth/react";
@@ -59,6 +60,7 @@ const menuSections = [
       { name: "Packages", href: "/packages", icon: Package },
       { name: "Bundles", href: "/bundles", icon: Package },
       { name: "Products", href: "/products", icon: Package },
+      { name: "Membership", href: "/membership", icon: Crown },
       { name: "Vouchers", href: "/vouchers", icon: Gift },
       { name: "Purchases", href: "/purchases", icon: ShoppingBasket },
       { name: "Usage Logs", href: "/usage-logs", icon: History },
@@ -130,6 +132,7 @@ export default function Sidebar({
       Packages: "services",
       Bundles: "services",
       Products: "products",
+      Membership: "customers",
       Vouchers: "vouchers",
       Purchases: "purchases",
       "Usage Logs": "usageLogs",

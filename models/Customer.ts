@@ -19,8 +19,11 @@ export interface ICustomer extends Document {
   createdBy?: string;
   status: "active" | "inactive";
   // Membership
-  membershipTier: "regular" | "silver" | "gold" | "platinum";
+  membershipTier: "regular" | "silver" | "gold" | "platinum" | "premium";
   membershipJoinDate?: Date;
+  membershipExpiry?: Date;
+  birthday?: Date;
+  birthdayVoucherSentYear?: number;
   // Referral
   referralCode?: string;
   referredBy?: mongoose.Types.ObjectId;
@@ -63,10 +66,13 @@ const customerSchema = new Schema<ICustomer>(
     // Membership
     membershipTier: {
       type: String,
-      enum: ["regular", "silver", "gold", "platinum"],
+      enum: ["regular", "silver", "gold", "platinum", "premium"],
       default: "regular",
     },
     membershipJoinDate: { type: Date },
+    membershipExpiry: { type: Date },
+    birthday: { type: Date },
+    birthdayVoucherSentYear: { type: Number },
     // Referral
     referralCode: { type: String, trim: true, unique: true, sparse: true },
     referredBy: { type: Schema.Types.ObjectId, ref: "Customer" },
