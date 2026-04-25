@@ -181,7 +181,7 @@ export default function POSPage() {
     Record<string, PackageClaim>
   >({});
   const [discount, setDiscount] = useState(0);
-  const [discountType, setDiscountType] = useState<"nominal" | "percentage">("nominal");
+  const [discountType, setDiscountType] = useState<"nominal" | "percentage">("percentage");
   const [staffTips, setStaffTips] = useState<Record<string, number>>({});
   const [splitPayments, setSplitPayments] = useState<PaymentEntry[]>([
     { method: "", amount: "" },
