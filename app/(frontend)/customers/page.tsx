@@ -16,6 +16,7 @@ import {
   History,
   ExternalLink,
   LayoutDashboard,
+  Crown,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Modal from "@/components/dashboard/Modal";
@@ -125,6 +126,8 @@ interface Customer {
   totalPurchases: number;
   status: string;
   createdAt: string;
+  membershipTier?: string;
+  membershipExpiry?: string;
   packageSummary?: CustomerPackageSummary;
 }
 
@@ -403,10 +406,21 @@ export default function CustomersPage() {
                             <User className="w-4 h-4 text-blue-600" />
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-bold text-gray-900">
                                 {customer.name}
                               </span>
+                              {customer.membershipTier === "premium" && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wide border bg-gradient-to-r from-yellow-400/20 to-amber-400/20 text-amber-700 border-amber-300 shadow-sm">
+                                  <Crown className="w-3 h-3 fill-amber-400 text-amber-500" />
+                                  Premium
+                                  {customer.membershipExpiry && (
+                                    <span className="text-[9px] font-semibold text-amber-600 ml-0.5">
+                                      s/d {new Date(customer.membershipExpiry).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "2-digit" })}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
                               {customer.packageSummary?.hasPackage && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border bg-amber-50 text-amber-700 border-amber-200">
                                   <Package className="w-3 h-3" />
@@ -601,7 +615,12 @@ export default function CustomersPage() {
                           <h3 className="text-sm font-bold text-gray-900 leading-tight">
                             {customer.name}
                           </h3>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            {customer.membershipTier === "premium" && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-wide border bg-gradient-to-r from-yellow-400/20 to-amber-400/20 text-amber-700 border-amber-300">
+                                <Crown className="w-2.5 h-2.5 fill-amber-400 text-amber-500" /> Premium
+                              </span>
+                            )}
                             {customer.packageSummary?.hasPackage && (
                               <span className="inline-flex items-center gap-1 px-2 rounded-[4px] text-[9px] font-bold uppercase tracking-wide border bg-amber-50 text-amber-700 border-amber-200">
                                 <Package className="w-2.5 h-2.5" /> Paket

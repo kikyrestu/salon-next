@@ -42,9 +42,8 @@ interface Customer {
   totalPurchases: number;
   loyaltyPoints: number;
   status: string;
-  membershipTier: "regular" | "premium";
+  membershipTier: "regular" | "silver" | "gold" | "platinum";
   membershipJoinDate?: string;
-  membershipExpiry?: string;
   referralCode?: string;
   waNotifEnabled: boolean;
   createdAt: string;
@@ -112,15 +111,44 @@ const MEMBERSHIP_TIERS = {
     bg: "bg-gray-100",
     border: "border-gray-200",
     icon: "⭐",
+    minSpend: 0,
   },
-  premium: {
-    label: "VIP Member",
-    color: "text-yellow-700",
-    bg: "bg-gradient-to-br from-yellow-50 to-amber-50",
-    border: "border-yellow-400",
-    icon: "👑",
+  silver: {
+    label: "Silver",
+    color: "text-slate-600",
+    bg: "bg-slate-100",
+    border: "border-slate-300",
+    icon: "🥈",
+    minSpend: 1_000_000,
+  },
+  gold: {
+    label: "Gold",
+    color: "text-amber-700",
+    bg: "bg-amber-50",
+    border: "border-amber-300",
+    icon: "🥇",
+    minSpend: 5_000_000,
+  },
+  platinum: {
+    label: "Platinum",
+    color: "text-purple-700",
+    bg: "bg-purple-50",
+    border: "border-purple-300",
+    icon: "💎",
+    minSpend: 15_000_000,
   },
 };
+
+// ── Helper ─────────────────────────────────────────────────────────────────
+
+function getAutoTier(
+  totalPurchases: number,
+): "regular" | "silver" | "gold" | "platinum" {
+  if (totalPurchases >= 15_000_000) return "platinum";
+  if (totalPurchases >= 5_000_000) return "gold";
+  if (totalPurchases >= 1_000_000) return "silver";
+  return "regular";
+}
 
 function fmt(
   n: number | undefined | null,
@@ -181,7 +209,9 @@ export default function CustomerDashboardPage() {
 
   // Membership modal
   const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
-  const [membershipForm, setMembershipForm] = useState<"regular" | "premium">("regular");
+  const [membershipForm, setMembershipForm] = useState<
+    "regular" | "silver" | "gold" | "platinum"
+  >("regular");
   const [savingMembership, setSavingMembership] = useState(false);
 
   // ── Fetch ────────────────────────────────────────────────────────────────
@@ -352,7 +382,8 @@ export default function CustomerDashboardPage() {
     );
   }
 
-  const tier = MEMBERSHIP_TIERS[customer.membershipTier] ?? MEMBERSHIP_TIERS.regular;
+  const tier = MEMBERSHIP_TIERS[customer.membershipTier] || MEMBERSHIP_TIERS.regular;
+  const autoTier = getAutoTier(customer.totalPurchases);
   const totalRemainingQuota = activePackages.reduce(
     (sum, pkg) =>
       sum +
@@ -414,10 +445,11 @@ export default function CustomerDashboardPage() {
             {/* WA Opt-in toggle */}
             <button
               onClick={toggleWaNotif}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors ${customer.waNotifEnabled
-                ? "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                : "bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200"
-                }`}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors ${
+                customer.waNotifEnabled
+                  ? "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                  : "bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200"
+              }`}
               title="Toggle WA Notification"
             >
               {customer.waNotifEnabled ? (
@@ -445,9 +477,9 @@ export default function CustomerDashboardPage() {
               <p className={`text-base font-black ${tier.color}`}>
                 {tier.icon} {tier.label}
               </p>
-              {customer.membershipTier === "premium" && customer.membershipExpiry && (
-                <p className="text-[9px] text-yellow-600 mt-0.5 font-semibold">
-                  s/d {new Date(customer.membershipExpiry).toLocaleDateString("id-ID")}
+              {autoTier !== customer.membershipTier && (
+                <p className="text-[9px] text-gray-400 mt-0.5">
+                  Auto: {MEMBERSHIP_TIERS[autoTier].label}
                 </p>
               )}
             </button>
@@ -545,10 +577,11 @@ export default function CustomerDashboardPage() {
                     {pkg.serviceQuotas.map((q, i) => (
                       <span
                         key={i}
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${q.remainingQuota > 0
-                          ? "bg-white border-purple-200 text-purple-700"
-                          : "bg-gray-100 border-gray-200 text-gray-400 line-through"
-                          }`}
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                          q.remainingQuota > 0
+                            ? "bg-white border-purple-200 text-purple-700"
+                            : "bg-gray-100 border-gray-200 text-gray-400 line-through"
+                        }`}
                       >
                         {q.serviceName}: {q.remainingQuota}/{q.totalQuota}
                       </span>
@@ -575,18 +608,20 @@ export default function CustomerDashboardPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`pb-3 pt-2 px-3 text-xs font-bold transition-colors border-b-2 mr-2 ${activeTab === tab.id
-                  ? "border-blue-900 text-blue-900"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}
+                className={`pb-3 pt-2 px-3 text-xs font-bold transition-colors border-b-2 mr-2 ${
+                  activeTab === tab.id
+                    ? "border-blue-900 text-blue-900"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
               >
                 {tab.label}
                 {tab.count !== null && (
                   <span
-                    className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${activeTab === tab.id
-                      ? "bg-blue-900 text-white"
-                      : "bg-gray-100 text-gray-500"
-                      }`}
+                    className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${
+                      activeTab === tab.id
+                        ? "bg-blue-900 text-white"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
                   >
                     {tab.count}
                   </span>
@@ -634,12 +669,13 @@ export default function CustomerDashboardPage() {
                               {fmt(inv.totalAmount, settings.symbol)}
                             </p>
                             <span
-                              className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full ${inv.status === "paid"
-                                ? "bg-green-100 text-green-700"
-                                : inv.status === "pending"
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "bg-gray-100 text-gray-600"
-                                }`}
+                              className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full ${
+                                inv.status === "paid"
+                                  ? "bg-green-100 text-green-700"
+                                  : inv.status === "pending"
+                                    ? "bg-amber-100 text-amber-700"
+                                    : "bg-gray-100 text-gray-600"
+                              }`}
                             >
                               {inv.status}
                             </span>
@@ -673,12 +709,12 @@ export default function CustomerDashboardPage() {
                               </div>
                             ))}
                           </div>
-
+                          
                           {/* Action Button */}
                           <div className="pt-2 border-t border-gray-200 flex justify-end">
                             <Link href={`/invoices/print/${inv._id}`} className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1.5 rounded-md font-semibold transition-colors flex items-center gap-1.5 border border-blue-100">
-                              <FileText className="w-3 h-3" />
-                              Lihat Receipt
+                                <FileText className="w-3 h-3" />
+                                Lihat Receipt
                             </Link>
                           </div>
                         </div>
@@ -723,10 +759,11 @@ export default function CustomerDashboardPage() {
                                   {fmt(po.totalAmount, settings.symbol)}
                                 </p>
                                 <span
-                                  className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full ${po.status === "paid"
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-amber-100 text-amber-700"
-                                    }`}
+                                  className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full ${
+                                    po.status === "paid"
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-amber-100 text-amber-700"
+                                  }`}
                                 >
                                   {po.status}
                                 </span>
@@ -930,28 +967,37 @@ export default function CustomerDashboardPage() {
       <Modal
         isOpen={isMembershipModalOpen}
         onClose={() => setIsMembershipModalOpen(false)}
-        title="Update Membership"
+        title="Update Membership Tier"
       >
         <div className="space-y-3">
           <p className="text-xs text-gray-500">
-            Pilih status membership untuk customer ini.
+            Total belanja: {fmt(customer.totalPurchases, settings.symbol)} · Tier otomatis:{" "}
+            <span className="font-bold">{MEMBERSHIP_TIERS[autoTier].label}</span>
           </p>
           <div className="space-y-2">
-            {(["regular", "premium"] as const).map((t) => {
+            {(
+              ["regular", "silver", "gold", "platinum"] as const
+            ).map((t) => {
               const info = MEMBERSHIP_TIERS[t];
               return (
                 <button
                   key={t}
                   onClick={() => setMembershipForm(t)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${membershipForm === t
-                    ? `${info.bg} ${info.border} ring-2 ring-blue-900`
-                    : `${info.bg} ${info.border} hover:opacity-80`
-                    }`}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
+                    membershipForm === t
+                      ? `${info.bg} ${info.border} ring-2 ring-blue-900`
+                      : `${info.bg} ${info.border} hover:opacity-80`
+                  }`}
                 >
                   <span className="text-xl">{info.icon}</span>
-                  <p className={`text-sm font-black ${info.color}`}>
-                    {info.label}
-                  </p>
+                  <div>
+                    <p className={`text-sm font-black ${info.color}`}>
+                      {info.label}
+                    </p>
+                    <p className="text-[10px] text-gray-400">
+                      Min. belanja: {fmt(info.minSpend, settings.symbol)}
+                    </p>
+                  </div>
                 </button>
               );
             })}
