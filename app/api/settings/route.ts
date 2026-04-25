@@ -87,6 +87,11 @@ export async function PUT(request: NextRequest) {
 
         const body = await request.json();
 
+        // Sanitize Mongoose ObjectIds that might be sent as empty strings
+        if (body.birthdayVoucherId === "") {
+            body.birthdayVoucherId = null;
+        }
+
         // Update the first document found (singleton pattern)
         // upsert: true ensures it creates one if it doesn't exist (though GET handles creation usually)
         const settings = await Settings.findOneAndUpdate(

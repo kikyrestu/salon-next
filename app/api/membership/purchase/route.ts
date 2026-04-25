@@ -4,6 +4,7 @@ import Customer from "@/models/Customer";
 import Settings from "@/models/Settings";
 import Invoice from "@/models/Invoice";
 import { checkPermission } from "@/lib/rbac";
+import { initModels } from "@/lib/initModels";
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +12,8 @@ export async function POST(request: NextRequest) {
     if (permissionError) return permissionError;
 
     await connectToDB();
+    initModels();
+
     const body = await request.json();
     const { customerId, paymentMethod, staffId } = body;
 
@@ -62,8 +65,22 @@ export async function POST(request: NextRequest) {
     customer.membershipExpiry = membershipExpiry;
     await customer.save();
 
+    // Generate Invoice Number (same logic as /api/invoices POST)
+    const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });
+    let nextNum = 1;
+    if (lastInvoice && lastInvoice.invoiceNumber) {
+      const lastNum = parseInt(
+        lastInvoice.invoiceNumber.split("-").pop() || "0"
+      );
+      if (!isNaN(lastNum)) {
+        nextNum = lastNum + 1;
+      }
+    }
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${nextNum.toString().padStart(5, "0")}`;
+
     // Create invoice for membership purchase
     const invoice = await Invoice.create({
+      invoiceNumber,
       customer: customerId,
       items: [
         {
@@ -82,10 +99,10 @@ export async function POST(request: NextRequest) {
       totalAmount: settings.membershipPrice,
       commission: 0,
       sourceType: "membership_purchase",
-      paymentMethod: paymentMethod || "cash",
+      paymentMethod: paymentMethod || "Cash",
       paymentMethods: [
         {
-          method: paymentMethod || "cash",
+          method: paymentMethod || "Cash",
           amount: settings.membershipPrice,
         },
       ],
@@ -102,6 +119,7 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         invoiceId: invoice._id,
+        invoiceNumber,
         customer: {
           _id: customer._id,
           name: customer.name,

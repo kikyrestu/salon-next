@@ -254,6 +254,19 @@ export default function POSPage() {
   };
 
   useEffect(() => {
+    if (selectedCustomer && selectedCustomer !== "walking-customer") {
+      const cust = customers.find((c) => c._id === selectedCustomer);
+      if (cust) {
+        setCustomerLoyaltyPoints(cust.loyaltyPoints || 0);
+      } else {
+        setCustomerLoyaltyPoints(0);
+      }
+    } else {
+      setCustomerLoyaltyPoints(0);
+    }
+  }, [selectedCustomer, customers]);
+
+  useEffect(() => {
     fetchResources();
   }, []);
 
@@ -504,13 +517,34 @@ export default function POSPage() {
     );
   };
 
+  const isIncludedInMembership = (item: Item) => {
+    const s = settings as any;
+    if (item.type === "Service" && s.memberIncludedServices?.includes(item._id)) return true;
+    if (item.type === "Product" && s.memberIncludedProducts?.includes(item._id)) return true;
+    if (item.type === "Bundle" && s.memberIncludedBundles?.includes(item._id)) return true;
+    return false;
+  };
+
   const getEffectivePrice = (item: Item) => {
-    if (
-      isPremiumActive() &&
-      item.memberPrice !== undefined &&
-      item.memberPrice > 0
-    ) {
-      return item.memberPrice;
+    if (isPremiumActive()) {
+      if (isIncludedInMembership(item)) {
+        if (item.memberPrice !== undefined && item.memberPrice > 0) {
+          return item.memberPrice;
+        }
+
+        const s = settings as any;
+        const discType = s.memberDiscountType || "percentage";
+        const discVal = Number(s.memberDiscountValue) || 0;
+
+        if (discVal > 0) {
+          if (discType === "percentage") {
+            const discAmount = (item.price * discVal) / 100;
+            return Math.max(0, item.price - discAmount);
+          } else {
+            return Math.max(0, item.price - discVal);
+          }
+        }
+      }
     }
     return item.price;
   };
@@ -2204,6 +2238,27 @@ export default function POSPage() {
               </button>
             </div>
 
+            {(() => {
+              const cust = customers.find(c => c._id === selectedCustomer);
+              const isPremium = cust && cust.membershipTier === "premium" && cust.membershipExpiry && new Date(cust.membershipExpiry) > new Date();
+              if (!isPremium) return null;
+              return (
+                <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-3 py-2 shadow-sm">
+                  <div className="flex flex-col">
+                    <span className="text-[12px] font-black text-amber-800 tracking-wide uppercase flex items-center gap-1">
+                      🌟 Premium Member Active
+                    </span>
+                    <span className="text-[10px] text-amber-600 font-bold">
+                      s/d {new Date(cust.membershipExpiry!).toLocaleDateString("id-ID")}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-amber-700 font-bold">
+                    Harga Diskon
+                  </span>
+                </div>
+              );
+            })()}
+
             {selectedCustomer &&
               selectedCustomer !== "walking-customer" &&
               availableDeals.length > 0 && (
@@ -2274,9 +2329,24 @@ export default function POSPage() {
                         <p className="text-xs lg:text-sm font-bold text-gray-800 truncate">
                           {item.name}
                         </p>
-                        <p className="text-[9px] lg:text-[10px] text-gray-500">
-                          {settings.symbol}
-                          {item.price}
+                        <p className="text-[9px] lg:text-[10px] text-gray-500 flex items-center gap-1.5 flex-wrap">
+                          {getEffectivePrice(item) < item.price ? (
+                            <>
+                              <span className="line-through text-gray-400">
+                                {settings.symbol}{item.price.toLocaleString("id-ID")}
+                              </span>
+                              <span className="font-bold text-amber-600">
+                                {settings.symbol}{getEffectivePrice(item).toLocaleString("id-ID")}
+                              </span>
+                              <span className="px-1 py-0.5 bg-amber-100 text-amber-700 text-[8px] uppercase font-black rounded-sm leading-none">
+                                Member
+                              </span>
+                            </>
+                          ) : (
+                            <span>
+                              {settings.symbol}{item.price.toLocaleString("id-ID")}
+                            </span>
+                          )}
                         </p>
                         {(() => {
                           if (item.type !== "Service") return null;
@@ -2826,7 +2896,7 @@ export default function POSPage() {
                     <select
                       value={discountType}
                       onChange={(e) => setDiscountType(e.target.value as "nominal" | "percentage")}
-                      className="text-[10px] border border-gray-300 rounded px-1 py-0.5 focus:outline-none"
+                      className="bg-white text-[10px] lg:text-xs font-bold text-blue-900 border border-gray-300 rounded px-1.5 py-0.5 focus:ring-1 focus:ring-blue-900 outline-none cursor-pointer"
                     >
                       <option value="nominal">{settings.symbol}</option>
                       <option value="percentage">%</option>

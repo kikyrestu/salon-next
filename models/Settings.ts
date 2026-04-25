@@ -152,7 +152,31 @@ const SettingsSchema = new mongoose.Schema({
     birthdayVoucherId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Voucher'
-    }
+    },
+    // Member Discount Defaults
+    memberDiscountType: {
+        type: String,
+        enum: ['percentage', 'nominal'],
+        default: 'percentage'
+    },
+    memberDiscountValue: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    // Included items for membership benefit
+    memberIncludedServices: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Service'
+    }],
+    memberIncludedProducts: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product'
+    }],
+    memberIncludedBundles: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ServiceBundle'
+    }]
 }, {
     timestamps: true
 });

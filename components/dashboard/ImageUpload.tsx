@@ -18,8 +18,17 @@ export default function ImageUpload({ value, onChange, label = "Image" }: ImageU
         if (!file) return;
 
         setUploading(true);
+
+        // Compress image client-side before upload
+        let compressedFile = file;
+        try {
+            compressedFile = await compressImage(file, 0.1); // compress to under 0.1 MB
+        } catch (error) {
+            console.error("Compression failed, using original file", error);
+        }
+
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", compressedFile);
 
         try {
             const res = await fetch("/api/upload", {
@@ -38,6 +47,66 @@ export default function ImageUpload({ value, onChange, label = "Image" }: ImageU
         } finally {
             setUploading(false);
         }
+    };
+
+    const compressImage = (file: File, maxSizeMB: number): Promise<File> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new window.Image();
+                img.src = event.target?.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement("canvas");
+                    const MAX_WIDTH = 1000;
+                    const MAX_HEIGHT = 1000;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext("2d");
+                    if (!ctx) return resolve(file);
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    let quality = 0.8;
+                    const attemptCompress = () => {
+                        canvas.toBlob((blob) => {
+                            if (!blob) {
+                                resolve(file);
+                                return;
+                            }
+                            if (blob.size / 1024 / 1024 > maxSizeMB && quality > 0.1) {
+                                quality -= 0.1;
+                                attemptCompress();
+                            } else {
+                                const newFileName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+                                const newFile = new File([blob], newFileName, {
+                                    type: "image/jpeg",
+                                    lastModified: Date.now(),
+                                });
+                                resolve(newFile);
+                            }
+                        }, "image/jpeg", quality);
+                    };
+                    attemptCompress();
+                };
+                img.onerror = (err) => reject(err);
+            };
+            reader.onerror = (err) => reject(err);
+        });
     };
 
     return (

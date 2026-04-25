@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   Star,
@@ -150,11 +151,12 @@ function getAutoTier(
 }
 
 function fmt(
-  n: number,
+  n: number | undefined | null,
   symbol: string,
   fractionDigits: number = 0,
 ): string {
-  return `${symbol}${n.toLocaleString("id-ID", { maximumFractionDigits: fractionDigits })}`;
+  const num = n || 0;
+  return `${symbol}${num.toLocaleString("id-ID", { maximumFractionDigits: fractionDigits })}`;
 }
 
 function fmtDate(d: string): string {
@@ -686,25 +688,35 @@ export default function CustomerDashboardPage() {
                         </div>
                       </button>
                       {expandedInvoice === inv._id && (
-                        <div className="border-t border-gray-100 px-4 py-3 bg-gray-50 space-y-1">
-                          {(inv.items || []).map((item, i) => (
-                            <div
-                              key={i}
-                              className="flex justify-between text-xs text-gray-600"
-                            >
-                              <span className="truncate flex-1">
-                                {item.name}{" "}
-                                {item.quantity > 1 && (
-                                  <span className="text-gray-400">
-                                    ×{item.quantity}
-                                  </span>
-                                )}
-                              </span>
-                              <span className="font-semibold ml-2 flex-shrink-0">
-                                {fmt(item.total, settings.symbol)}
-                              </span>
-                            </div>
-                          ))}
+                        <div className="border-t border-gray-100 px-4 py-3 bg-gray-50 space-y-2">
+                          <div className="space-y-1">
+                            {(inv.items || []).map((item, i) => (
+                              <div
+                                key={i}
+                                className="flex justify-between text-xs text-gray-600"
+                              >
+                                <span className="truncate flex-1">
+                                  {item.name}{" "}
+                                  {item.quantity > 1 && (
+                                    <span className="text-gray-400">
+                                      ×{item.quantity}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="font-semibold ml-2 flex-shrink-0">
+                                  {fmt(item.total, settings.symbol)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Action Button */}
+                          <div className="pt-2 border-t border-gray-200 flex justify-end">
+                            <Link href={`/invoices/print/${inv._id}`} className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1.5 rounded-md font-semibold transition-colors flex items-center gap-1.5 border border-blue-100">
+                                <FileText className="w-3 h-3" />
+                                Lihat Receipt
+                            </Link>
+                          </div>
                         </div>
                       )}
                     </div>

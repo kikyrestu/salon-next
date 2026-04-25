@@ -75,7 +75,7 @@ export async function GET(
 
     const [invoices, packageOrders, packageUsage] = await Promise.all([
       Invoice.find({ customer: id })
-        .select('invoiceNumber date totalAmount amountPaid status paymentMethod sourceType createdAt')
+        .select('invoiceNumber date totalAmount amountPaid status paymentMethod sourceType createdAt items')
         .sort({ createdAt: -1 })
         .limit(30)
         .lean<InvoiceHistoryItem[]>(),

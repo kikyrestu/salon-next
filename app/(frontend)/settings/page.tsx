@@ -47,12 +47,6 @@ interface Settings {
     aiEnabled: boolean;
     openaiApiKey: string;
     openaiModel: string;
-    // Membership Settings
-    membershipPrice: number;
-    membershipDurationDays: number;
-    loyaltyPointPerSpend: number;
-    loyaltyPointValue: number;
-    birthdayVoucherId: string;
 }
 
 interface GreetingLogItem {
@@ -101,12 +95,6 @@ export default function SettingsPage() {
         aiEnabled: false,
         openaiApiKey: "",
         openaiModel: "gpt-4o",
-        // Membership Settings
-        membershipPrice: 0,
-        membershipDurationDays: 365,
-        loyaltyPointPerSpend: 0,
-        loyaltyPointValue: 0,
-        birthdayVoucherId: "",
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -188,12 +176,6 @@ export default function SettingsPage() {
                     aiEnabled: data.data.aiEnabled || false,
                     openaiApiKey: data.data.openaiApiKey || "",
                     openaiModel: data.data.openaiModel || "gpt-4o",
-                    // Membership Settings
-                    membershipPrice: data.data.membershipPrice || 0,
-                    membershipDurationDays: data.data.membershipDurationDays || 365,
-                    loyaltyPointPerSpend: data.data.loyaltyPointPerSpend || 0,
-                    loyaltyPointValue: data.data.loyaltyPointValue || 0,
-                    birthdayVoucherId: data.data.birthdayVoucherId || "",
                 });
             }
         } catch (error) {
@@ -752,62 +734,6 @@ export default function SettingsPage() {
                     </div>
                 </div>
 
-                {/* Premium Membership Settings */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                        <CreditCard className="w-5 h-5 text-amber-600" />
-                        Premium Membership
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormInput
-                            label="Harga Membership (Rp)"
-                            type="number"
-                            value={settings.membershipPrice.toString()}
-                            onChange={(e) => setSettings({ ...settings, membershipPrice: parseFloat(e.target.value) || 0 })}
-                            min="0"
-                            placeholder="500000"
-                        />
-                        <FormInput
-                            label="Masa Berlaku (Hari)"
-                            type="number"
-                            value={settings.membershipDurationDays.toString()}
-                            onChange={(e) => setSettings({ ...settings, membershipDurationDays: parseInt(e.target.value) || 365 })}
-                            min="1"
-                            placeholder="365"
-                        />
-                        <FormInput
-                            label="Loyalty Point per Spending (Rp)"
-                            type="number"
-                            value={settings.loyaltyPointPerSpend.toString()}
-                            onChange={(e) => setSettings({ ...settings, loyaltyPointPerSpend: parseFloat(e.target.value) || 0 })}
-                            min="0"
-                            placeholder="100000 = tiap Rp100.000 spent = 1 poin"
-                        />
-                        <FormInput
-                            label="Nilai 1 Poin (Rp)"
-                            type="number"
-                            value={settings.loyaltyPointValue.toString()}
-                            onChange={(e) => setSettings({ ...settings, loyaltyPointValue: parseFloat(e.target.value) || 0 })}
-                            min="0"
-                            placeholder="1000 = 1 poin = Rp1.000"
-                        />
-                        <div className="md:col-span-2">
-                            <FormInput
-                                label="ID Voucher Birthday (dari Master Voucher)"
-                                value={settings.birthdayVoucherId}
-                                onChange={(e) => setSettings({ ...settings, birthdayVoucherId: e.target.value })}
-                                placeholder="Paste ID voucher dari halaman Voucher"
-                            />
-                        </div>
-                    </div>
-                    <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                        <p className="text-xs text-amber-800">
-                            <strong>Cara kerja:</strong> Customer beli membership seharga Rp{settings.membershipPrice.toLocaleString("id-ID")} → aktif selama {settings.membershipDurationDays} hari → dapet harga member di POS.
-                            {settings.loyaltyPointPerSpend > 0 && ` Setiap spending Rp${settings.loyaltyPointPerSpend.toLocaleString("id-ID")} = 1 loyalty point.`}
-                            {settings.loyaltyPointValue > 0 && ` 1 poin = Rp${settings.loyaltyPointValue.toLocaleString("id-ID")} potongan.`}
-                        </p>
-                    </div>
-                </div>
 
                 {/* System Management */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

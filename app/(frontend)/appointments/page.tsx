@@ -28,6 +28,7 @@ import FormInput, {
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
 import MultiSearchableSelect from "@/components/dashboard/MultiSearchableSelect";
 import StaffCalendar from "@/components/appointments/StaffCalendar";
+import CustomerForm from "@/components/dashboard/CustomerForm";
 import { useSettings } from "@/components/providers/SettingsProvider";
 
 interface Service {
@@ -83,6 +84,7 @@ export default function AppointmentsPage() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] =
     useState<Appointment | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1004,19 +1006,33 @@ export default function AppointmentsPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-            <SearchableSelect
-              label="Customer"
-              placeholder="Select Customer"
-              required
-              value={formData.customerId}
-              onChange={(value) =>
-                setFormData({ ...formData, customerId: value })
-              }
-              options={customers.map((c) => ({
-                value: c._id,
-                label: `${c.name} (${c.phone || "No phone"})`,
-              }))}
-            />
+            <div className="flex flex-col relative w-full">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-sm font-semibold text-gray-900 ml-1">Customer</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsCustomerModalOpen(true);
+                  }}
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded-full"
+                >
+                  <Plus className="w-3 h-3" /> New
+                </button>
+              </div>
+              <SearchableSelect
+                placeholder="Select Customer"
+                required
+                value={formData.customerId}
+                onChange={(value) =>
+                  setFormData({ ...formData, customerId: value })
+                }
+                options={customers.map((c) => ({
+                  value: c._id,
+                  label: `${c.name} (${c.phone || "No phone"})`,
+                }))}
+              />
+            </div>
             <SearchableSelect
               label="Staff"
               placeholder="Select Staff"
@@ -1183,6 +1199,22 @@ export default function AppointmentsPage() {
             </div>
           </div>
         </form>
+      </Modal>
+
+      {/* New Customer Modal */}
+      <Modal
+        isOpen={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        title="Add New Customer"
+      >
+        <CustomerForm
+          onSuccess={(customer) => {
+            fetchResources(); // Refresh customers list
+            setFormData({ ...formData, customerId: customer._id });
+            setIsCustomerModalOpen(false);
+          }}
+          onCancel={() => setIsCustomerModalOpen(false)}
+        />
       </Modal>
     </div>
   );

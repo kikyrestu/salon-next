@@ -10,6 +10,11 @@ interface Settings {
     taxRate: number;
     logoUrl: string;
     symbol: string;
+    memberDiscountType?: "percentage" | "nominal";
+    memberDiscountValue?: number;
+    memberIncludedServices?: string[];
+    memberIncludedProducts?: string[];
+    memberIncludedBundles?: string[];
 }
 
 interface SettingsContextType {
@@ -48,7 +53,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                     timezone: data.data.timezone || 'UTC',
                     taxRate: data.data.taxRate || 0,
                     logoUrl: data.data.logoUrl || '',
-                    symbol: symbol
+                    symbol: symbol,
+                    memberDiscountType: data.data.memberDiscountType || "percentage",
+                    memberDiscountValue: data.data.memberDiscountValue || 0,
+                    memberIncludedServices: data.data.memberIncludedServices || [],
+                    memberIncludedProducts: data.data.memberIncludedProducts || [],
+                    memberIncludedBundles: data.data.memberIncludedBundles || [],
                 });
             }
         } catch (error) {
