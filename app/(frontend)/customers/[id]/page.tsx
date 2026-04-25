@@ -836,7 +836,7 @@ export default function CustomerDashboardPage() {
                         <div className="grid grid-cols-2">
                           <div className="relative">
                             <img
-                              src={photo.before}
+                              src={photo.before?.startsWith('/uploads/') ? `/api${photo.before}` : photo.before}
                               alt="Before"
                               className="w-full aspect-square object-cover"
                             />
@@ -846,7 +846,7 @@ export default function CustomerDashboardPage() {
                           </div>
                           <div className="relative">
                             <img
-                              src={photo.after}
+                              src={photo.after?.startsWith('/uploads/') ? `/api${photo.after}` : photo.after}
                               alt="After"
                               className="w-full aspect-square object-cover"
                             />
