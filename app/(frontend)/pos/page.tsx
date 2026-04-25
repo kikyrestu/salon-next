@@ -207,6 +207,9 @@ export default function POSPage() {
   const [isDealsModalOpen, setIsDealsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isStaffEarningsHidden, setIsStaffEarningsHidden] = useState(false);
+  const [expandedStaffKey, setExpandedStaffKey] = useState<string | null>(null);
+  const [showVoucherInput, setShowVoucherInput] = useState(false);
+  const [showLoyaltySlider, setShowLoyaltySlider] = useState(false);
   const [isQrisModalOpen, setIsQrisModalOpen] = useState(false);
   const [qrisSession, setQrisSession] = useState<{
     externalId: string;
@@ -2291,10 +2294,6 @@ export default function POSPage() {
                   placeholder="Contoh: 08123456789"
                   className="w-full h-9 px-3 text-xs lg:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
-                <p className="text-[10px] text-gray-500">
-                  Isi hanya jika customer belum terdaftar. Nomor ini dipakai
-                  untuk WA follow-up setelah layanan.
-                </p>
               </div>
             )}
           </div>
@@ -2381,7 +2380,7 @@ export default function POSPage() {
                       >
                         <Minus className="w-2.5 h-2.5 md:w-3 md:h-3" />
                       </button>
-                      <span className="text-[10px] md:text-xs font-bold w-4 text-center">
+                      <span className="text-xs md:text-sm font-black w-5 text-center text-gray-900">
                         {item.quantity}
                       </span>
                       <button
@@ -2398,217 +2397,94 @@ export default function POSPage() {
                       </button>
                     </div>
                   </div>
-                  {(item.type === "Service" || item.type === "Product") && (
-                    <div className="pl-8 space-y-1.5">
-                      {(() => {
-                        const key = getCartItemKey(item._id, item.type);
-                        const splitMode = serviceSplitModes[key] || "auto";
-                        const effectiveAssignments =
-                          getEffectiveServiceAssignments(item._id, item.type);
-                        const totalSplit =
-                          getTotalSplitPercentage(effectiveAssignments);
-                        const splitValid =
-                          isSplitTotalValid(effectiveAssignments);
-                        const splitPreview =
-                          getSplitCommissionPreviewForItem(item);
+                  {(item.type === "Service" || item.type === "Product") && (() => {
+                    const key = getCartItemKey(item._id, item.type);
+                    const isExpanded = expandedStaffKey === key;
+                    const assignedStaff = serviceStaffAssignments[key] || [];
+                    const splitMode = serviceSplitModes[key] || "auto";
 
-                        return (
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between gap-1 bg-slate-50 border border-slate-200 rounded p-1.5">
-                              <span className="text-[10px] font-bold text-slate-700">
-                                Assignment Staff & Komisi
-                              </span>
-                              <div className="inline-flex rounded border border-slate-300 overflow-hidden text-[10px] font-bold">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateServiceSplitMode(
-                                      item._id,
-                                      item.type,
-                                      "auto",
-                                    )
-                                  }
-                                  className={`px-2 py-0.5 ${splitMode === "auto" ? "bg-slate-700 text-white" : "bg-white text-slate-600"}`}
-                                >
-                                  Auto 50:50
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateServiceSplitMode(
-                                      item._id,
-                                      item.type,
-                                      "manual",
-                                    )
-                                  }
-                                  className={`px-2 py-0.5 ${splitMode === "manual" ? "bg-slate-700 text-white" : "bg-white text-slate-600"}`}
-                                >
-                                  Manual
-                                </button>
-                              </div>
-                            </div>
-
-                            <div
-                              className={`text-[9px] font-bold ${splitValid ? "text-emerald-600" : "text-red-600"}`}
-                            >
-                              Total porsi: {roundTwo(totalSplit)}%{" "}
-                              {splitValid ? "OK" : "(harus 100%)"}
-                            </div>
-                            {!splitPreview.isValid && (
-                              <div className="text-[9px] font-bold text-red-600">
-                                {splitPreview.errors[0]}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-
-                      {item.type === "Service" && (
-                      <div className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-100 rounded p-1.5">
-                        <label className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(
-                              packageClaims[getCartItemKey(item._id, item.type)]
-                                ?.enabled,
-                            )}
-                            onChange={(e) =>
-                              togglePackageClaim(
-                                item._id,
-                                item.type,
-                                e.target.checked,
-                              )
-                            }
-                            disabled={
-                              !selectedCustomer ||
-                              selectedCustomer === "walking-customer"
-                            }
-                          />
-                          Claim Paket
-                        </label>
-                        {(!selectedCustomer ||
-                          selectedCustomer === "walking-customer") && (
-                            <span className="text-[9px] text-amber-600">
-                              Pilih customer dulu
-                            </span>
-                          )}
-                      </div>
-                      )}
-
-                      {packageClaims[getCartItemKey(item._id, item.type)]
-                        ?.enabled && (
-                          <SearchableSelect
-                            placeholder="Pilih paket customer"
-                            value={
-                              packageClaims[getCartItemKey(item._id, item.type)]
-                                ?.customerPackageId || ""
-                            }
-                            onChange={(val) =>
-                              setPackageClaimId(item._id, item.type, val)
-                            }
-                            options={getServicePackageOptions(item._id)}
-                            className="w-full h-8"
-                            controlClassName="px-2.5 py-1 text-[11px] md:text-[11px] lg:text-xs"
-                          />
-                        )}
-
-                      <SearchableSelect
-                        placeholder="Assign staff"
-                        value=""
-                        onChange={(val) =>
-                          addServiceStaffAssignment(item._id, item.type, val)
-                        }
-                        options={staffList.map((s) => ({
-                          value: s._id,
-                          label: s.name,
-                        }))}
-                        className="w-full h-8"
-                        controlClassName="px-2.5 py-1 text-[11px] md:text-[11px] lg:text-xs"
-                      />
-                      {(
-                        serviceStaffAssignments[
-                        getCartItemKey(item._id, item.type)
-                        ] || []
-                      ).length > 0 && (
-                          <div className="space-y-1">
-                            {(() => {
-                              const previewResult =
-                                getSplitCommissionPreviewForItem(item);
-                              const previewMap = new Map(
-                                previewResult.assignments.map((a) => [
-                                  a.staffId,
-                                  a.komisiNominal,
-                                ]),
+                    return (
+                      <div className="mt-1">
+                        {/* Inline toggle button or assigned staff badges */}
+                        {assignedStaff.length === 0 && !isExpanded ? (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedStaffKey(key)}
+                            className="ml-8 flex items-center gap-1 text-[10px] font-semibold text-gray-500 hover:text-blue-700 border border-dashed border-gray-300 hover:border-blue-300 rounded px-2 py-1 transition-colors"
+                          >
+                            <User className="w-3 h-3" /> Assign Staff
+                          </button>
+                        ) : assignedStaff.length > 0 && !isExpanded ? (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedStaffKey(key)}
+                            className="ml-8 flex items-center gap-1.5 flex-wrap"
+                          >
+                            {assignedStaff.map((a) => {
+                              const staff = staffList.find((s) => s._id === a.staffId);
+                              return (
+                                <span key={a.staffId} className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">
+                                  <User className="w-2.5 h-2.5" />{staff?.name}
+                                </span>
                               );
+                            })}
+                          </button>
+                        ) : null}
 
-                              return getEffectiveServiceAssignments(
-                                item._id,
-                                item.type,
-                              ).map((assignment) => {
-                                const splitMode =
-                                  serviceSplitModes[
-                                  getCartItemKey(item._id, item.type)
-                                  ] || "auto";
-                                const staff = staffList.find(
-                                  (s) => s._id === assignment.staffId,
-                                );
-                                return (
-                                  <div
-                                    key={assignment.staffId}
-                                    className="flex items-center gap-1.5 bg-blue-50 p-1 rounded border border-blue-100"
-                                  >
-                                    <p className="text-[9px] font-bold text-gray-800 flex-1 truncate">
-                                      {staff?.name}
-                                    </p>
-                                    <div className="flex items-center gap-1 bg-white px-1 py-0.5 rounded border border-blue-200">
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        value={assignment.percentage}
-                                        onChange={(e) =>
-                                          updateServiceStaffPercentage(
-                                            item._id,
-                                            item.type,
-                                            assignment.staffId,
-                                            parseFloat(e.target.value) || 0,
-                                          )
-                                        }
-                                        disabled={splitMode === "auto"}
-                                        className={`w-12 md:w-14 text-right text-xs md:text-sm font-black border border-blue-200 bg-white rounded px-1 disabled:bg-gray-50 disabled:border-transparent focus:outline-none focus:border-blue-400 ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`}
-                                      />
-                                      <span className="text-[10px] md:text-xs font-bold text-blue-900">
-                                        %
-                                      </span>
-                                    </div>
-                                    <button
-                                      onClick={() =>
-                                        removeServiceStaffAssignment(
-                                          item._id,
-                                          item.type,
-                                          assignment.staffId,
-                                        )
-                                      }
-                                      className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded transition-colors"
-                                    >
-                                      <Trash2 className="w-2.5 h-2.5" />
-                                    </button>
-                                    <span className="text-[9px] font-bold text-emerald-700 min-w-[78px] text-right">
-                                      {settings.symbol}
-                                      {(
-                                        previewMap.get(assignment.staffId) || 0
-                                      ).toLocaleString("id-ID", {
-                                        maximumFractionDigits: 0,
-                                      })}
-                                    </span>
-                                  </div>
-                                );
-                              });
-                            })()}
+                        {/* Expanded staff assignment panel */}
+                        {isExpanded && (
+                          <div className="ml-8 mt-1 space-y-1.5 bg-slate-50 border border-slate-200 rounded-lg p-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-slate-600">Staff & Komisi</span>
+                              <div className="flex items-center gap-1.5">
+                                <div className="inline-flex rounded border border-slate-300 overflow-hidden text-[9px] font-bold">
+                                  <button type="button" onClick={() => updateServiceSplitMode(item._id, item.type, "auto")} className={`px-1.5 py-0.5 ${splitMode === "auto" ? "bg-slate-700 text-white" : "bg-white text-slate-500"}`}>Auto</button>
+                                  <button type="button" onClick={() => updateServiceSplitMode(item._id, item.type, "manual")} className={`px-1.5 py-0.5 ${splitMode === "manual" ? "bg-slate-700 text-white" : "bg-white text-slate-500"}`}>Manual</button>
+                                </div>
+                                <button type="button" onClick={() => setExpandedStaffKey(null)} className="p-0.5 text-gray-400 hover:text-gray-600 rounded">
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                            <SearchableSelect
+                              placeholder="Assign staff"
+                              value=""
+                              onChange={(val) => addServiceStaffAssignment(item._id, item.type, val)}
+                              options={staffList.map((s) => ({ value: s._id, label: s.name }))}
+                              className="w-full h-7"
+                              controlClassName="px-2 py-0.5 text-[11px]"
+                            />
+                            {assignedStaff.length > 0 && (
+                              <div className="space-y-1">
+                                {(() => {
+                                  const previewResult = getSplitCommissionPreviewForItem(item);
+                                  const previewMap = new Map(previewResult.assignments.map((a) => [a.staffId, a.komisiNominal]));
+                                  return getEffectiveServiceAssignments(item._id, item.type).map((assignment) => {
+                                    const staff = staffList.find((s) => s._id === assignment.staffId);
+                                    return (
+                                      <div key={assignment.staffId} className="flex items-center gap-1 bg-white p-1 rounded border border-blue-100">
+                                        <p className="text-[9px] font-bold text-gray-800 flex-1 truncate">{staff?.name}</p>
+                                        <div className="flex items-center gap-0.5 bg-blue-50 px-1 py-0.5 rounded border border-blue-200">
+                                          <input type="number" min="0" max="100" value={assignment.percentage} onChange={(e) => updateServiceStaffPercentage(item._id, item.type, assignment.staffId, parseFloat(e.target.value) || 0)} disabled={splitMode === "auto"} className={`w-10 text-right text-[11px] font-black border-0 bg-transparent focus:outline-none ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`} />
+                                          <span className="text-[9px] font-bold text-blue-700">%</span>
+                                        </div>
+                                        <span className="text-[9px] font-bold text-emerald-700 min-w-[60px] text-right">
+                                          {settings.symbol}{(previewMap.get(assignment.staffId) || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                                        </span>
+                                        <button onClick={() => removeServiceStaffAssignment(item._id, item.type, assignment.staffId)} className="p-0.5 text-gray-400 hover:text-red-500 rounded">
+                                          <Trash2 className="w-2.5 h-2.5" />
+                                        </button>
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                            )}
                           </div>
                         )}
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })()}
                   {item.type === "Product" &&
                     Number(item.commissionValue || 0) > 0 && (
                       <div className="pl-8 space-y-1.5 mt-1">
@@ -2793,9 +2669,9 @@ export default function POSPage() {
           </div>
 
           {/* Summary - Sticky at bottom */}
-          <div className="flex-shrink-0 p-3 bg-gray-50 border-t border-gray-200 overflow-hidden pb-20 md:pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            <div className="max-h-[180px] md:max-h-[220px] lg:max-h-[280px] overflow-y-auto pr-1">
-              <div className="space-y-1 mb-3 text-[10px] lg:text-xs">
+          <div className="flex-shrink-0 p-2 bg-gray-50 border-t border-gray-200 overflow-hidden pb-20 md:pb-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div className="max-h-[160px] md:max-h-[200px] lg:max-h-[260px] overflow-y-auto pr-1">
+              <div className="space-y-0.5 mb-2 text-[10px] lg:text-xs">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
                   <span>
@@ -2816,13 +2692,15 @@ export default function POSPage() {
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between text-gray-600">
-                  <span>Tax ({settings.taxRate}%)</span>
-                  <span>
-                    {settings.symbol}
-                    {tax.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
-                  </span>
-                </div>
+                {tax > 0 && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Tax ({settings.taxRate}%)</span>
+                    <span>
+                      {settings.symbol}
+                      {tax.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                )}
                 {(commission > 0 || tips > 0) && (
                   <div className="flex items-center justify-end">
                     <button
@@ -2915,28 +2793,36 @@ export default function POSPage() {
 
                 {/* ── Voucher Redemption ── */}
                 {!voucherApplied ? (
-                  <div className="flex gap-1 items-center">
-                    <input
-                      type="text"
-                      value={voucherCode}
-                      onChange={(e) =>
-                        setVoucherCode(e.target.value.toUpperCase())
-                      }
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && void applyVoucher()
-                      }
-                      placeholder="Kode Voucher..."
-                      className="flex-1 text-[10px] lg:text-xs text-gray-900 border border-gray-200 rounded px-2 py-1 focus:ring-1 focus:ring-blue-900 outline-none bg-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void applyVoucher()}
-                      disabled={voucherLoading || !voucherCode.trim()}
-                      className="px-2 py-1 text-[9px] font-bold bg-blue-900 text-white rounded hover:bg-blue-800 disabled:opacity-50 transition-colors"
-                    >
-                      {voucherLoading ? "..." : "Pakai"}
+                  showVoucherInput ? (
+                    <div className="flex gap-1 items-center">
+                      <input
+                        type="text"
+                        value={voucherCode}
+                        onChange={(e) =>
+                          setVoucherCode(e.target.value.toUpperCase())
+                        }
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && void applyVoucher()
+                        }
+                        placeholder="Kode Voucher..."
+                        className="flex-1 text-[10px] lg:text-xs text-gray-900 border border-gray-200 rounded px-2 py-1 focus:ring-1 focus:ring-blue-900 outline-none bg-white"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void applyVoucher()}
+                        disabled={voucherLoading || !voucherCode.trim()}
+                        className="px-2 py-1 text-[9px] font-bold bg-blue-900 text-white rounded hover:bg-blue-800 disabled:opacity-50 transition-colors"
+                      >
+                        {voucherLoading ? "..." : "Pakai"}
+                      </button>
+                      <button type="button" onClick={() => { setShowVoucherInput(false); setVoucherCode(''); }} className="text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => setShowVoucherInput(true)} className="text-[10px] font-semibold text-blue-600 hover:text-blue-800">
+                      🎫 Punya voucher?
                     </button>
-                  </div>
+                  )
                 ) : (
                   <div className="flex justify-between items-center text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
                     <span className="text-[10px] font-bold flex items-center gap-1">
@@ -2964,6 +2850,7 @@ export default function POSPage() {
                 {selectedCustomer &&
                   selectedCustomer !== "walking-customer" &&
                   customerLoyaltyPoints > 0 && (
+                    showLoyaltySlider ? (
                     <div className="space-y-1">
                       <div className="flex justify-between items-center text-amber-700">
                         <span className="text-[10px] font-bold flex items-center gap-1">
@@ -3016,6 +2903,12 @@ export default function POSPage() {
                         />
                       </div>
                     </div>
+                    ) : (
+                      <button type="button" onClick={() => setShowLoyaltySlider(true)} className="flex items-center justify-between w-full text-[10px] font-semibold text-amber-700 hover:text-amber-900">
+                        <span className="flex items-center gap-1">⭐ {customerLoyaltyPoints.toLocaleString("id-ID")} pts tersedia</span>
+                        <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold hover:bg-amber-200 transition-colors">Pakai</span>
+                      </button>
+                    )
                   )}
 
                 {tips > 0 && (
@@ -3038,7 +2931,7 @@ export default function POSPage() {
             </div>
 
             {/* ── Split Payment Section ── */}
-            <div className="mb-3 space-y-2 border-t border-gray-200 pt-2 mt-1">
+            <div className="mb-2 space-y-1.5 border-t border-gray-200 pt-1.5 mt-0.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] lg:text-xs font-black text-gray-700 flex items-center gap-1">
                   <CreditCard className="w-3 h-3" /> Metode Pembayaran
@@ -3173,7 +3066,7 @@ export default function POSPage() {
                 )}
             </div>
 
-            <div className="flex justify-between text-xl lg:text-2xl font-black text-gray-900 pt-1.5 border-t border-gray-200 mb-3">
+            <div className="flex justify-between text-xl lg:text-2xl font-black text-gray-900 pt-1 border-t border-gray-200 mb-2">
               <span>
                 {splitPayments.length === 1 &&
                   totalSplitPaidComputed > 0 &&
