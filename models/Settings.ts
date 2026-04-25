@@ -149,6 +149,12 @@ const SettingsSchema = new mongoose.Schema({
         default: 0,
         min: 0
     },
+    // Referral Rewards
+    referralRewardPoints: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
     birthdayVoucherId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Voucher'

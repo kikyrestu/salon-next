@@ -20,6 +20,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         notes: initialData?.notes || "",
         status: initialData?.status || "active",
         birthday: initialData?.birthday ? new Date(initialData.birthday).toISOString().split("T")[0] : "",
+        referredByCode: "",
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -85,6 +86,14 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
                 value={formData.birthday}
                 onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
             />
+            {!initialData?._id && (
+                <FormInput
+                    label="Referral Code (Optional)"
+                    value={formData.referredByCode}
+                    onChange={(e) => setFormData({ ...formData, referredByCode: e.target.value.toUpperCase() })}
+                    placeholder="Masukkan kode referral teman"
+                />
+            )}
             <FormInput
                 label="Address"
                 value={formData.address}

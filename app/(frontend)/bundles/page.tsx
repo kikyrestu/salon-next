@@ -7,6 +7,7 @@ import Modal from "@/components/dashboard/Modal";
 import { FormButton } from "@/components/dashboard/FormInput";
 import ImageUpload from "@/components/dashboard/ImageUpload";
 import { useSettings } from "@/components/providers/SettingsProvider";
+import PermissionGate from "@/components/PermissionGate";
 
 interface ServiceItem {
   _id: string;
@@ -233,16 +234,18 @@ export default function BundlesPage() {
             Kelola paket bundling jasa — gabungan beberapa service dengan harga spesial
           </p>
         </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setIsModalOpen(true);
-          }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800"
-        >
-          <Plus className="w-4 h-4" />
-          Buat Bundle
-        </button>
+        <PermissionGate resource="bundles" action="create">
+          <button
+            onClick={() => {
+              resetForm();
+              setIsModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800"
+          >
+            <Plus className="w-4 h-4" />
+            Buat Bundle
+          </button>
+        </PermissionGate>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -318,20 +321,24 @@ export default function BundlesPage() {
               </div>
 
               <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3">
-                <button
-                  onClick={() => openEditModal(bundle)}
-                  className="inline-flex items-center gap-1.5 text-xs text-blue-700 font-bold hover:underline"
-                >
-                  <Edit className="w-3 h-3" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(bundle)}
-                  className="inline-flex items-center gap-1.5 text-xs text-red-600 font-bold hover:underline"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Hapus
-                </button>
+                <PermissionGate resource="bundles" action="edit">
+                  <button
+                    onClick={() => openEditModal(bundle)}
+                    className="inline-flex items-center gap-1.5 text-xs text-blue-700 font-bold hover:underline"
+                  >
+                    <Edit className="w-3 h-3" />
+                    Edit
+                  </button>
+                </PermissionGate>
+                <PermissionGate resource="bundles" action="delete">
+                  <button
+                    onClick={() => handleDelete(bundle)}
+                    className="inline-flex items-center gap-1.5 text-xs text-red-600 font-bold hover:underline"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Hapus
+                  </button>
+                </PermissionGate>
               </div>
             </div>
           );

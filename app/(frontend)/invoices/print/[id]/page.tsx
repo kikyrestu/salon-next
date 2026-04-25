@@ -93,6 +93,12 @@ export default function PrintInvoicePage() {
                         <span className="text-gray-500">Customer:</span>
                         <span className="font-bold">{invoice.customer?.name || "Walk-in"}</span>
                     </div>
+                    {invoice.customer?.referralCode && (
+                        <div className="flex justify-between">
+                            <span className="text-gray-500">Ref Code:</span>
+                            <span className="font-bold tracking-widest">{invoice.customer.referralCode}</span>
+                        </div>
+                    )}
                     {invoice.appointment && (
                         <div className="flex justify-between">
                             <span className="text-gray-500">Type:</span>

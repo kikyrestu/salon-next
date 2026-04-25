@@ -19,6 +19,7 @@ import {
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { useRouter } from "next/navigation";
 import FormInput, { FormSelect } from "@/components/dashboard/FormInput";
+import PermissionGate from "@/components/PermissionGate";
 
 interface Customer {
   _id: string;
@@ -35,6 +36,7 @@ interface MembershipConfig {
   membershipDurationDays: number;
   loyaltyPointPerSpend: number;
   loyaltyPointValue: number;
+  referralRewardPoints: number;
   birthdayVoucherId: string;
   memberDiscountType: "percentage" | "nominal";
   memberDiscountValue: number;
@@ -62,6 +64,7 @@ const DEFAULT_CONFIG: MembershipConfig = {
   membershipDurationDays: 365,
   loyaltyPointPerSpend: 0,
   loyaltyPointValue: 0,
+  referralRewardPoints: 0,
   birthdayVoucherId: "",
   memberDiscountType: "percentage",
   memberDiscountValue: 0,
@@ -131,6 +134,7 @@ export default function MembershipPage() {
           membershipDurationDays: d.membershipDurationDays || 365,
           loyaltyPointPerSpend: d.loyaltyPointPerSpend || 0,
           loyaltyPointValue: d.loyaltyPointValue || 0,
+          referralRewardPoints: d.referralRewardPoints || 0,
           birthdayVoucherId: d.birthdayVoucherId || "",
           memberDiscountType: d.memberDiscountType || "percentage",
           memberDiscountValue: d.memberDiscountValue || 0,
@@ -431,6 +435,14 @@ export default function MembershipPage() {
                   placeholder="100000 = tiap Rp100.000 = 1 poin"
                 />
                 <FormInput
+                  label="Referral: Bonus Poin"
+                  type="number"
+                  value={(config.referralRewardPoints || 0).toString()}
+                  onChange={(e) => setConfig({ ...config, referralRewardPoints: parseFloat(e.target.value) || 0 })}
+                  min="0"
+                  placeholder="Misal: 50 poin"
+                />
+                <FormInput
                   label="Loyalty: Nilai 1 Poin (Rp)"
                   type="number"
                   value={config.loyaltyPointValue.toString()}
@@ -442,14 +454,16 @@ export default function MembershipPage() {
 
               {/* Save button */}
               <div className="flex items-center gap-3">
-                <button
-                  onClick={handleSaveConfig}
-                  disabled={configSaving}
-                  className="px-6 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-2 font-bold text-sm disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  {configSaving ? "Menyimpan..." : "Simpan Pengaturan"}
-                </button>
+                <PermissionGate resource="membership" action="edit">
+                  <button
+                    onClick={handleSaveConfig}
+                    disabled={configSaving}
+                    className="px-6 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-2 font-bold text-sm disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    {configSaving ? "Menyimpan..." : "Simpan Pengaturan"}
+                  </button>
+                </PermissionGate>
                 {configMsg.text && (
                   <span className={`text-sm font-medium ${configMsg.type === "success" ? "text-green-600" : "text-red-600"}`}>
                     {configMsg.type === "success" ? "✅" : "❌"} {configMsg.text}

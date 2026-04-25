@@ -223,10 +223,27 @@ export async function POST(request: NextRequest) {
       attempts++;
     }
 
+    // Processing referredByCode
+    let referredBy = undefined;
+    if (validation.sanitizedData.referredByCode) {
+      const codeStr = String(validation.sanitizedData.referredByCode).toUpperCase().trim();
+      const referrer = await Customer.findOne({ referralCode: codeStr });
+      if (referrer) {
+         referredBy = referrer._id;
+         const storeSettings = await import("@/models/Settings").then(m => m.default).then(S => S.findOne());
+         const rewardPoints = storeSettings?.referralRewardPoints || 0;
+         if (rewardPoints > 0) {
+             referrer.loyaltyPoints = (referrer.loyaltyPoints || 0) + rewardPoints;
+             await referrer.save();
+         }
+      }
+    }
+
     const customer = await Customer.create({
       ...validation.sanitizedData,
       createdBy: session?.user?.id,
       referralCode,
+      referredBy,
       membershipTier: "regular",
       waNotifEnabled: validation.sanitizedData.waNotifEnabled !== false,
     });

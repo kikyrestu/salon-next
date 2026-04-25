@@ -7,6 +7,7 @@ import Modal from "@/components/dashboard/Modal";
 import { FormButton } from "@/components/dashboard/FormInput";
 import ImageUpload from "@/components/dashboard/ImageUpload";
 import { useSettings } from "@/components/providers/SettingsProvider";
+import PermissionGate from "@/components/PermissionGate";
 
 interface ServiceItem {
   _id: string;
@@ -284,13 +285,15 @@ export default function PackagesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Packages</h1>
           <p className="text-sm text-gray-500">Master package kuota + penjualan package via QRIS Xendit</p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800"
-        >
-          <Plus className="w-4 h-4" />
-          Buat Package
-        </button>
+        <PermissionGate resource="packages" action="create">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800"
+          >
+            <Plus className="w-4 h-4" />
+            Buat Package
+          </button>
+        </PermissionGate>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
@@ -340,34 +343,38 @@ export default function PackagesPage() {
                   ))}
                 </div>
                 <div className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-2">
-                  <button
-                    onClick={() => {
-                      setEditingPackage(pkg);
-                      setFormName(pkg.name);
-                      setFormCode(pkg.code);
-                      setFormPrice(pkg.price);
-                      setFormDescription(pkg.description || "");
-                      setFormCommissionType(pkg.commissionType || 'fixed');
-                      setFormCommissionValue(pkg.commissionValue || 0);
-                      setFormItems(pkg.items.map(i => ({ serviceId: typeof i.service === 'string' ? i.service : (i.service as any)?._id || '', quota: i.quota })));
-                      setIsModalOpen(true);
-                    }}
-                    className="text-xs text-blue-700 font-bold hover:underline"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!confirm(`Hapus package "${pkg.name}"?`)) return;
-                      const res = await fetch(`/api/service-packages/${pkg._id}`, { method: 'DELETE' });
-                      const data = await res.json();
-                      if (data.success) loadData();
-                      else alert(data.error || 'Gagal hapus');
-                    }}
-                    className="text-xs text-red-600 font-bold hover:underline"
-                  >
-                    Hapus
-                  </button>
+                  <PermissionGate resource="packages" action="edit">
+                    <button
+                      onClick={() => {
+                        setEditingPackage(pkg);
+                        setFormName(pkg.name);
+                        setFormCode(pkg.code);
+                        setFormPrice(pkg.price);
+                        setFormDescription(pkg.description || "");
+                        setFormCommissionType(pkg.commissionType || 'fixed');
+                        setFormCommissionValue(pkg.commissionValue || 0);
+                        setFormItems(pkg.items.map(i => ({ serviceId: typeof i.service === 'string' ? i.service : (i.service as any)?._id || '', quota: i.quota })));
+                        setIsModalOpen(true);
+                      }}
+                      className="text-xs text-blue-700 font-bold hover:underline"
+                    >
+                      Edit
+                    </button>
+                  </PermissionGate>
+                  <PermissionGate resource="packages" action="delete">
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Hapus package "${pkg.name}"?`)) return;
+                        const res = await fetch(`/api/service-packages/${pkg._id}`, { method: 'DELETE' });
+                        const data = await res.json();
+                        if (data.success) loadData();
+                        else alert(data.error || 'Gagal hapus');
+                      }}
+                      className="text-xs text-red-600 font-bold hover:underline"
+                    >
+                      Hapus
+                    </button>
+                  </PermissionGate>
                 </div>
               </div>
             ))}

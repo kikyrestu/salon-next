@@ -15,6 +15,7 @@ interface Settings {
     memberIncludedServices?: string[];
     memberIncludedProducts?: string[];
     memberIncludedBundles?: string[];
+    loyaltyPointValue?: number;
 }
 
 interface SettingsContextType {
@@ -59,6 +60,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                     memberIncludedServices: data.data.memberIncludedServices || [],
                     memberIncludedProducts: data.data.memberIncludedProducts || [],
                     memberIncludedBundles: data.data.memberIncludedBundles || [],
+                    loyaltyPointValue: data.data.loyaltyPointValue || 0,
                 });
             }
         } catch (error) {

@@ -176,7 +176,7 @@ export default function WaTemplatesPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Manajemen Template WA</h1>
                     <p className="text-sm text-gray-500">Kelola template pesan WhatsApp untuk greeting dan follow-up otomatis.</p>
                 </div>
-                <PermissionGate resource="services" action="create">
+                <PermissionGate resource="waTemplates" action="create">
                     <button
                         onClick={() => openModal()}
                         className="px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-all flex items-center gap-2 font-semibold"
@@ -246,7 +246,7 @@ export default function WaTemplatesPage() {
                                 </div>
                                 <div className="flex gap-2">
                                     {(template.templateType === 'greeting' || (!template.templateType && template.isGreetingEnabled)) && (
-                                        <PermissionGate resource="services" action="edit">
+                                        <PermissionGate resource="waTemplates" action="edit">
                                             <button
                                                 onClick={() => handleToggleGreeting(template)}
                                                 className={`px-3 py-2 border rounded-lg text-sm flex items-center gap-1 ${template.isGreetingEnabled
@@ -258,7 +258,7 @@ export default function WaTemplatesPage() {
                                             </button>
                                         </PermissionGate>
                                     )}
-                                    <PermissionGate resource="services" action="edit">
+                                    <PermissionGate resource="waTemplates" action="edit">
                                         <button
                                             onClick={() => openModal(template)}
                                             className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-1"
@@ -266,7 +266,7 @@ export default function WaTemplatesPage() {
                                             <Edit className="w-4 h-4" /> Edit
                                         </button>
                                     </PermissionGate>
-                                    <PermissionGate resource="services" action="delete">
+                                    <PermissionGate resource="waTemplates" action="delete">
                                         <button
                                             onClick={() => handleDelete(template._id)}
                                             className="px-3 py-2 border border-red-200 rounded-lg text-sm text-red-600 hover:bg-red-50 flex items-center gap-1"

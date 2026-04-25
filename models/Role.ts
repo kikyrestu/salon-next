@@ -30,6 +30,10 @@ export interface IRole {
         users: IPermission;
         roles: IPermission;
         staffSlots: IPermission;
+        bundles: IPermission;
+        packages: IPermission;
+        membership: IPermission;
+        waTemplates: IPermission;
         aiReports: { view: boolean };
         calendarView: { view: boolean };
         activityLogs: { view: boolean };
@@ -89,6 +93,10 @@ const RoleSchema = new Schema<IRole>(
                 users: { view: 'none', create: false, edit: false, delete: false },
                 roles: { view: 'none', create: false, edit: false, delete: false },
                 staffSlots: { view: 'none', create: false, edit: false, delete: false },
+                bundles: { view: 'none', create: false, edit: false, delete: false },
+                packages: { view: 'none', create: false, edit: false, delete: false },
+                membership: { view: 'none', create: false, edit: false, delete: false },
+                waTemplates: { view: 'none', create: false, edit: false, delete: false },
                 aiReports: { view: false },
                 calendarView: { view: false },
                 activityLogs: { view: false },

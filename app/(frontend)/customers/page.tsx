@@ -129,6 +129,7 @@ interface Customer {
   membershipTier?: string;
   membershipExpiry?: string;
   packageSummary?: CustomerPackageSummary;
+  referralCode?: string;
 }
 
 export default function CustomersPage() {
@@ -421,13 +422,12 @@ export default function CustomersPage() {
                                   )}
                                 </span>
                               )}
-                              {customer.packageSummary?.hasPackage && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border bg-amber-50 text-amber-700 border-amber-200">
-                                  <Package className="w-3 h-3" />
-                                  Paket
-                                </span>
-                              )}
                             </div>
+                            {customer.referralCode && (
+                              <div className="mt-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-gray-100 inline-block px-1.5 py-0.5 rounded border border-gray-200">
+                                Ref: {customer.referralCode}
+                              </div>
+                            )}
                             {customer.address && (
                               <div
                                 className="text-[10px] text-gray-400 font-medium truncate max-w-[150px]"
@@ -621,9 +621,9 @@ export default function CustomersPage() {
                                 <Crown className="w-2.5 h-2.5 fill-amber-400 text-amber-500" /> Premium
                               </span>
                             )}
-                            {customer.packageSummary?.hasPackage && (
-                              <span className="inline-flex items-center gap-1 px-2 rounded-[4px] text-[9px] font-bold uppercase tracking-wide border bg-amber-50 text-amber-700 border-amber-200">
-                                <Package className="w-2.5 h-2.5" /> Paket
+                            {customer.referralCode && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wide border bg-gray-50 text-gray-600 border-gray-200">
+                                Ref: {customer.referralCode}
                               </span>
                             )}
                             <span

@@ -961,8 +961,8 @@ export default function POSPage() {
 
     // Voucher discount
     const voucherDiscount = voucherApplied?.discountAmount || 0;
-    // Loyalty point discount: 1 point = 1 currency unit
-    const loyaltyDiscount = Math.min(loyaltyPointsToRedeem, payableSubtotal);
+    // Loyalty point discount: 1 point = settings.loyaltyPointValue currency units
+    const loyaltyDiscount = Math.min(loyaltyPointsToRedeem * (settings.loyaltyPointValue || 1), payableSubtotal);
 
     // Discount flat vs percentage
     const effectiveDiscount = discountType === "percentage" ? (payableSubtotal * discount) / 100 : discount;
@@ -1771,8 +1771,8 @@ export default function POSPage() {
         discount:
           discount +
           (voucherApplied?.discountAmount || 0) +
-          Math.min(loyaltyPointsToRedeem, payableSubtotal),
-        loyaltyPointsUsed: Math.min(loyaltyPointsToRedeem, payableSubtotal),
+          Math.min(loyaltyPointsToRedeem * (settings.loyaltyPointValue || 1), payableSubtotal),
+        loyaltyPointsUsed: Math.min(loyaltyPointsToRedeem, Math.ceil(payableSubtotal / (settings.loyaltyPointValue || 1))),
         tips,
         totalAmount: total,
         commission,
@@ -1800,7 +1800,7 @@ export default function POSPage() {
               ? `Voucher: ${voucherApplied.code} (-${settings.symbol}${voucherApplied.discountAmount.toLocaleString("id-ID")})`
               : "",
             loyaltyPointsToRedeem > 0
-              ? `Loyalty Redeem: ${loyaltyPointsToRedeem} pts (-${settings.symbol}${Math.min(loyaltyPointsToRedeem, payableSubtotal).toLocaleString("id-ID")})`
+              ? `Loyalty Redeem: ${loyaltyPointsToRedeem} pts (-${settings.symbol}${Math.min(loyaltyPointsToRedeem * (settings.loyaltyPointValue || 1), payableSubtotal).toLocaleString("id-ID")})`
               : "",
           ]
             .filter(Boolean)
@@ -2861,7 +2861,7 @@ export default function POSPage() {
                           <span className="text-[10px] font-black text-emerald-700">
                             -{settings.symbol}
                             {Math.min(
-                              loyaltyPointsToRedeem,
+                              loyaltyPointsToRedeem * (settings.loyaltyPointValue || 1),
                               payableSubtotal,
                             ).toLocaleString("id-ID", {
                               maximumFractionDigits: 0,
@@ -2873,7 +2873,7 @@ export default function POSPage() {
                         <input
                           type="range"
                           min="0"
-                          max={Math.min(customerLoyaltyPoints, payableSubtotal)}
+                          max={Math.min(customerLoyaltyPoints, Math.ceil(payableSubtotal / (settings.loyaltyPointValue || 1)))}
                           step="100"
                           value={loyaltyPointsToRedeem}
                           onChange={(e) =>
@@ -2886,7 +2886,7 @@ export default function POSPage() {
                         <input
                           type="number"
                           min="0"
-                          max={Math.min(customerLoyaltyPoints, payableSubtotal)}
+                          max={Math.min(customerLoyaltyPoints, Math.ceil(payableSubtotal / (settings.loyaltyPointValue || 1)))}
                           value={loyaltyPointsToRedeem || ""}
                           placeholder="0"
                           onChange={(e) => {
@@ -3066,45 +3066,48 @@ export default function POSPage() {
                 )}
             </div>
 
-            <div className="flex justify-between text-xl lg:text-2xl font-black text-gray-900 pt-1 border-t border-gray-200 mb-2">
-              <span>
-                {splitPayments.length === 1 &&
-                  totalSplitPaidComputed > 0 &&
-                  totalSplitPaidComputed < total
-                  ? "Due"
-                  : "Total"}
-              </span>
-              <span
-                className={
-                  splitPayments.length === 1 &&
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-gray-200 mb-4 mt-1">
+              <div className="flex items-center gap-2">
+                <span className="text-lg lg:text-xl font-black text-gray-900">
+                  {splitPayments.length === 1 &&
                     totalSplitPaidComputed > 0 &&
                     totalSplitPaidComputed < total
-                    ? "text-red-600"
-                    : "text-blue-900"
-                }
-              >
-                {settings.symbol}
-                {(splitPayments.length === 1 &&
-                  totalSplitPaidComputed > 0 &&
-                  totalSplitPaidComputed < total
-                  ? total - totalSplitPaidComputed
-                  : total
-                ).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
-              </span>
-            </div>
+                    ? "Due"
+                    : "Total"}
+                </span>
+                <span
+                  className={
+                    `text-xl lg:text-2xl font-black ${
+                    splitPayments.length === 1 &&
+                      totalSplitPaidComputed > 0 &&
+                      totalSplitPaidComputed < total
+                      ? "text-red-600"
+                      : "text-blue-900"
+                    }`
+                  }
+                >
+                  {settings.symbol}{(splitPayments.length === 1 &&
+                    totalSplitPaidComputed > 0 &&
+                    totalSplitPaidComputed < total
+                    ? total - totalSplitPaidComputed
+                    : total
+                  ).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                </span>
+              </div>
 
-            <FormButton
-              onClick={() => {
-                void handleCheckout();
-              }}
-              loading={submitting}
-              disabled={hasInvalidSplitInCart || cart.length === 0 || !splitPayments.some(p => !!p.method)}
-              variant="success"
-              className="w-full py-4 lg:py-4 text-xs lg:text-sm uppercase tracking-widest font-black shadow-lg hover:shadow-xl active:translate-y-0.5 transition-all mb-4"
-              icon={<CreditCard className="w-4 h-4" />}
-            >
-              Complete Order
-            </FormButton>
+              <FormButton
+                onClick={() => {
+                  void handleCheckout();
+                }}
+                loading={submitting}
+                disabled={hasInvalidSplitInCart || cart.length === 0 || !splitPayments.some(p => !!p.method)}
+                variant="success"
+                className="flex-1 sm:max-w-max px-4 py-3 text-[11px] lg:text-xs uppercase tracking-widest font-black shadow-lg hover:shadow-xl active:translate-y-0.5 transition-all w-full sm:w-auto"
+                icon={<CreditCard className="w-4 h-4" />}
+              >
+                Complete Order
+              </FormButton>
+            </div>
           </div>
         </div>
       </div>

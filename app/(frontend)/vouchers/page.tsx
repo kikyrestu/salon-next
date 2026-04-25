@@ -19,6 +19,7 @@ import FormInput, {
   FormButton,
 } from "@/components/dashboard/FormInput";
 import { useSettings } from "@/components/providers/SettingsProvider";
+import PermissionGate from "@/components/PermissionGate";
 
 interface Voucher {
   _id: string;
@@ -268,13 +269,15 @@ export default function VouchersPage() {
               Buat dan kelola kode diskon untuk customer
             </p>
           </div>
-          <button
-            onClick={openCreate}
-            className="px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-all flex items-center gap-2 shadow-sm font-semibold text-sm w-full sm:w-auto justify-center"
-          >
-            <Plus className="w-4 h-4" />
-            Buat Voucher
-          </button>
+          <PermissionGate resource="vouchers" action="create">
+            <button
+              onClick={openCreate}
+              className="px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-all flex items-center gap-2 shadow-sm font-semibold text-sm w-full sm:w-auto justify-center"
+            >
+              <Plus className="w-4 h-4" />
+              Buat Voucher
+            </button>
+          </PermissionGate>
         </div>
 
         {/* Main Card */}
@@ -411,28 +414,34 @@ export default function VouchersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleToggleActive(v)}
-                            className={`px-2.5 py-1 text-[10px] font-bold rounded border transition-colors ${
-                              v.isActive
-                                ? "bg-gray-50 border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                                : "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                            }`}
-                          >
-                            {v.isActive ? "Nonaktifkan" : "Aktifkan"}
-                          </button>
-                          <button
-                            onClick={() => openEdit(v)}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(v._id)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <PermissionGate resource="vouchers" action="edit">
+                            <button
+                              onClick={() => handleToggleActive(v)}
+                              className={`px-2.5 py-1 text-[10px] font-bold rounded border transition-colors ${
+                                v.isActive
+                                  ? "bg-gray-50 border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                                  : "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                              }`}
+                            >
+                              {v.isActive ? "Nonaktifkan" : "Aktifkan"}
+                            </button>
+                          </PermissionGate>
+                          <PermissionGate resource="vouchers" action="edit">
+                            <button
+                              onClick={() => openEdit(v)}
+                              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          </PermissionGate>
+                          <PermissionGate resource="vouchers" action="delete">
+                            <button
+                              onClick={() => handleDelete(v._id)}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </PermissionGate>
                         </div>
                       </td>
                     </tr>
