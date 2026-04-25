@@ -16,6 +16,9 @@ interface Settings {
     memberIncludedProducts?: string[];
     memberIncludedBundles?: string[];
     loyaltyPointValue?: number;
+    referralRewardPoints?: number;
+    referralDiscountType?: "percentage" | "nominal";
+    referralDiscountValue?: number;
 }
 
 interface SettingsContextType {
@@ -61,6 +64,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                     memberIncludedProducts: data.data.memberIncludedProducts || [],
                     memberIncludedBundles: data.data.memberIncludedBundles || [],
                     loyaltyPointValue: data.data.loyaltyPointValue || 0,
+                    referralRewardPoints: data.data.referralRewardPoints || 0,
+                    referralDiscountType: data.data.referralDiscountType || "nominal",
+                    referralDiscountValue: data.data.referralDiscountValue || 0,
                 });
             }
         } catch (error) {

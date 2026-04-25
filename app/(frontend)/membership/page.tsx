@@ -34,9 +34,6 @@ interface Customer {
 interface MembershipConfig {
   membershipPrice: number;
   membershipDurationDays: number;
-  loyaltyPointPerSpend: number;
-  loyaltyPointValue: number;
-  referralRewardPoints: number;
   birthdayVoucherId: string;
   memberDiscountType: "percentage" | "nominal";
   memberDiscountValue: number;
@@ -62,9 +59,6 @@ interface Voucher {
 const DEFAULT_CONFIG: MembershipConfig = {
   membershipPrice: 0,
   membershipDurationDays: 365,
-  loyaltyPointPerSpend: 0,
-  loyaltyPointValue: 0,
-  referralRewardPoints: 0,
   birthdayVoucherId: "",
   memberDiscountType: "percentage",
   memberDiscountValue: 0,
@@ -132,9 +126,6 @@ export default function MembershipPage() {
         setConfig({
           membershipPrice: d.membershipPrice || 0,
           membershipDurationDays: d.membershipDurationDays || 365,
-          loyaltyPointPerSpend: d.loyaltyPointPerSpend || 0,
-          loyaltyPointValue: d.loyaltyPointValue || 0,
-          referralRewardPoints: d.referralRewardPoints || 0,
           birthdayVoucherId: d.birthdayVoucherId || "",
           memberDiscountType: d.memberDiscountType || "percentage",
           memberDiscountValue: d.memberDiscountValue || 0,
@@ -424,33 +415,7 @@ export default function MembershipPage() {
                 </p>
               </div>
 
-              {/* Loyalty Settings */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormInput
-                  label="Loyalty: Poin per Spending (Rp)"
-                  type="number"
-                  value={config.loyaltyPointPerSpend.toString()}
-                  onChange={(e) => setConfig({ ...config, loyaltyPointPerSpend: parseFloat(e.target.value) || 0 })}
-                  min="0"
-                  placeholder="100000 = tiap Rp100.000 = 1 poin"
-                />
-                <FormInput
-                  label="Referral: Bonus Poin"
-                  type="number"
-                  value={(config.referralRewardPoints || 0).toString()}
-                  onChange={(e) => setConfig({ ...config, referralRewardPoints: parseFloat(e.target.value) || 0 })}
-                  min="0"
-                  placeholder="Misal: 50 poin"
-                />
-                <FormInput
-                  label="Loyalty: Nilai 1 Poin (Rp)"
-                  type="number"
-                  value={config.loyaltyPointValue.toString()}
-                  onChange={(e) => setConfig({ ...config, loyaltyPointValue: parseFloat(e.target.value) || 0 })}
-                  min="0"
-                  placeholder="1000 = 1 poin = Rp1.000"
-                />
-              </div>
+
 
               {/* Save button */}
               <div className="flex items-center gap-3">

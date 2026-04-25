@@ -228,19 +228,10 @@ export async function POST(request: NextRequest) {
     // Loyalty Point Logic: Calculate points if status is 'paid'
     let pointsToGain = 0;
     if (invoice.status === "paid" && invoice.customer) {
-      const customerData = await Customer.findById(invoice.customer);
-      const isPremium =
-        customerData &&
-        customerData.membershipTier === "premium" &&
-        customerData.membershipExpiry &&
-        new Date(customerData.membershipExpiry) > new Date();
-
-      if (isPremium) {
-        const systemSettings = await Settings.findOne();
-        const spendRule = systemSettings?.loyaltyPointPerSpend || 0;
-        if (spendRule > 0) {
-          pointsToGain = Math.floor(invoice.totalAmount / spendRule);
-        }
+      const systemSettings = await Settings.findOne();
+      const spendRule = systemSettings?.loyaltyPointPerSpend || 0;
+      if (spendRule > 0) {
+        pointsToGain = Math.floor(invoice.totalAmount / spendRule);
       }
       
       const loyaltyUpdates: any = {
@@ -267,6 +258,27 @@ export async function POST(request: NextRequest) {
           loyaltyPointsEarned: pointsToGain,
           loyaltyPointsUsed: pointsUsed,
         });
+      }
+    }
+
+    // Referral reward: if a referral code was submitted, reward the referrer
+    const referralCodeSubmitted = normalizedBody.referralCode;
+    if (referralCodeSubmitted && invoice.status === "paid") {
+      try {
+        const referrer = await Customer.findOne({
+          referralCode: String(referralCodeSubmitted).toUpperCase().trim(),
+        });
+        if (referrer) {
+          const systemSettings = await Settings.findOne();
+          const rewardPoints = systemSettings?.referralRewardPoints || 0;
+          if (rewardPoints > 0) {
+            await Customer.findByIdAndUpdate(referrer._id, {
+              $inc: { loyaltyPoints: rewardPoints },
+            });
+          }
+        }
+      } catch (refErr) {
+        console.error("[Referral] Error rewarding referrer:", refErr);
       }
     }
 

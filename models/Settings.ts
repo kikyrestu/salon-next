@@ -155,6 +155,17 @@ const SettingsSchema = new mongoose.Schema({
         default: 0,
         min: 0
     },
+    // Referral Discount for the customer who uses a referral code
+    referralDiscountType: {
+        type: String,
+        enum: ['percentage', 'nominal'],
+        default: 'nominal'
+    },
+    referralDiscountValue: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
     birthdayVoucherId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Voucher'

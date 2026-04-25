@@ -210,6 +210,13 @@ export default function POSPage() {
   const [expandedStaffKey, setExpandedStaffKey] = useState<string | null>(null);
   const [showVoucherInput, setShowVoucherInput] = useState(false);
   const [showLoyaltySlider, setShowLoyaltySlider] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
+  const [referralValidating, setReferralValidating] = useState(false);
+  const [referralValidated, setReferralValidated] = useState<{
+    referrerName: string;
+    discountAmount: number;
+  } | null>(null);
+  const [isFirstTimer, setIsFirstTimer] = useState(false);
   const [isQrisModalOpen, setIsQrisModalOpen] = useState(false);
   const [qrisSession, setQrisSession] = useState<{
     externalId: string;
@@ -371,6 +378,9 @@ export default function POSPage() {
       setFollowUpPhoneNumber("");
       setCustomerLoyaltyPoints(0);
       setLoyaltyPointsToRedeem(0);
+      setIsFirstTimer(false);
+      setReferralCode("");
+      setReferralValidated(null);
       return;
     }
 
@@ -386,7 +396,57 @@ export default function POSPage() {
         }
       })
       .catch(() => setCustomerLoyaltyPoints(0));
+
+    // Check if customer is a first-timer (no paid invoices)
+    fetch(`/api/invoices?customerId=${selectedCustomer}&status=paid&limit=1`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setIsFirstTimer(data.data.length === 0);
+        } else {
+          setIsFirstTimer(false);
+        }
+      })
+      .catch(() => setIsFirstTimer(false));
   }, [selectedCustomer, customers]);
+
+  // Apply referral code
+  const applyReferralCode = async () => {
+    if (!referralCode.trim() || !isFirstTimer) return;
+    setReferralValidating(true);
+    setReferralValidated(null);
+    try {
+      const res = await fetch(`/api/customers?referralCode=${referralCode.trim().toUpperCase()}`);
+      const data = await res.json();
+      const validReferrers = data.data || [];
+      if (data.success && validReferrers.length > 0) {
+        const referrer = validReferrers[0];
+        if (referrer._id === selectedCustomer) {
+          alert("Peringatan: Tidak bisa menggunakan kode referral milik sendiri!");
+          setReferralCode("");
+          return;
+        }
+
+        const amt =
+          settings.referralDiscountType === "percentage"
+            ? (settings.referralDiscountValue || 0)
+            : (settings.referralDiscountValue || 0);
+
+        setReferralValidated({
+          referrerName: referrer.name,
+          discountAmount: amt, // Will be computed in calculateTotal if percentage
+        });
+      } else {
+        alert("Kode referral tidak valid atau tidak ditemukan");
+        setReferralCode("");
+      }
+    } catch {
+      alert("Error memvalidasi kode referral");
+      setReferralCode("");
+    } finally {
+      setReferralValidating(false);
+    }
+  };
 
   // Apply voucher code
   const applyVoucher = async () => {
@@ -964,12 +1024,23 @@ export default function POSPage() {
     // Loyalty point discount: 1 point = settings.loyaltyPointValue currency units
     const loyaltyDiscount = Math.min(loyaltyPointsToRedeem * (settings.loyaltyPointValue || 1), payableSubtotal);
 
+    // Referral discount
+    let referralDiscount = 0;
+    if (referralValidated) {
+      if (settings.referralDiscountType === "percentage") {
+        referralDiscount = (payableSubtotal * (settings.referralDiscountValue || 0)) / 100;
+      } else {
+        referralDiscount = settings.referralDiscountValue || 0;
+      }
+    }
+    referralDiscount = Math.min(referralDiscount, payableSubtotal);
+
     // Discount flat vs percentage
     const effectiveDiscount = discountType === "percentage" ? (payableSubtotal * discount) / 100 : discount;
 
     const taxableAmount = Math.max(
       0,
-      payableSubtotal - effectiveDiscount - voucherDiscount - loyaltyDiscount,
+      payableSubtotal - effectiveDiscount - voucherDiscount - loyaltyDiscount - referralDiscount,
     );
     const tax = taxableAmount * (settings.taxRate / 100);
 
@@ -1238,6 +1309,7 @@ export default function POSPage() {
       assignments: updatedAssignments,
       lineItemSplits,
       redeemItems,
+      referralDiscount,
     };
   };
 
@@ -1630,6 +1702,7 @@ export default function POSPage() {
         assignments,
         lineItemSplits,
         redeemItems,
+        referralDiscount,
       } = calculateTotal();
 
       const isQrisPayment = isQrisOnly;
@@ -1771,6 +1844,7 @@ export default function POSPage() {
         discount:
           discount +
           (voucherApplied?.discountAmount || 0) +
+          referralDiscount +
           Math.min(loyaltyPointsToRedeem * (settings.loyaltyPointValue || 1), payableSubtotal),
         loyaltyPointsUsed: Math.min(loyaltyPointsToRedeem, Math.ceil(payableSubtotal / (settings.loyaltyPointValue || 1))),
         tips,
@@ -1794,6 +1868,7 @@ export default function POSPage() {
           amount: parseFloat(String(p.amount || "0")) || 0,
         })),
         status: status,
+        referralCode: referralCode.trim() || undefined,
         notes:
           [
             voucherApplied
@@ -1801,6 +1876,9 @@ export default function POSPage() {
               : "",
             loyaltyPointsToRedeem > 0
               ? `Loyalty Redeem: ${loyaltyPointsToRedeem} pts (-${settings.symbol}${Math.min(loyaltyPointsToRedeem * (settings.loyaltyPointValue || 1), payableSubtotal).toLocaleString("id-ID")})`
+              : "",
+            referralValidated
+              ? `Referral Code: ${referralCode} (-${settings.symbol}${referralDiscount.toLocaleString("id-ID")})`
               : "",
           ]
             .filter(Boolean)
@@ -1889,6 +1967,7 @@ export default function POSPage() {
           setServiceSplitModes({});
           setPackageClaims({});
           setSplitPayments([{ method: "", amount: "" }]);
+          setReferralCode("");
           setQrisSession({
             externalId: qrisData.data.externalId,
             checkoutUrl: qrisData.data.checkoutUrl,
@@ -1968,6 +2047,7 @@ export default function POSPage() {
         setVoucherCode("");
         setLoyaltyPointsToRedeem(0);
         setCustomerLoyaltyPoints(0);
+        setReferralCode("");
         router.push(`/invoices/print/${data.data._id}`);
       } else {
         alert(data.error || "Failed to create invoice");
@@ -2281,6 +2361,58 @@ export default function POSPage() {
                   </button>
                 </div>
               )}
+
+            {/* Referral Code */}
+            {selectedCustomer && selectedCustomer !== "walking-customer" && isFirstTimer && (
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-gray-700 flex items-center gap-1">
+                  🎁 Kode Referral (First Timer Only)
+                </label>
+                {referralValidated ? (
+                  <div className="flex items-center justify-between px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                    <div>
+                      <p className="text-xs font-bold text-green-800">
+                        Kode dari {referralValidated.referrerName} ✅
+                      </p>
+                      <p className="text-[10px] text-green-600">
+                        Diskon otomatis{" "}
+                        {settings.referralDiscountType === "percentage"
+                          ? `${settings.referralDiscountValue}%`
+                          : `${settings.symbol}${(settings.referralDiscountValue || 0).toLocaleString("id-ID")}`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReferralValidated(null);
+                        setReferralCode("");
+                      }}
+                      className="text-xs font-bold text-red-600 px-2 py-1 hover:bg-red-50 rounded"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={referralCode}
+                      onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                      placeholder="Masukkan kode teman"
+                      className="flex-1 h-9 px-3 text-xs lg:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 uppercase tracking-wider font-bold placeholder:font-normal placeholder:tracking-normal placeholder:normal-case"
+                    />
+                    <button
+                      type="button"
+                      onClick={applyReferralCode}
+                      disabled={!referralCode.trim() || referralValidating}
+                      className="h-9 px-3 bg-amber-100 text-amber-700 font-bold text-xs rounded-lg hover:bg-amber-200 disabled:opacity-50 transition-colors"
+                    >
+                      {referralValidating ? "Cek..." : "Cek Kode"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {selectedCustomer === "walking-customer" && (
               <div className="space-y-1">

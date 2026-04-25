@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Store, Mail, Phone, MapPin, DollarSign, Percent, Image as ImageIcon, Globe, FileText, Clock, CreditCard, MessageSquare, Send, Bell, Sparkles, Trash2, RefreshCw } from "lucide-react";
+import { Save, Store, Mail, Phone, MapPin, DollarSign, Percent, Image as ImageIcon, Globe, FileText, Clock, CreditCard, MessageSquare, Send, Bell, Sparkles, Trash2, RefreshCw, Gift } from "lucide-react";
 import FormInput, { FormSelect, FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
 import { getAllCurrencies } from "@/lib/currency";
@@ -23,6 +23,13 @@ interface Settings {
     businessHours: string;
     receiptFooter: string;
     termsAndConditions: string;
+
+    // Loyalty & Referral
+    loyaltyPointPerSpend: number;
+    loyaltyPointValue: number;
+    referralRewardPoints: number;
+    referralDiscountType: "percentage" | "nominal";
+    referralDiscountValue: number;
 
     // WhatsApp Settings (Fonnte)
     fonnteToken: string;
@@ -73,6 +80,11 @@ export default function SettingsPage() {
         businessHours: "Mon-Fri: 9:00 AM - 6:00 PM",
         receiptFooter: "Thank you for your business!",
         termsAndConditions: "",
+        loyaltyPointPerSpend: 0,
+        loyaltyPointValue: 0,
+        referralRewardPoints: 0,
+        referralDiscountType: "nominal",
+        referralDiscountValue: 0,
         // WhatsApp Settings
         fonnteToken: "",
         // SMS Settings
@@ -153,6 +165,11 @@ export default function SettingsPage() {
                     businessHours: data.data.businessHours || "Mon-Fri: 9:00 AM - 6:00 PM",
                     receiptFooter: data.data.receiptFooter || "Thank you for your business!",
                     termsAndConditions: data.data.termsAndConditions || "",
+                    loyaltyPointPerSpend: data.data.loyaltyPointPerSpend || 0,
+                    loyaltyPointValue: data.data.loyaltyPointValue || 0,
+                    referralRewardPoints: data.data.referralRewardPoints || 0,
+                    referralDiscountType: data.data.referralDiscountType || "nominal",
+                    referralDiscountValue: data.data.referralDiscountValue || 0,
 
                     // WhatsApp Settings
                     fonnteToken: data.data.fonnteToken || "",
@@ -493,6 +510,60 @@ export default function SettingsPage() {
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-transparent"
                                 placeholder="Enter your terms and conditions..."
                             />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Loyalty & Referral Settings */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <Gift className="w-5 h-5 text-amber-600" />
+                        Loyalty & Referral Settings
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormInput
+                            label="Loyalty: Poin per Spending (Rp)"
+                            type="number"
+                            value={settings.loyaltyPointPerSpend.toString()}
+                            onChange={(e) => setSettings({ ...settings, loyaltyPointPerSpend: parseFloat(e.target.value) || 0 })}
+                            min="0"
+                            placeholder="100000 = tiap Rp100.000 = 1 poin"
+                        />
+                        <FormInput
+                            label="Loyalty: Nilai 1 Poin (Rp)"
+                            type="number"
+                            value={settings.loyaltyPointValue.toString()}
+                            onChange={(e) => setSettings({ ...settings, loyaltyPointValue: parseFloat(e.target.value) || 0 })}
+                            min="0"
+                            placeholder="1000 = 1 poin = Rp1.000"
+                        />
+                        <FormInput
+                            label="Referral: Bonus Poin untuk Pengajak"
+                            type="number"
+                            value={settings.referralRewardPoints.toString()}
+                            onChange={(e) => setSettings({ ...settings, referralRewardPoints: parseFloat(e.target.value) || 0 })}
+                            min="0"
+                            placeholder="Misal: 50 poin"
+                        />
+                        <div className="flex gap-2 items-end">
+                            <div className="flex-1">
+                                <FormInput
+                                    label="Referral: Diskon untuk Customer Baru"
+                                    type="number"
+                                    value={settings.referralDiscountValue.toString()}
+                                    onChange={(e) => setSettings({ ...settings, referralDiscountValue: parseFloat(e.target.value) || 0 })}
+                                    min="0"
+                                    placeholder="Nilai diskon referral"
+                                />
+                            </div>
+                            <select
+                                value={settings.referralDiscountType}
+                                onChange={(e) => setSettings({ ...settings, referralDiscountType: e.target.value as "percentage" | "nominal" })}
+                                className="h-10 px-2 border border-gray-300 rounded-lg text-sm bg-white mb-4"
+                            >
+                                <option value="nominal">Rp</option>
+                                <option value="percentage">%</option>
+                            </select>
                         </div>
                     </div>
                 </div>
