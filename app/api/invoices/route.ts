@@ -269,12 +269,17 @@ export async function POST(request: NextRequest) {
           referralCode: String(referralCodeSubmitted).toUpperCase().trim(),
         });
         if (referrer) {
-          const systemSettings = await Settings.findOne();
-          const rewardPoints = systemSettings?.referralRewardPoints || 0;
-          if (rewardPoints > 0) {
-            await Customer.findByIdAndUpdate(referrer._id, {
-              $inc: { loyaltyPoints: rewardPoints },
-            });
+          const isVIP = referrer.membershipExpiry && new Date(referrer.membershipExpiry).getTime() > new Date().getTime();
+          if (isVIP) {
+            const systemSettings = await Settings.findOne();
+            const rewardPoints = systemSettings?.referralRewardPoints || 0;
+            if (rewardPoints > 0) {
+              await Customer.findByIdAndUpdate(referrer._id, {
+                $inc: { loyaltyPoints: rewardPoints },
+              });
+            }
+          } else {
+            console.log("[Referral] Referrer is not VIP, skipped reward.");
           }
         }
       } catch (refErr) {

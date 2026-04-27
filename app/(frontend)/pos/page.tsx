@@ -421,6 +421,14 @@ export default function POSPage() {
       const validReferrers = data.data || [];
       if (data.success && validReferrers.length > 0) {
         const referrer = validReferrers[0];
+        
+        const isVIP = referrer.membershipExpiry && new Date(referrer.membershipExpiry).getTime() > new Date().getTime();
+        if (!isVIP) {
+          alert("Peringatan: Kode referral hanya berlaku jika pemiliknya adalah member VIP aktif!");
+          setReferralCode("");
+          return;
+        }
+
         if (referrer._id === selectedCustomer) {
           alert("Peringatan: Tidak bisa menggunakan kode referral milik sendiri!");
           setReferralCode("");
