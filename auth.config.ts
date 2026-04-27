@@ -42,6 +42,24 @@ export const authConfig = {
                     token.roleId = user.role._id?.toString() || user.role.id;
                 }
             }
+
+            // Always refresh permissions from DB so changes take effect immediately
+            if (token.roleId) {
+                try {
+                    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+                    const res = await fetch(`${baseUrl}/api/roles/${token.roleId}`, { cache: 'no-store' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.success && data.data?.permissions) {
+                            token.permissions = data.data.permissions;
+                            token.role = data.data.name;
+                        }
+                    }
+                } catch {
+                    // Silently fail — keep existing token permissions
+                }
+            }
+
             return token;
         },
         async session({ session, token }: any) {
