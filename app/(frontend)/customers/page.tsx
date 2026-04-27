@@ -423,7 +423,7 @@ export default function CustomersPage() {
                                 </span>
                               )}
                             </div>
-                            {customer.referralCode && (
+                            {customer.referralCode && customer.membershipTier === "premium" && (
                               <div className="mt-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-gray-100 inline-block px-1.5 py-0.5 rounded border border-gray-200">
                                 Ref: {customer.referralCode}
                               </div>

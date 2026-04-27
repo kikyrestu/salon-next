@@ -29,6 +29,8 @@ interface CustomerListItem {
   status: string;
   createdAt: Date;
   createdBy?: string;
+  referralCode?: string;
+  membershipExpiry?: Date;
 }
 
 interface CustomerPackageQuotaRow {
@@ -146,6 +148,25 @@ export async function GET(request: NextRequest) {
         latestPackageName: "",
       },
     }));
+
+    // Backfill missing referral codes for older customers
+    const missingCodes = customersWithSummary.filter(c => !c.referralCode);
+    if (missingCodes.length > 0) {
+      for (const c of missingCodes) {
+        let rc = "";
+        let attempts = 0;
+        while (!rc && attempts < 10) {
+          attempts++;
+          const candidate = crypto.randomBytes(3).toString("hex").toUpperCase();
+          const exists = await Customer.findOne({ referralCode: candidate }).lean();
+          if (!exists) rc = candidate;
+        }
+        if (rc) {
+          await Customer.updateOne({ _id: c._id }, { $set: { referralCode: rc } });
+          c.referralCode = rc;
+        }
+      }
+    }
 
     const total = await Customer.countDocuments(query);
 
