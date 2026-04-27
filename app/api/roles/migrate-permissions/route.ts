@@ -32,53 +32,46 @@ const FULL_PERMISSION_KEYS: Record<string, any> = {
     settings: { view: true, edit: true },
 };
 
-// Default values for NEW keys added to non-admin roles
-const DEFAULT_FULL_PERMISSION = { view: 'all', create: true, edit: true, delete: true };
-const DEFAULT_BOOLEAN_PERMISSION = { view: true };
-
-// Shared logic
+// Force-update ALL permission keys on ALL roles
 async function migratePermissions() {
     try {
         await connectDB();
 
         const roles = await Role.find({});
-        const results: { name: string; added: string[] }[] = [];
+        const results: { name: string; updated: string[] }[] = [];
 
         for (const role of roles) {
             const permissions = role.permissions || {};
-            const added: string[] = [];
+            const updated: string[] = [];
             const isAdmin = role.name.toLowerCase() === 'admin' || role.name.toLowerCase() === 'super admin';
 
             for (const [key, adminDefault] of Object.entries(FULL_PERMISSION_KEYS)) {
-                if (!(key in permissions)) {
-                    // For admin roles, grant full access. For others, also grant full access
-                    // since the user likely wants all menus visible.
-                    // If you want non-admin roles to default to 'none', change this logic.
-                    if (isAdmin) {
-                        permissions[key] = adminDefault;
-                    } else {
-                        // Grant view access so menus show up, but no create/edit/delete
+                if (isAdmin) {
+                    // Admin always gets FULL access for every key
+                    permissions[key] = adminDefault;
+                    updated.push(key);
+                } else {
+                    // Non-admin: only add if missing
+                    if (!(key in permissions)) {
                         if ('create' in adminDefault) {
                             permissions[key] = { view: 'all', create: false, edit: false, delete: false };
                         } else {
                             permissions[key] = { view: true };
                         }
+                        updated.push(key);
                     }
-                    added.push(key);
                 }
             }
 
-            if (added.length > 0) {
-                role.permissions = permissions;
-                role.markModified('permissions');
-                await role.save();
-                results.push({ name: role.name, added });
-            }
+            role.permissions = permissions;
+            role.markModified('permissions');
+            await role.save();
+            results.push({ name: role.name, updated });
         }
 
         return NextResponse.json({
             success: true,
-            message: `Migrated ${results.length} roles`,
+            message: `Force-migrated ${results.length} roles`,
             details: results,
         });
     } catch (error: any) {
@@ -89,6 +82,6 @@ async function migratePermissions() {
     }
 }
 
-// GET & POST /api/roles/migrate-permissions
+// GET & POST both work
 export async function GET() { return migratePermissions(); }
 export async function POST() { return migratePermissions(); }
