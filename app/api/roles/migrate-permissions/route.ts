@@ -36,9 +36,8 @@ const FULL_PERMISSION_KEYS: Record<string, any> = {
 const DEFAULT_FULL_PERMISSION = { view: 'all', create: true, edit: true, delete: true };
 const DEFAULT_BOOLEAN_PERMISSION = { view: true };
 
-// POST /api/roles/migrate-permissions
-// Patches all existing roles to include any missing permission keys
-export async function POST(request: NextRequest) {
+// Shared logic
+async function migratePermissions() {
     try {
         await connectDB();
 
@@ -89,3 +88,7 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+
+// GET & POST /api/roles/migrate-permissions
+export async function GET() { return migratePermissions(); }
+export async function POST() { return migratePermissions(); }
