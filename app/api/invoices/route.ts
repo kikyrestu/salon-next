@@ -353,10 +353,15 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "all";
+    const customerId = searchParams.get("customerId");
 
     const skip = (page - 1) * limit;
 
     const query: any = {};
+
+    if (customerId) {
+      query.customer = customerId;
+    }
 
     // Scope Check (Own vs All) - Optional refinement
     // const scope = await getViewScope('invoices');
