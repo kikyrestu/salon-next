@@ -99,6 +99,12 @@ export default function PrintInvoicePage() {
                             <span className="font-bold tracking-widest">{invoice.customer.referralCode}</span>
                         </div>
                     )}
+                    {invoice.referralCode && (
+                        <div className="flex justify-between items-start text-xs border-dashed border border-gray-300 p-1 mt-1 bg-gray-50/50">
+                            <span className="text-gray-500">Referred By:</span>
+                            <span className="font-bold text-right ml-2 break-all">{invoice.customer?.referredBy?.name || "Member VIP"}</span>
+                        </div>
+                    )}
                     {invoice.appointment && (
                         <div className="flex justify-between">
                             <span className="text-gray-500">Type:</span>

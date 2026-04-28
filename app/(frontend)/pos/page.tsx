@@ -213,6 +213,7 @@ export default function POSPage() {
   const [showLoyaltySlider, setShowLoyaltySlider] = useState(false);
   const [referralCode, setReferralCode] = useState("");
   const [referralValidating, setReferralValidating] = useState(false);
+  const [referralInfoModal, setReferralInfoModal] = useState<{name: string, phone: string} | null>(null);
   const [referralValidated, setReferralValidated] = useState<{
     referrerName: string;
     discountAmount: number;
@@ -436,11 +437,12 @@ export default function POSPage() {
           return;
         }
 
+        setReferralInfoModal({ name: referrer.name, phone: referrer.phone || "-" });
+
         const amt =
           settings.referralDiscountType === "percentage"
             ? (settings.referralDiscountValue || 0)
             : (settings.referralDiscountValue || 0);
-
         setReferralValidated({
           referrerName: referrer.name,
           discountAmount: amt, // Will be computed in calculateTotal if percentage
@@ -1323,6 +1325,10 @@ export default function POSPage() {
   };
 
   const handleCheckout = async (nonQrisPaid?: boolean) => {
+    if (referralCode.trim() && !referralValidated && isFirstTimer) {
+      alert("Peringatan: Anda mengisi Kode Referral tetapi belum divalidasi. Klik tombol 'Cek Kode' terlebih dahulu.");
+      return;
+    }
     if (!selectedCustomer) {
       alert("Please select a customer");
       return;
@@ -2159,7 +2165,7 @@ export default function POSPage() {
                     placeholder="Search items..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-blue-900"
+                    className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-blue-900"
                   />
                   {search && (
                     <button
@@ -2288,7 +2294,7 @@ export default function POSPage() {
 
       {/* Right Side: Cart */}
       <div
-        className={`w-full md:w-[420px] lg:w-[500px] xl:w-[560px] 2xl:w-[620px] md:flex-none flex flex-col bg-white border-l border-gray-200 ${mobileTab === "catalog" ? "hidden md:flex" : "flex"} h-full`}
+        className={`w-full md:w-[420px] lg:w-[500px] xl:w-[560px] 2xl:w-[620px] md:flex-none flex flex-col text-gray-900 bg-white border-l border-gray-200 ${mobileTab === "catalog" ? "hidden md:flex" : "flex"} h-full`}
       >
         <div className="bg-white flex flex-col h-full overflow-hidden">
           <div className="p-3 lg:p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0 space-y-3">
@@ -2406,9 +2412,9 @@ export default function POSPage() {
                     <input
                       type="text"
                       value={referralCode}
-                      onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                      onChange={(e) => { setReferralCode(e.target.value.toUpperCase()); if (referralValidated) setReferralValidated(null); }} onKeyDown={(e) => { if (e.key === "Enter") void applyReferralCode(); }}
                       placeholder="Masukkan kode teman"
-                      className="flex-1 h-9 px-3 text-xs lg:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 uppercase tracking-wider font-bold placeholder:font-normal placeholder:tracking-normal placeholder:normal-case"
+                      className="flex-1 h-9 px-3 text-xs lg:text-sm text-gray-900 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 uppercase tracking-wider font-bold placeholder:font-normal placeholder:tracking-normal placeholder:normal-case"
                     />
                     <button
                       type="button"
@@ -2433,7 +2439,7 @@ export default function POSPage() {
                   value={followUpPhoneNumber}
                   onChange={(e) => setFollowUpPhoneNumber(e.target.value)}
                   placeholder="Contoh: 08123456789"
-                  className="w-full h-9 px-3 text-xs lg:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full h-9 px-3 text-xs lg:text-sm text-gray-900 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             )}
@@ -2900,7 +2906,7 @@ export default function POSPage() {
                                       parseFloat(e.target.value) || 0,
                                   }))
                                 }
-                                className="w-10 text-right bg-white border border-indigo-200 rounded px-1 py-0.5 focus:outline-none focus:border-indigo-400 font-bold text-indigo-900"
+                                className="w-10 text-right text-gray-900 bg-white border border-indigo-200 rounded px-1 py-0.5 focus:outline-none focus:border-indigo-400 font-bold text-indigo-900"
                               />
                             </div>
                           </div>
@@ -3254,7 +3260,7 @@ export default function POSPage() {
       </div>
 
       {/* Mobile Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around h-16 z-50 px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 text-gray-900 bg-white border-t border-gray-200 flex items-center justify-around h-16 z-50 px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
         <button
           onClick={() => setMobileTab("catalog")}
           className={`flex flex-col items-center justify-center w-20 h-full transition-all ${mobileTab === "catalog" ? "text-blue-900 scale-110" : "text-gray-400"}`}
@@ -3349,6 +3355,38 @@ export default function POSPage() {
               </div>
             ))
           )}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={referralInfoModal !== null}
+        onClose={() => setReferralInfoModal(null)}
+        title="🎁 Kode Referral Ditemukan!"
+      >
+        <div className="space-y-4">
+          <div className="flex flex-col items-center justify-center p-4 bg-green-50 border border-green-200 rounded-lg">
+            <span className="text-4xl mb-2">✅</span>
+            <p className="text-lg font-bold text-green-800 text-center">
+              Member VIP Valid
+            </p>
+            <div className="mt-4 w-full bg-white rounded p-3 shadow-sm border border-green-100 flex flex-col gap-1">
+              <div className="flex justify-between">
+                <span className="text-gray-500 text-xs">Nama Member</span>
+                <span className="font-bold text-gray-900">{referralInfoModal?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500 text-xs">No. WhatsApp</span>
+                <span className="font-bold text-gray-900">{referralInfoModal?.phone}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReferralInfoModal(null)}
+              className="mt-4 w-full py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors"
+            >
+              Gunakan Diskon Referral
+            </button>
+          </div>
         </div>
       </Modal>
 

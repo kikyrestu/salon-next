@@ -15,7 +15,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         await connectToDB();
         initModels();
         const { id } = await params;
-        const invoice = await Invoice.findById(id).populate('customer').populate('staffAssignments.staff');
+        const invoice = await Invoice.findById(id)
+            .populate({
+                path: 'customer',
+                populate: { path: 'referredBy', select: 'name phone' }
+            })
+            .populate('staffAssignments.staff');
         if (!invoice) {
             return NextResponse.json({ success: false, error: "Invoice not found" }, { status: 404 });
         }

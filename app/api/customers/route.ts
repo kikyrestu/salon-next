@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     // Apply Scope
     const scope = await getViewScope("customers");
-    let query: CustomerQuery = {};
+    let query: any = {};
 
     if (scope === "own") {
       const session = (await auth()) as SessionLike | null;
@@ -71,14 +71,18 @@ export async function GET(request: NextRequest) {
         query.createdBy = session.user.id;
       }
     }
+    
+    const referralCodeParam = searchParams.get("referralCode");
+    if (referralCodeParam) {
+      query.referralCode = referralCodeParam;
+    }
+
     if (search) {
-      query = {
-        $or: [
-          { name: { $regex: search, $options: "i" } },
-          { email: { $regex: search, $options: "i" } },
-          { phone: { $regex: search, $options: "i" } },
-        ],
-      };
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+      ];
     }
 
     const customers = await Customer.find(query)
