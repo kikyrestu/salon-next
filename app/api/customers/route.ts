@@ -30,6 +30,7 @@ interface CustomerListItem {
   createdAt: Date;
   createdBy?: string;
   referralCode?: string;
+  referredBy?: string | object;
   membershipExpiry?: Date;
 }
 

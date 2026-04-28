@@ -269,6 +269,15 @@ export async function POST(request: NextRequest) {
           referralCode: String(referralCodeSubmitted).toUpperCase().trim(),
         });
         if (referrer) {
+          // Set referredBy on the customer if not already set
+          const currentCustomer = await Customer.findById(invoice.customer);
+          if (currentCustomer && !currentCustomer.referredBy) {
+            await Customer.findByIdAndUpdate(currentCustomer._id, {
+              referredBy: referrer._id
+            });
+          }
+
+          // Reward logic:
           const isVIP = referrer.membershipExpiry && new Date(referrer.membershipExpiry).getTime() > new Date().getTime();
           if (isVIP) {
             const systemSettings = await Settings.findOne();

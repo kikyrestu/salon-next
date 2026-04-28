@@ -75,6 +75,7 @@ interface Customer {
   membershipTier?: string;
   membershipExpiry?: string;
   loyaltyPoints?: number;
+  referredBy?: string | object;
   packageSummary?: {
     activePackages?: number;
   };
@@ -412,7 +413,7 @@ export default function POSPage() {
 
   // Apply referral code
   const applyReferralCode = async () => {
-    if (!referralCode.trim() || !isFirstTimer) return;
+    if (!referralCode.trim()) return;
     setReferralValidating(true);
     setReferralValidated(null);
     try {
@@ -421,13 +422,6 @@ export default function POSPage() {
       const validReferrers = data.data || [];
       if (data.success && validReferrers.length > 0) {
         const referrer = validReferrers[0];
-        
-        const isVIP = referrer.membershipExpiry && new Date(referrer.membershipExpiry).getTime() > new Date().getTime();
-        if (!isVIP) {
-          alert("Peringatan: Kode referral hanya berlaku jika pemiliknya adalah member VIP aktif!");
-          setReferralCode("");
-          return;
-        }
 
         if (referrer._id === selectedCustomer) {
           alert("Peringatan: Tidak bisa menggunakan kode referral milik sendiri!");
@@ -2371,10 +2365,10 @@ export default function POSPage() {
               )}
 
             {/* Referral Code */}
-            {selectedCustomer && selectedCustomer !== "walking-customer" && isFirstTimer && (
+            {selectedCustomer && selectedCustomer !== "walking-customer" && !customers.find((c) => c._id === selectedCustomer)?.referredBy && (
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-gray-700 flex items-center gap-1">
-                  🎁 Kode Referral (First Timer Only)
+                  🎁 Kode Referral Teman
                 </label>
                 {referralValidated ? (
                   <div className="flex items-center justify-between px-3 py-2 bg-green-50 border border-green-200 rounded-lg">

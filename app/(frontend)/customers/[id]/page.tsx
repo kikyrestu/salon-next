@@ -46,6 +46,7 @@ interface Customer {
   membershipJoinDate?: string;
   membershipExpiry?: string;
   referralCode?: string;
+  referredBy?: { _id: string; name: string };
   waNotifEnabled: boolean;
   createdAt: string;
 }
@@ -514,6 +515,17 @@ export default function CustomerDashboardPage() {
                   <Copy className="w-3.5 h-3.5" />
                 )}
               </button>
+            </div>
+          )}
+
+          {/* Referred By */}
+          {customer.referredBy && (
+            <div className="mt-3 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+              <Gift className="w-4 h-4 text-blue-400 flex-shrink-0" />
+              <span className="text-xs text-blue-500">Referred by:</span>
+              <span className="text-sm font-black text-blue-900">
+                {customer.referredBy.name}
+              </span>
             </div>
           )}
         </div>

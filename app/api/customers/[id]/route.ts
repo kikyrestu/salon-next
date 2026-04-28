@@ -12,7 +12,7 @@ export async function GET(
         await connectDB();
         const { id } = await params;
 
-        const customer = await Customer.findById(id);
+        const customer = await Customer.findById(id).populate('referredBy', 'name');
 
         if (!customer) {
             return NextResponse.json(
