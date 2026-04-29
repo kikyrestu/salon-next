@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     try {
         await connectToDB();
         const body = await request.json();
-        const expense = await Expense.create(body);
+        const expense: any = await Expense.create(body);
         
         // --- CASH DRAWER INTEGRATION ---
         if (expense.paymentMethod && expense.paymentMethod.toLowerCase() === 'cash') {
