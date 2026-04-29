@@ -31,6 +31,10 @@ import WaGreetingLog from "@/models/WaGreetingLog";
 import WaFollowUpContact from "@/models/WaFollowUpContact";
 import ServiceBundle from "@/models/ServiceBundle";
 import Voucher from "@/models/Voucher";
+import WaBlastLog from "@/models/WaBlastLog";
+import CashBalance from "@/models/CashBalance";
+import CashSession from "@/models/CashSession";
+import CashLog from "@/models/CashLog";
 
 // Export all models for convenience
 export {
@@ -64,6 +68,10 @@ export {
   WaFollowUpContact,
   ServiceBundle,
   Voucher,
+  WaBlastLog,
+  CashBalance,
+  CashSession,
+  CashLog,
 };
 
 // This function can be called to ensure models are loaded
@@ -100,5 +108,9 @@ export function initModels() {
     WaFollowUpContact,
     ServiceBundle,
     Voucher,
+    WaBlastLog,
+    CashBalance,
+    CashSession,
+    CashLog,
   };
 }

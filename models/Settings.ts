@@ -59,6 +59,34 @@ const SettingsSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    // WA Marketing Numbers
+    waBlastNumber: {
+        type: String,
+        default: ''
+    },
+    waAdminNumber: {
+        type: String,
+        default: ''
+    },
+    waOwnerNumber: {
+        type: String,
+        default: ''
+    },
+    // WA Auto-Reminder Settings
+    membershipExpiryReminderDays: {
+        type: Number,
+        default: 30,
+        min: 1
+    },
+    packageExpiryReminderDays: {
+        type: Number,
+        default: 30,
+        min: 1
+    },
+    dailyReportTime: {
+        type: String,
+        default: '21:00'
+    },
     // SMS Settings (Twilio)
     smsEnabled: {
         type: Boolean,

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import * as XLSX from "xlsx";
 import {
     BarChart3,
@@ -22,32 +22,72 @@ import {
     ArrowUpDown,
     ArrowUpRight,
     ArrowDownRight,
-    Shield
+    Shield,
+    X,
+    Eye,
+    Clock
 } from "lucide-react";
 import { format, subMonths, isValid } from "date-fns";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
 import StatCard from "@/components/dashboard/StatCard";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { getCurrentDateInTimezone, getMonthDateRangeInTimezone } from "@/lib/dateUtils";
+import { useSession } from "next-auth/react";
 
 type ReportType = 'summary' | 'sales' | 'services' | 'products' | 'staff' | 'customers' | 'inventory' | 'expenses' | 'profit' | 'daily' | 'activity-log';
 
 export default function ReportsPage() {
     const { settings } = useSettings();
+    const { data: session } = useSession();
     const [activeTab, setActiveTab] = useState<ReportType>('sales');
     const [loading, setLoading] = useState(true);
     const [sortConfig, setSortConfig] = useState({ key: null as string | null, direction: 'asc' as 'asc' | 'desc' });
     const [paymentFilter, setPaymentFilter] = useState<string>('all');
     const [reportData, setReportData] = useState<any>(null);
+
+    // Staff & Service filters for Sales tab
+    const [staffFilter, setStaffFilter] = useState('');
+    const [serviceFilter, setServiceFilter] = useState('');
+    const [staffList, setStaffList] = useState<any[]>([]);
+    const [serviceList, setServiceList] = useState<any[]>([]);
+
+    // Staff drill-down modal
+    const [drillDownStaff, setDrillDownStaff] = useState<any>(null);
+    const [drillDownData, setDrillDownData] = useState<any[]>([]);
+    const [drillDownLoading, setDrillDownLoading] = useState(false);
+
+    // Role-based check: is current user Kasir?
+    const userRole = (session as any)?.user?.role;
+    const isKasir = typeof userRole === 'string'
+        ? userRole.toLowerCase() === 'kasir'
+        : userRole?.name?.toLowerCase() === 'kasir';
+
+    // Default to TODAY
     const [dateRange, setDateRange] = useState(() => {
-        const range = getMonthDateRangeInTimezone(settings.timezone || "UTC");
-        return { start: range.startDate, end: range.endDate };
+        const today = getCurrentDateInTimezone(settings.timezone || "UTC");
+        return { start: today, end: today };
     });
 
     useEffect(() => {
-        const range = getMonthDateRangeInTimezone(settings.timezone || "UTC");
-        setDateRange({ start: range.startDate, end: range.endDate });
+        const today = getCurrentDateInTimezone(settings.timezone || "UTC");
+        setDateRange({ start: today, end: today });
     }, [settings.timezone]);
+
+    // Load staff & service lists for filter dropdowns
+    useEffect(() => {
+        fetch('/api/staff?limit=200').then(r => r.json()).then(d => {
+            if (d.success) setStaffList(d.data || []);
+        }).catch(console.error);
+        fetch('/api/services?limit=200').then(r => r.json()).then(d => {
+            if (d.success) setServiceList(d.data || []);
+        }).catch(console.error);
+    }, []);
+
+    // Kasir restriction: force today only
+    const handleDateChange = (field: 'start' | 'end', value: string) => {
+        if (isKasir) return; // Block date changes for Kasir
+        setDateRange(prev => ({ ...prev, [field]: value }));
+    };
 
     const reportTabs: { id: ReportType, label: string, icon: any }[] = [
         { id: 'sales', label: 'Sales Report', icon: FileText },
@@ -55,6 +95,7 @@ export default function ReportsPage() {
         { id: 'products', label: 'Product Analytics', icon: Package },
         { id: 'customers', label: 'Top Spenders', icon: Users },
         { id: 'inventory', label: 'Inventory Level', icon: Package },
+        { id: 'daily', label: 'Daily Closing', icon: Clock },
         { id: 'staff', label: 'Staff Performance', icon: Users },
         { id: 'expenses', label: 'Expense Tracking', icon: ShoppingBag },
         { id: 'profit', label: 'Profit & Loss', icon: TrendingUp },
@@ -63,7 +104,7 @@ export default function ReportsPage() {
 
     useEffect(() => {
         fetchData();
-    }, [activeTab, dateRange]);
+    }, [activeTab, dateRange, staffFilter, serviceFilter]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -105,7 +146,12 @@ export default function ReportsPage() {
                     lowStockCount: lowStock
                 });
             } else {
-                const res = await fetch(`/api/reports?type=${activeTab}&startDate=${dateRange.start}&endDate=${dateRange.end}`);
+                let url = `/api/reports?type=${activeTab}&startDate=${dateRange.start}&endDate=${dateRange.end}`;
+                if (activeTab === 'sales') {
+                    if (staffFilter) url += `&staffId=${staffFilter}`;
+                    if (serviceFilter) url += `&serviceId=${serviceFilter}`;
+                }
+                const res = await fetch(url);
                 const data = await res.json();
                 if (data.success) {
                     setReportData(data.data);
@@ -404,8 +450,16 @@ export default function ReportsPage() {
 
                 return (
                     <div className="space-y-6">
-                        <div className="flex gap-2 items-center bg-white p-3 rounded-lg border-2 border-gray-300 shadow-sm w-max">
-                            <span className="text-xs font-bold text-gray-700 px-2">Payment Method:</span>
+                        <div className="flex flex-wrap gap-2 items-center bg-white p-3 rounded-lg border-2 border-gray-300 shadow-sm">
+                            <span className="text-xs font-bold text-gray-700 px-2">Filters:</span>
+                            <select value={staffFilter} onChange={e => setStaffFilter(e.target.value)} className="border-2 border-gray-400 bg-white text-sm font-bold text-gray-900 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600">
+                                <option value="">All Staff</option>
+                                {staffList.map((s: any) => <option key={s._id} value={s._id}>{s.name}</option>)}
+                            </select>
+                            <select value={serviceFilter} onChange={e => setServiceFilter(e.target.value)} className="border-2 border-gray-400 bg-white text-sm font-bold text-gray-900 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600">
+                                <option value="">All Services</option>
+                                {serviceList.map((s: any) => <option key={s._id} value={s._id}>{s.name}</option>)}
+                            </select>
                             <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)} className="border-2 border-gray-400 bg-white text-sm font-bold text-gray-900 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600">
                                 <option value="all">All Methods</option>
                                 <option value="cash">Cash</option>
@@ -414,6 +468,11 @@ export default function ReportsPage() {
                                 <option value="credit card">Credit Card</option>
                                 <option value="qris">QRIS</option>
                             </select>
+                            {(staffFilter || serviceFilter || paymentFilter !== 'all') && (
+                                <button onClick={() => { setStaffFilter(''); setServiceFilter(''); setPaymentFilter('all'); }} className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1 px-2 py-1 bg-red-50 rounded-lg border border-red-200">
+                                    <X className="w-3 h-3" /> Reset
+                                </button>
+                            )}
                         </div>
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
@@ -475,14 +534,107 @@ export default function ReportsPage() {
                 );
             case 'staff':
                 if (!Array.isArray(reportData)) return null;
-                return renderTable(
-                    ['Staff Member', 'Sale Count', 'Revenue Contribution', 'Total Commission'],
-                    reportData.map((s: any) => ({
-                        name: s.name,
-                        sales: s.sales,
-                        revenue: formatCurrency(s.revenue),
-                        comm: formatCurrency(s.commission)
-                    }))
+
+                const handleStaffDrillDown = async (staffName: string) => {
+                    setDrillDownStaff(staffName);
+                    setDrillDownLoading(true);
+                    try {
+                        // Find the staff ID from list by matching name
+                        const match = staffList.find(s => s.name === staffName);
+                        if (!match) { setDrillDownData([]); return; }
+                        const res = await fetch(`/api/reports?type=sales&startDate=${dateRange.start}&endDate=${dateRange.end}&staffId=${match._id}`);
+                        const data = await res.json();
+                        setDrillDownData(data.success ? data.data : []);
+                    } catch { setDrillDownData([]); } finally { setDrillDownLoading(false); }
+                };
+
+                return (
+                    <div className="space-y-4">
+                        {/* Staff table */}
+                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full text-left whitespace-nowrap">
+                                    <thead>
+                                        <tr className="bg-gray-50 border-b border-gray-100">
+                                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">Staff Member</th>
+                                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">Sale Count</th>
+                                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">Revenue Contribution</th>
+                                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">Total Commission</th>
+                                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">Detail</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {reportData.map((s: any, i: number) => (
+                                            <tr key={i} className="hover:bg-blue-50/50 transition-colors cursor-pointer" onClick={() => handleStaffDrillDown(s.name)}>
+                                                <td className="px-6 py-4 text-sm font-bold text-gray-900">{s.name}</td>
+                                                <td className="px-6 py-4 text-sm font-medium text-gray-700">{s.sales}</td>
+                                                <td className="px-6 py-4 text-sm font-medium text-green-700">{formatCurrency(s.revenue)}</td>
+                                                <td className="px-6 py-4 text-sm font-medium text-blue-700">{formatCurrency(s.commission)}</td>
+                                                <td className="px-6 py-4">
+                                                    <button className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                                                        <Eye className="w-3 h-3" /> Lihat
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {reportData.length === 0 && !loading && (
+                                <div className="py-20 text-center text-gray-400"><p className="text-sm font-bold">No staff data for this range</p></div>
+                            )}
+                        </div>
+
+                        {/* Drill-Down Modal */}
+                        {drillDownStaff && (
+                            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDrillDownStaff(null)}>
+                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                                        <div>
+                                            <h3 className="text-lg font-black text-gray-900">Detail Invoice — {drillDownStaff}</h3>
+                                            <p className="text-xs text-gray-500">{dateRange.start} s/d {dateRange.end}</p>
+                                        </div>
+                                        <button onClick={() => setDrillDownStaff(null)} className="p-2 rounded-lg hover:bg-gray-100"><X className="w-5 h-5" /></button>
+                                    </div>
+                                    <div className="flex-1 overflow-auto p-6">
+                                        {drillDownLoading ? (
+                                            <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-900 border-t-transparent" /></div>
+                                        ) : drillDownData.length === 0 ? (
+                                            <div className="text-center text-gray-400 py-20 text-sm">Tidak ada invoice ditemukan</div>
+                                        ) : (
+                                            <table className="min-w-full text-left whitespace-nowrap text-sm">
+                                                <thead>
+                                                    <tr className="bg-gray-50 border-b">
+                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Invoice #</th>
+                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Date</th>
+                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Customer</th>
+                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Items</th>
+                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Total</th>
+                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {drillDownData.map((inv: any) => (
+                                                        <tr key={inv._id} className="hover:bg-gray-50/50">
+                                                            <td className="px-4 py-3 font-bold text-gray-900">{inv.invoiceNumber}</td>
+                                                            <td className="px-4 py-3 text-gray-600">{formatSafeDate(inv.date)}</td>
+                                                            <td className="px-4 py-3 text-gray-700">{inv.customer?.name || 'Walk-in'}</td>
+                                                            <td className="px-4 py-3 text-gray-500 text-xs">{inv.items?.map((it: any) => it.name).join(', ') || '-'}</td>
+                                                            <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(inv.totalAmount)}</td>
+                                                            <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${inv.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : inv.status === 'voided' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>{inv.status}</span></td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+                                    <div className="px-6 py-3 border-t border-gray-100 text-xs text-gray-500 shrink-0">
+                                        Total: {drillDownData.length} invoice(s) | {formatCurrency(drillDownData.reduce((s: number, inv: any) => s + (inv.totalAmount || 0), 0))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 );
             case 'customers':
                 if (!Array.isArray(reportData)) return null;
@@ -635,13 +787,18 @@ export default function ReportsPage() {
                         <div className="text-center sm:text-left">
                             <h1 className="text-2xl font-black text-gray-900 tracking-tight">Financial Reports</h1>
                             <p className="text-sm text-gray-500 font-medium">Business health analytics and performance tracking</p>
+                            {isKasir && (
+                                <p className="text-xs mt-1 text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-lg inline-block font-semibold">
+                                    🔒 Kasir hanya bisa melihat laporan hari ini
+                                </p>
+                            )}
                         </div>
 
                         <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
                             <div className="flex items-center gap-2 bg-white p-2 rounded-xl border-2 border-gray-300 shadow-sm w-full sm:w-auto justify-center">
-                                <button onClick={() => setPresetRange('thisMonth')} className="px-4 py-2 text-sm font-bold text-gray-900 rounded-lg bg-gray-100 hover:bg-blue-600 hover:text-white border-2 border-gray-300 hover:border-blue-600 transition-all flex-1 sm:flex-none">Month</button>
-                                <button onClick={() => setPresetRange('last3Months')} className="px-4 py-2 text-sm font-bold text-gray-900 rounded-lg bg-gray-100 hover:bg-blue-600 hover:text-white border-2 border-gray-300 hover:border-blue-600 transition-all flex-1 sm:flex-none">Quarter</button>
-                                {activeTab === 'daily' && <button onClick={() => setPresetRange('today')} className="px-4 py-2 text-sm font-bold text-white rounded-lg bg-blue-600 border-2 border-blue-700 shadow-sm transition-all flex-1 sm:flex-none hover:bg-blue-700">Today</button>}
+                                <button onClick={() => setPresetRange('today')} className="px-4 py-2 text-sm font-bold text-white rounded-lg bg-blue-600 border-2 border-blue-700 shadow-sm transition-all flex-1 sm:flex-none hover:bg-blue-700">Today</button>
+                                <button onClick={() => !isKasir && setPresetRange('thisMonth')} className={`px-4 py-2 text-sm font-bold rounded-lg bg-gray-100 border-2 border-gray-300 transition-all flex-1 sm:flex-none ${isKasir ? 'opacity-40 cursor-not-allowed' : 'text-gray-900 hover:bg-blue-600 hover:text-white hover:border-blue-600'}`}>Month</button>
+                                <button onClick={() => !isKasir && setPresetRange('last3Months')} className={`px-4 py-2 text-sm font-bold rounded-lg bg-gray-100 border-2 border-gray-300 transition-all flex-1 sm:flex-none ${isKasir ? 'opacity-40 cursor-not-allowed' : 'text-gray-900 hover:bg-blue-600 hover:text-white hover:border-blue-600'}`}>Quarter</button>
                             </div>
 
                             <div className="flex justify-center items-center gap-2 bg-white px-4 py-2.5 rounded-xl border-2 border-gray-300 shadow-sm w-full sm:w-auto">
@@ -649,8 +806,9 @@ export default function ReportsPage() {
                                 <input
                                     type="date"
                                     value={dateRange.start}
-                                    onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                                    className="border-2 border-gray-400 rounded-md text-sm font-bold text-gray-900 px-2 py-1 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 w-32 bg-white"
+                                    onChange={(e) => handleDateChange('start', e.target.value)}
+                                    disabled={isKasir}
+                                    className={`border-2 border-gray-400 rounded-md text-sm font-bold text-gray-900 px-2 py-1 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 w-32 bg-white ${isKasir ? 'opacity-40 cursor-not-allowed' : ''}`}
                                 />
                                 {activeTab !== 'daily' && (
                                     <>
@@ -658,8 +816,9 @@ export default function ReportsPage() {
                                         <input
                                             type="date"
                                             value={dateRange.end}
-                                            onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                                            className="border-2 border-gray-400 rounded-md text-sm font-bold text-gray-900 px-2 py-1 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 w-32 bg-white"
+                                            onChange={(e) => handleDateChange('end', e.target.value)}
+                                            disabled={isKasir}
+                                            className={`border-2 border-gray-400 rounded-md text-sm font-bold text-gray-900 px-2 py-1 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 w-32 bg-white ${isKasir ? 'opacity-40 cursor-not-allowed' : ''}`}
                                         />
                                     </>
                                 )}

@@ -29,6 +29,9 @@ import {
   Gift,
   Layers,
   Crown,
+  FileSpreadsheet,
+  Megaphone,
+  Wallet,
 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import { signOut } from "next-auth/react";
@@ -57,6 +60,7 @@ const menuSections = [
     items: [
       { name: "Services", href: "/services", icon: Tag },
       { name: "WA Templates", href: "/wa-templates", icon: MessageSquare },
+      { name: "WA Marketing", href: "/wa-marketing", icon: Megaphone },
       { name: "Packages", href: "/packages", icon: Package },
       { name: "Bundles", href: "/bundles", icon: Package },
       { name: "Products", href: "/products", icon: Package },
@@ -78,6 +82,7 @@ const menuSections = [
   {
     title: "Finance",
     items: [
+      { name: "Cash Drawer", href: "/cash-drawer", icon: Wallet },
       { name: "Payroll", href: "/payroll", icon: DollarSign },
       { name: "Expenses", href: "/expenses", icon: DollarSign },
       { name: "QRIS", href: "/payments/qris", icon: QrCode },
@@ -88,6 +93,7 @@ const menuSections = [
   {
     title: "Admin",
     items: [
+      { name: "Import / Export", href: "/import-export", icon: FileSpreadsheet },
       { name: "Users", href: "/users", icon: Users },
       { name: "Roles", href: "/roles", icon: Shield },
       { name: "Activity Log", href: "/reports/activity-log", icon: Activity },
@@ -129,6 +135,7 @@ export default function Sidebar({
       POS: "pos",
       Services: "services",
       "WA Templates": "waTemplates",
+      "WA Marketing": "customers",
       Packages: "packages",
       Bundles: "bundles",
       Products: "products",
@@ -140,10 +147,12 @@ export default function Sidebar({
       "Staff Slots": "staffSlots",
       Customers: "customers",
       Suppliers: "suppliers",
+      "Cash Drawer": "pos",
       Payroll: "payroll",
       Expenses: "expenses",
       QRIS: "invoices",
       Reports: "reports",
+      "Import / Export": "settings",
       Users: "users",
       Roles: "roles",
       Settings: "settings",

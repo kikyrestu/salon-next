@@ -36,7 +36,10 @@ export interface IInvoice extends Document {
   }[];
   loyaltyPointsUsed?: number;
   loyaltyPointsEarned?: number;
-  status: "paid" | "pending" | "partially_paid" | "cancelled";
+  status: "paid" | "pending" | "partially_paid" | "cancelled" | "voided";
+  voidedBy?: mongoose.Types.ObjectId;
+  voidedAt?: Date;
+  voidReason?: string;
   staff?: mongoose.Types.ObjectId;
   staffAssignments: {
     staff?: mongoose.Types.ObjectId;
@@ -147,9 +150,13 @@ const invoiceSchema = new Schema<IInvoice>(
     loyaltyPointsEarned: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["paid", "pending", "partially_paid", "cancelled"],
+      enum: ["paid", "pending", "partially_paid", "cancelled", "voided"],
       default: "paid",
     },
+    // Immutable audit trail — invoices are NEVER hard-deleted
+    voidedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    voidedAt: { type: Date },
+    voidReason: { type: String, trim: true },
     staff: { type: Schema.Types.ObjectId, ref: "Staff" },
     staffAssignments: [
       {

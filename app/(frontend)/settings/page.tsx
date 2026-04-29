@@ -33,6 +33,12 @@ interface Settings {
 
     // WhatsApp Settings (Fonnte)
     fonnteToken: string;
+    waBlastNumber: string;
+    waAdminNumber: string;
+    waOwnerNumber: string;
+    membershipExpiryReminderDays: number;
+    packageExpiryReminderDays: number;
+    dailyReportTime: string;
 
     // SMS Settings
     smsEnabled: boolean;
@@ -87,6 +93,12 @@ export default function SettingsPage() {
         referralDiscountValue: 0,
         // WhatsApp Settings
         fonnteToken: "",
+        waBlastNumber: "",
+        waAdminNumber: "",
+        waOwnerNumber: "",
+        membershipExpiryReminderDays: 30,
+        packageExpiryReminderDays: 30,
+        dailyReportTime: "21:00",
         // SMS Settings
         smsEnabled: false,
         twilioAccountSid: "",
@@ -173,6 +185,12 @@ export default function SettingsPage() {
 
                     // WhatsApp Settings
                     fonnteToken: data.data.fonnteToken || "",
+                    waBlastNumber: data.data.waBlastNumber || "",
+                    waAdminNumber: data.data.waAdminNumber || "",
+                    waOwnerNumber: data.data.waOwnerNumber || "",
+                    membershipExpiryReminderDays: data.data.membershipExpiryReminderDays || 30,
+                    packageExpiryReminderDays: data.data.packageExpiryReminderDays || 30,
+                    dailyReportTime: data.data.dailyReportTime || "21:00",
                     // SMS Settings
                     smsEnabled: data.data.smsEnabled || false,
                     twilioAccountSid: data.data.twilioAccountSid || "",
@@ -638,6 +656,64 @@ export default function SettingsPage() {
                                     <strong>Note:</strong> Get your Token from <a href="https://fonnte.com" target="_blank" rel="noopener noreferrer" className="underline">Fonnte API Dashboard</a>. This will override the token from `.env` file if provided.
                                 </p>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* WA Marketing Settings */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <MessageSquare className="w-5 h-5 text-green-600" />
+                        WA Marketing & Notifications
+                    </h2>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <FormInput
+                                label="WA Admin (Stock Alert)"
+                                value={settings.waAdminNumber}
+                                onChange={(e) => setSettings({ ...settings, waAdminNumber: e.target.value })}
+                                placeholder="628123456789"
+                            />
+                            <FormInput
+                                label="WA Owner (Daily Report)"
+                                value={settings.waOwnerNumber}
+                                onChange={(e) => setSettings({ ...settings, waOwnerNumber: e.target.value })}
+                                placeholder="628123456789"
+                            />
+                            <FormInput
+                                label="Daily Report Time"
+                                value={settings.dailyReportTime}
+                                onChange={(e) => setSettings({ ...settings, dailyReportTime: e.target.value })}
+                                placeholder="21:00"
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormInput
+                                label="Membership Expiry Reminder (hari sebelum)"
+                                type="number"
+                                value={settings.membershipExpiryReminderDays.toString()}
+                                onChange={(e) => setSettings({ ...settings, membershipExpiryReminderDays: parseInt(e.target.value) || 30 })}
+                                min="1"
+                                placeholder="30"
+                            />
+                            <FormInput
+                                label="Package Expiry Reminder (hari sebelum)"
+                                type="number"
+                                value={settings.packageExpiryReminderDays.toString()}
+                                onChange={(e) => setSettings({ ...settings, packageExpiryReminderDays: parseInt(e.target.value) || 30 })}
+                                min="1"
+                                placeholder="30"
+                            />
+                        </div>
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <p className="text-xs text-green-800">
+                                <strong>Auto WA:</strong> Stock alert → Admin | Daily report → Owner | Membership/Package expiry → Customer.<br/>
+                                Setup cron job di <a href="https://cron-job.org" target="_blank" rel="noopener noreferrer" className="underline">cron-job.org</a> untuk trigger otomatis:
+                                <code className="ml-1 bg-green-100 px-1.5 py-0.5 rounded text-[10px]">/api/cron/wa-stock-alert</code>,
+                                <code className="ml-1 bg-green-100 px-1.5 py-0.5 rounded text-[10px]">/api/cron/wa-daily-report</code>,
+                                <code className="ml-1 bg-green-100 px-1.5 py-0.5 rounded text-[10px]">/api/cron/wa-membership-expiry</code>,
+                                <code className="ml-1 bg-green-100 px-1.5 py-0.5 rounded text-[10px]">/api/cron/wa-package-expiry</code>
+                            </p>
                         </div>
                     </div>
                 </div>

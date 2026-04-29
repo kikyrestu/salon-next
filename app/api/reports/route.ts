@@ -35,10 +35,24 @@ export async function GET(request: Request) {
 
         switch (type) {
             case "sales":
-                // Sales Report: Invoices breakdown
-                data = await Invoice.find({
-                    date: { $gte: start, $lte: end }
-                }).populate('customer staff').lean();
+                // Sales Report: Invoices breakdown with optional staff/service filter
+                const salesQuery: any = { date: { $gte: start, $lte: end } };
+                const staffFilter = searchParams.get("staffId");
+                const serviceFilter = searchParams.get("serviceId");
+
+                if (staffFilter) {
+                    salesQuery.$or = [
+                        { staff: staffFilter },
+                        { 'staffAssignments.staff': staffFilter },
+                        { 'items.staffAssignments.staff': staffFilter },
+                    ];
+                }
+                if (serviceFilter) {
+                    salesQuery['items.item'] = serviceFilter;
+                    salesQuery['items.itemModel'] = 'Service';
+                }
+
+                data = await Invoice.find(salesQuery).populate('customer staff').lean();
                 break;
 
             case "services":

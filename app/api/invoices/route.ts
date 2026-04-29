@@ -10,6 +10,9 @@ import { logActivity } from "@/lib/logger";
 import { scheduleFollowUp } from "@/lib/waFollowUp";
 import { normalizeIndonesianPhone } from "@/lib/phone";
 import { sendWhatsApp } from "@/lib/fonnte";
+import CashBalance from "@/models/CashBalance";
+import CashLog from "@/models/CashLog";
+import { auth } from "@/auth";
 
 const SPLIT_TOLERANCE = 0.01;
 
@@ -168,6 +171,47 @@ export async function POST(request: NextRequest) {
       ...normalizedBody,
       invoiceNumber,
     })) as any;
+
+    // --- CASH DRAWER INTEGRATION ---
+    if (invoice.status === "paid" || invoice.status === "partially_paid") {
+      let cashAmount = 0;
+      
+      if (invoice.paymentMethods && invoice.paymentMethods.length > 0) {
+          const cashPayment = invoice.paymentMethods.find((p: any) => p.method.toLowerCase() === 'cash');
+          if (cashPayment) cashAmount = cashPayment.amount;
+      } else if (invoice.paymentMethod && invoice.paymentMethod.toLowerCase() === 'cash') {
+          cashAmount = invoice.amountPaid || invoice.totalAmount;
+      }
+
+      if (cashAmount > 0) {
+          const session: any = await auth();
+          const userId = session?.user?.id;
+          
+          let balance = await CashBalance.findOne();
+          if (!balance) balance = await CashBalance.create({ kasirBalance: 0, brankasBalance: 0, bankBalance: 0 });
+          
+          balance.kasirBalance += cashAmount;
+          balance.lastUpdatedAt = new Date();
+          await balance.save();
+          
+          await CashLog.create({
+              type: 'sale',
+              amount: cashAmount,
+              sourceLocation: 'customer',
+              destinationLocation: 'kasir',
+              performedBy: userId,
+              description: `Sales Payment for Invoice ${invoiceNumber}`,
+              referenceModel: 'Invoice',
+              referenceId: invoice._id,
+              balanceAfter: {
+                  kasir: balance.kasirBalance,
+                  brankas: balance.brankasBalance,
+                  bank: balance.bankBalance
+              }
+          });
+      }
+    }
+    // -------------------------------
 
     // Auto-deduct product stock and send low-stock WA notification if needed
     for (const item of normalizedBody.items) {

@@ -5,6 +5,9 @@ import Expense from "@/models/Expense";
 import { initModels } from "@/lib/initModels";
 import Settings from "@/models/Settings";
 import { getUtcRangeForDateRange } from "@/lib/dateUtils";
+import CashBalance from "@/models/CashBalance";
+import CashLog from "@/models/CashLog";
+import { auth } from "@/auth";
 
 export async function GET(request: Request) {
     try {
@@ -72,6 +75,37 @@ export async function POST(request: Request) {
         await connectToDB();
         const body = await request.json();
         const expense = await Expense.create(body);
+        
+        // --- CASH DRAWER INTEGRATION ---
+        if (expense.paymentMethod && expense.paymentMethod.toLowerCase() === 'cash') {
+            const session: any = await auth();
+            const userId = session?.user?.id || expense.recordedBy;
+            
+            let balance = await CashBalance.findOne();
+            if (!balance) balance = await CashBalance.create({ kasirBalance: 0, brankasBalance: 0, bankBalance: 0 });
+            
+            balance.kasirBalance -= expense.amount;
+            balance.lastUpdatedAt = new Date();
+            await balance.save();
+            
+            await CashLog.create({
+                type: 'expense',
+                amount: expense.amount,
+                sourceLocation: 'kasir',
+                destinationLocation: 'expense',
+                performedBy: userId,
+                description: `Expense Payment: ${expense.title}`,
+                referenceModel: 'Expense',
+                referenceId: expense._id,
+                balanceAfter: {
+                    kasir: balance.kasirBalance,
+                    brankas: balance.brankasBalance,
+                    bank: balance.bankBalance
+                }
+            });
+        }
+        // -------------------------------
+        
         return NextResponse.json({ success: true, data: expense });
     } catch (error) {
         console.error(error);
