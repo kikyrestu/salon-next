@@ -272,12 +272,12 @@ export default function CashDrawerPage() {
                                 <>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Modal Awal Fisik (Rp)</label>
-                                        <input type="number" value={startingCash} onChange={e => setStartingCash(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 font-bold focus:border-blue-600 focus:ring-0 transition-colors" placeholder="Contoh: 500000" />
+                                        <input type="number" value={startingCash} onChange={e => setStartingCash(e.target.value)} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 font-bold focus:border-blue-600 focus:ring-0 transition-colors" placeholder="Contoh: 500000" />
                                         <p className="text-xs text-gray-500 mt-2">Uang fisik yang ada di laci sebelum transaksi pertama hari ini.</p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Catatan Tambahan (Opsional)</label>
-                                        <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-600" rows={2}></textarea>
+                                        <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-blue-600" rows={2}></textarea>
                                     </div>
                                     <button onClick={() => handleSessionAction('open')} disabled={actionLoading || !startingCash} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl disabled:opacity-50">
                                         {actionLoading ? 'Memproses...' : 'Buka Laci Sekarang'}
@@ -293,7 +293,7 @@ export default function CashDrawerPage() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Uang Fisik Aktual di Laci (Rp)</label>
-                                        <input type="number" value={actualEndingCash} onChange={e => setActualEndingCash(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 font-bold text-red-600 focus:border-red-600 focus:ring-0 transition-colors" placeholder="Hitung dan masukkan total fisik" />
+                                        <input type="number" value={actualEndingCash} onChange={e => setActualEndingCash(e.target.value)} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 font-bold text-red-600 focus:border-red-600 focus:ring-0 transition-colors" placeholder="Hitung dan masukkan total fisik" />
                                     </div>
                                     {actualEndingCash && Number(actualEndingCash) !== balance.kasirBalance && (
                                         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm font-bold flex items-start gap-2">
@@ -303,7 +303,7 @@ export default function CashDrawerPage() {
                                     )}
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Catatan (Wajib jika ada selisih)</label>
-                                        <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-600" rows={2}></textarea>
+                                        <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-blue-600" rows={2}></textarea>
                                     </div>
                                     <button onClick={() => handleSessionAction('close')} disabled={actionLoading || !actualEndingCash} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl disabled:opacity-50">
                                         {actionLoading ? 'Memproses...' : 'Tutup Laci Sekarang'}
@@ -316,7 +316,7 @@ export default function CashDrawerPage() {
                                     <div className="flex items-center gap-4">
                                         <div className="flex-1">
                                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dari</label>
-                                            <select value={transferSource} onChange={e => {setTransferSource(e.target.value); if(e.target.value === 'kasir') setTransferDestination('brankas'); else setTransferDestination('bank');}} className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:border-blue-600">
+                                            <select value={transferSource} onChange={e => {setTransferSource(e.target.value); if(e.target.value === 'kasir') setTransferDestination('brankas'); else setTransferDestination('bank');}} className="w-full border-2 border-gray-300 rounded-xl px-3 py-2.5 font-bold focus:border-blue-600">
                                                 <option value="kasir">Laci Kasir</option>
                                                 <option value="brankas">Brankas</option>
                                             </select>
@@ -324,7 +324,7 @@ export default function CashDrawerPage() {
                                         <ArrowRightLeft className="w-5 h-5 text-gray-300 mt-4" />
                                         <div className="flex-1">
                                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ke</label>
-                                            <select value={transferDestination} onChange={e => setTransferDestination(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:border-blue-600">
+                                            <select value={transferDestination} onChange={e => setTransferDestination(e.target.value)} className="w-full border-2 border-gray-300 rounded-xl px-3 py-2.5 font-bold focus:border-blue-600">
                                                 {transferSource === 'kasir' && <option value="brankas">Brankas</option>}
                                                 {transferSource === 'brankas' && (
                                                     <>
@@ -337,7 +337,7 @@ export default function CashDrawerPage() {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Nominal Transfer (Rp)</label>
-                                        <input type="number" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 font-bold focus:border-blue-600" />
+                                        <input type="number" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 font-bold focus:border-blue-600" />
                                     </div>
                                     {transferSource === 'brankas' && (
                                         <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl">
@@ -347,7 +347,7 @@ export default function CashDrawerPage() {
                                     )}
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Catatan</label>
-                                        <input type="text" value={notes} onChange={e => setNotes(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-600" placeholder="Cth: Setoran harian Bank BCA" />
+                                        <input type="text" value={notes} onChange={e => setNotes(e.target.value)} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-blue-600" placeholder="Cth: Setoran harian Bank BCA" />
                                     </div>
                                     <button onClick={handleTransfer} disabled={actionLoading || !transferAmount || (transferSource === 'brankas' && !ownerPassword)} className="w-full bg-gray-900 hover:bg-black text-white font-bold py-3 rounded-xl disabled:opacity-50">
                                         {actionLoading ? 'Memproses...' : 'Proses Pindah Uang'}

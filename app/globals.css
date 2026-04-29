@@ -3,6 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -12,18 +13,35 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Force all form elements to have readable text */
+input,
+textarea,
+select {
+  color: #111827 !important; /* gray-900 */
+  background-color: #ffffff;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af !important; /* gray-400 */
+}
+
+/* Date/time inputs on webkit */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color: #111827 !important;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: none;
 }
 
 button {
@@ -48,3 +66,4 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+

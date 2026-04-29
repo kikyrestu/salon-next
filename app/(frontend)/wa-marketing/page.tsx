@@ -292,7 +292,7 @@ export default function WAMarketingPage() {
                           type="date"
                           value={lastVisitSince}
                           onChange={(e) => setLastVisitSince(e.target.value)}
-                          className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                         />
                       </div>
                     </div>
@@ -303,7 +303,7 @@ export default function WAMarketingPage() {
                       <select
                         value={serviceId}
                         onChange={(e) => setServiceId(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
                       >
                         <option value="">Semua Service</option>
                         {services.map((s) => (
@@ -320,7 +320,7 @@ export default function WAMarketingPage() {
                       <select
                         value={membershipTier}
                         onChange={(e) => setMembershipTier(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
                       >
                         {MEMBERSHIP_TIERS.map((t) => (
                           <option key={t.value} value={t.value}>
@@ -336,7 +336,7 @@ export default function WAMarketingPage() {
                       <select
                         value={birthdayMonth}
                         onChange={(e) => setBirthdayMonth(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
                       >
                         <option value="">Semua Bulan</option>
                         {[
@@ -466,7 +466,7 @@ export default function WAMarketingPage() {
                       value={campaignName}
                       onChange={(e) => setCampaignName(e.target.value)}
                       placeholder="e.g. Promo Lebaran 2025"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -481,7 +481,7 @@ export default function WAMarketingPage() {
                       onChange={(e) => setMessage(e.target.value)}
                       rows={5}
                       placeholder={`Halo {{nama_customer}}, kami punya promo spesial untuk Anda!`}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
                     />
                   </div>
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
