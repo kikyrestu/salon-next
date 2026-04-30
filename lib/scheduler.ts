@@ -2,6 +2,13 @@ import cron from 'node-cron';
 import { connectToDB } from '@/lib/mongodb';
 import { initModels } from '@/lib/initModels';
 import WaSchedule from '@/models/WaSchedule';
+import WaCampaignQueue from '@/models/WaCampaignQueue';
+import WaBlastLog from '@/models/WaBlastLog';
+import WaAutomation from '@/models/WaAutomation';
+import Customer from '@/models/Customer';
+import Product from '@/models/Product';
+import CashSession from '@/models/CashSession';
+import Settings from '@/models/Settings';
 import { sendWhatsApp } from '@/lib/fonnte';
 
 let schedulerStarted = false;
@@ -18,6 +25,239 @@ interface ProcessResult {
 const fillTemplate = (template: string, vars: Record<string, string>): string => {
     return template.replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, key: string) => vars[key] ?? '');
 };
+
+export async function processPendingCampaigns(now: Date = new Date()) {
+    await connectToDB();
+    initModels();
+
+    // Find campaigns that are either processing, or pending and past scheduled time
+    const campaigns = await WaCampaignQueue.find({
+        $or: [
+            { status: 'processing' },
+            { status: 'pending', scheduledAt: { $lte: now } }
+        ]
+    });
+
+    for (const campaign of campaigns) {
+        // Mark as processing if it was pending
+        if (campaign.status === 'pending') {
+            campaign.status = 'processing';
+            await campaign.save();
+        }
+
+        // Find targets that are still pending
+        // Limit to 15 per run to avoid Vercel timeout (15 * 3s = 45s)
+        const pendingTargets = campaign.targets.filter((t: any) => t.status === 'pending').slice(0, 15);
+        
+        if (pendingTargets.length === 0) {
+            // All targets processed, mark campaign as completed
+            campaign.status = 'completed';
+            await campaign.save();
+
+            const sentCount = campaign.targets.filter((t: any) => t.status === 'sent').length;
+            const failedCount = campaign.targets.filter((t: any) => t.status === 'failed').length;
+
+            // Save Blast Log
+            await WaBlastLog.create({
+                campaignName: campaign.campaignName,
+                message: campaign.message,
+                targetCount: campaign.targets.length,
+                sentCount,
+                failedCount,
+                filters: campaign.filters,
+                recipients: campaign.targets.map((t: any) => ({
+                    customerId: t.customerId,
+                    phone: t.phone,
+                    status: t.status,
+                    error: t.error
+                })),
+                sentBy: campaign.sentBy,
+            });
+            continue;
+        }
+
+        // We need customer names for template replacing
+        const customerIds = pendingTargets.map((t: any) => t.customerId);
+        const customers = await Customer.find({ _id: { $in: customerIds } }).select('name').lean();
+        const customerMap = new Map(customers.map((c: any) => [String(c._id), c.name]));
+
+        for (const target of pendingTargets) {
+            const customerName = customerMap.get(String(target.customerId)) || 'Pelanggan';
+            const personalizedMsg = campaign.message.replace(/{{nama_customer}}/gi, customerName);
+
+            try {
+                const result = await sendWhatsApp(target.phone, personalizedMsg);
+                if (result.success) {
+                    target.status = 'sent';
+                } else {
+                    target.status = 'failed';
+                    target.error = result.error;
+                }
+            } catch (err: any) {
+                target.status = 'failed';
+                target.error = err.message;
+            }
+
+            // Save after each message so we don't lose progress if function times out
+            await WaCampaignQueue.updateOne(
+                { _id: campaign._id, "targets._id": target._id },
+                { 
+                    $set: { 
+                        "targets.$.status": target.status,
+                        "targets.$.error": target.error
+                    } 
+                }
+            );
+
+            // Delay to avoid Fonnte rate limit
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+    }
+}
+
+export async function processAutomations(now: Date = new Date()) {
+    await connectToDB();
+    initModels();
+
+    const currentHourMin = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: DEFAULT_SCHEDULER_TIMEZONE });
+    const todayStr = now.toLocaleDateString('en-US', { timeZone: DEFAULT_SCHEDULER_TIMEZONE });
+
+    const activeRules = await WaAutomation.find({ isActive: true });
+    const settings: any = await Settings.findOne() || {};
+
+    for (const rule of activeRules) {
+        // Check if rule already ran today
+        const lastRunStr = rule.lastRunDate ? rule.lastRunDate.toLocaleDateString('en-US', { timeZone: DEFAULT_SCHEDULER_TIMEZONE }) : '';
+        if (lastRunStr === todayStr) continue;
+
+        // Determine targets based on targetRole
+        let targetPhones: string[] = [];
+        if (rule.targetRole === 'owner' && settings.waOwnerNumber) targetPhones.push(settings.waOwnerNumber);
+        if (rule.targetRole === 'admin' && settings.waAdminNumber) targetPhones.push(settings.waAdminNumber);
+
+        // Daily Report & Stock Alert execution matches specific time
+        if (rule.category === 'daily_report' || rule.category === 'stock_alert' || rule.category === 'birthday') {
+            if (rule.scheduleTime && rule.scheduleTime !== currentHourMin) continue;
+        } else if (rule.category === 'membership_expiry' || rule.category === 'package_expiry') {
+            if (rule.scheduleTime && rule.scheduleTime !== currentHourMin) continue;
+        }
+
+        try {
+            if (rule.category === 'daily_report') {
+                if (targetPhones.length === 0) continue;
+                
+                // Get today's total revenue from CashSession
+                const startOfDay = new Date(now);
+                startOfDay.setHours(0, 0, 0, 0);
+                const endOfDay = new Date(now);
+                endOfDay.setHours(23, 59, 59, 999);
+
+                const sessions = await CashSession.find({
+                    openedAt: { $gte: startOfDay, $lte: endOfDay }
+                });
+
+                let totalRevenue = 0;
+                sessions.forEach((s: any) => {
+                    totalRevenue += (s.expectedClosingCash || 0) - (s.openingCash || 0);
+                });
+
+                const formattedRevenue = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(totalRevenue);
+                const message = rule.messageTemplate.replace(/{{total_revenue}}/gi, formattedRevenue);
+
+                for (const phone of targetPhones) {
+                    await sendWhatsApp(phone, message);
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+
+                rule.lastRunDate = now;
+                await rule.save();
+            }
+            else if (rule.category === 'stock_alert') {
+                if (targetPhones.length === 0) continue;
+
+                // Find low stock products
+                const products = await Product.find({ stock: { $lte: 5 } }).lean();
+                if (products.length === 0) {
+                    // No low stock, skip running (we update lastRunDate so it doesn't try again today)
+                    rule.lastRunDate = now;
+                    await rule.save();
+                    continue;
+                }
+
+                const itemList = products.map((p: any) => `- ${p.name} (Sisa: ${p.stock})`).join('\n');
+                const message = rule.messageTemplate.replace(/{{items}}/gi, itemList);
+
+                for (const phone of targetPhones) {
+                    await sendWhatsApp(phone, message);
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+
+                rule.lastRunDate = now;
+                await rule.save();
+            }
+            else if (rule.category === 'membership_expiry' && rule.targetRole === 'customer') {
+                const daysBefore = rule.daysBefore || 0;
+                const targetDate = new Date(now);
+                targetDate.setDate(targetDate.getDate() + daysBefore);
+                
+                const startOfTarget = new Date(targetDate);
+                startOfTarget.setHours(0, 0, 0, 0);
+                const endOfTarget = new Date(targetDate);
+                endOfTarget.setHours(23, 59, 59, 999);
+
+                const customers = await Customer.find({
+                    membershipExpiry: { $gte: startOfTarget, $lte: endOfTarget },
+                    waNotifEnabled: true,
+                    phone: { $exists: true, $ne: '' }
+                });
+
+                for (const customer of customers) {
+                    const msg = rule.messageTemplate.replace(/{{nama_customer}}/gi, customer.name);
+                    await sendWhatsApp(customer.phone, msg);
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+
+                rule.lastRunDate = now;
+                await rule.save();
+            }
+            else if (rule.category === 'birthday' && rule.targetRole === 'customer') {
+                const startOfToday = new Date(now);
+                startOfToday.setHours(0, 0, 0, 0);
+                const endOfToday = new Date(now);
+                endOfToday.setHours(23, 59, 59, 999);
+
+                // For birthday we match Month and Day
+                const month = now.getMonth() + 1;
+                const day = now.getDate();
+
+                const customers = await Customer.find({
+                    waNotifEnabled: true,
+                    phone: { $exists: true, $ne: '' }
+                });
+
+                // Filter in memory for birthdays today
+                const birthdayCustomers = customers.filter(c => {
+                    if (!c.birthday) return false;
+                    const bMonth = c.birthday.getMonth() + 1;
+                    const bDay = c.birthday.getDate();
+                    return bMonth === month && bDay === day;
+                });
+
+                for (const customer of birthdayCustomers) {
+                    const msg = rule.messageTemplate.replace(/{{nama_customer}}/gi, customer.name);
+                    await sendWhatsApp(customer.phone, msg);
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+
+                rule.lastRunDate = now;
+                await rule.save();
+            }
+            // Add package_expiry implementation if PackageOrder exists in future
+        } catch (e) {
+            console.error('Automation error:', e);
+        }
+    }
+}
 
 export async function processPendingWaSchedules(now: Date = new Date()): Promise<ProcessResult> {
     await connectToDB();
@@ -115,6 +355,8 @@ export function startWaScheduler() {
         schedulerCron,
         async () => {
             await processPendingWaSchedules();
+            await processPendingCampaigns();
+            await processAutomations();
         },
         {
             timezone: schedulerTimezone,

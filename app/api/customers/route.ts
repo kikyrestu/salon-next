@@ -154,8 +154,8 @@ export async function GET(request: NextRequest) {
       },
     }));
 
-    // Backfill missing referral codes for older customers
-    const missingCodes = customersWithSummary.filter(c => !c.referralCode);
+    // Backfill missing referral codes for PREMIUM customers only
+    const missingCodes = customersWithSummary.filter(c => !c.referralCode && (c as any).membershipTier === 'premium');
     if (missingCodes.length > 0) {
       for (const c of missingCodes) {
         let rc = "";
@@ -235,18 +235,21 @@ export async function POST(request: NextRequest) {
 
     const session = (await auth()) as SessionLike | null;
 
-    // Auto-generate unique referral code (6 chars uppercase alphanumeric)
+    // Auto-generate unique referral code ONLY for premium members
     let referralCode: string | undefined;
-    let attempts = 0;
-    while (!referralCode && attempts < 10) {
-      const candidate = crypto
-        .randomBytes(4)
-        .toString("hex")
-        .toUpperCase()
-        .slice(0, 6);
-      const exists = await Customer.findOne({ referralCode: candidate }).lean();
-      if (!exists) referralCode = candidate;
-      attempts++;
+    const tierToSet = validation.sanitizedData.membershipTier || 'regular';
+    if (tierToSet === 'premium') {
+      let attempts = 0;
+      while (!referralCode && attempts < 10) {
+        const candidate = crypto
+          .randomBytes(4)
+          .toString("hex")
+          .toUpperCase()
+          .slice(0, 6);
+        const exists = await Customer.findOne({ referralCode: candidate }).lean();
+        if (!exists) referralCode = candidate;
+        attempts++;
+      }
     }
 
     // Processing referredByCode
@@ -270,7 +273,7 @@ export async function POST(request: NextRequest) {
       createdBy: session?.user?.id,
       referralCode,
       referredBy,
-      membershipTier: "regular",
+      membershipTier: tierToSet,
       waNotifEnabled: validation.sanitizedData.waNotifEnabled !== false,
     });
     const createdCustomer = Array.isArray(customer) ? customer[0] : customer;

@@ -30,6 +30,8 @@ export interface ICustomer extends Document {
   referralRewardClaimed: boolean;
   // WA Notification opt-in
   waNotifEnabled: boolean;
+  // Wallet
+  walletBalance: number;
   // Before-After Photos
   beforeAfterPhotos: IBeforeAfterPhoto[];
 }
@@ -79,6 +81,8 @@ const customerSchema = new Schema<ICustomer>(
     referralRewardClaimed: { type: Boolean, default: false },
     // WA Notification opt-in
     waNotifEnabled: { type: Boolean, default: true },
+    // Wallet
+    walletBalance: { type: Number, default: 0, min: 0 },
     // Before-After Photos
     beforeAfterPhotos: { type: [BeforeAfterPhotoSchema], default: [] },
   },

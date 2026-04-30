@@ -1,0 +1,126 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { connectToDB } from '@/lib/mongodb';
+import { initModels } from '@/lib/initModels';
+import { checkPermission } from '@/lib/rbac';
+import { auth } from '@/auth';
+import Customer from '@/models/Customer';
+import WaCampaignQueue from '@/models/WaCampaignQueue';
+
+// GET: Fetch upcoming campaigns
+export async function GET(request: NextRequest) {
+    const permError = await checkPermission(request, 'customers', 'view');
+    if (permError) return permError;
+
+    try {
+        await connectToDB();
+        initModels();
+
+        const campaigns = await WaCampaignQueue.find({
+            status: { $in: ['pending', 'processing'] }
+        })
+        .sort({ scheduledAt: 1 })
+        .populate('sentBy', 'name')
+        .lean();
+
+        return NextResponse.json({ success: true, data: campaigns });
+    } catch (error: any) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+}
+
+// POST: Create a new scheduled campaign
+export async function POST(request: NextRequest) {
+    const permError = await checkPermission(request, 'customers', 'edit');
+    if (permError) return permError;
+
+    await connectToDB();
+    initModels();
+
+    try {
+        const body = await request.json();
+        const { customerIds, message, campaignName, scheduledAt, filters } = body;
+
+        if (!message?.trim()) {
+            return NextResponse.json({ success: false, error: 'Message is required' }, { status: 400 });
+        }
+        if (!customerIds?.length) {
+            return NextResponse.json({ success: false, error: 'No customers selected' }, { status: 400 });
+        }
+        if (!scheduledAt) {
+            return NextResponse.json({ success: false, error: 'Schedule time is required' }, { status: 400 });
+        }
+
+        const session: any = await auth();
+        
+        // Find customers to get their phone numbers
+        const customers = await Customer.find({
+            _id: { $in: customerIds },
+            phone: { $exists: true, $ne: '' },
+            waNotifEnabled: true,
+        }).select('phone').lean();
+
+        if (customers.length === 0) {
+            return NextResponse.json({ success: false, error: 'None of the selected customers have valid phone numbers or WA enabled' }, { status: 400 });
+        }
+
+        const targets = customers.map((c: any) => ({
+            customerId: c._id,
+            phone: c.phone,
+            status: 'pending',
+        }));
+
+        const scheduleDate = new Date(scheduledAt);
+        // Ensure schedule is not in the past by more than 5 minutes
+        if (scheduleDate.getTime() < Date.now() - 5 * 60000) {
+            return NextResponse.json({ success: false, error: 'Cannot schedule in the past' }, { status: 400 });
+        }
+
+        const campaign = await WaCampaignQueue.create({
+            campaignName: campaignName || `Campaign ${new Date().toLocaleDateString('id-ID')}`,
+            message,
+            scheduledAt: scheduleDate,
+            filters: filters || {},
+            targets,
+            sentBy: session?.user?.id,
+            status: 'pending'
+        });
+
+        return NextResponse.json({
+            success: true,
+            data: campaign,
+            message: `Campaign scheduled successfully for ${targets.length} customers`
+        });
+    } catch (error: any) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+}
+
+// DELETE: Cancel an upcoming campaign
+export async function DELETE(request: NextRequest) {
+    const permError = await checkPermission(request, 'customers', 'edit');
+    if (permError) return permError;
+
+    try {
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
+
+        if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 });
+
+        await connectToDB();
+        
+        const campaign = await WaCampaignQueue.findById(id);
+        if (!campaign) {
+            return NextResponse.json({ success: false, error: 'Campaign not found' }, { status: 404 });
+        }
+
+        if (campaign.status === 'completed') {
+            return NextResponse.json({ success: false, error: 'Cannot cancel completed campaign' }, { status: 400 });
+        }
+
+        await WaCampaignQueue.findByIdAndDelete(id);
+
+        return NextResponse.json({ success: true, message: 'Campaign cancelled successfully' });
+    } catch (error: any) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+}

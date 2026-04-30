@@ -35,6 +35,7 @@ interface ServicePackage {
   price: number;
   commissionType?: 'percentage' | 'fixed';
   commissionValue?: number;
+  validityDays?: number;
   isActive: boolean;
   items: ServicePackageItem[];
 }
@@ -76,6 +77,7 @@ export default function PackagesPage() {
   const [formItems, setFormItems] = useState<Array<{ serviceId: string; quota: number | string }>>([]);
   const [formCommissionType, setFormCommissionType] = useState<'percentage' | 'fixed'>('fixed');
   const [formCommissionValue, setFormCommissionValue] = useState<number | string>(0);
+  const [formValidityDays, setFormValidityDays] = useState<number | string>(0);
   const [editingPackage, setEditingPackage] = useState<ServicePackage | null>(null);
 
   const [selectedCustomer, setSelectedCustomer] = useState("");
@@ -139,6 +141,7 @@ export default function PackagesPage() {
     setFormItems([]);
     setFormCommissionType('fixed');
     setFormCommissionValue(0);
+    setFormValidityDays(0);
     setEditingPackage(null);
   };
 
@@ -168,6 +171,7 @@ export default function PackagesPage() {
           image: formImage || undefined,
           commissionType: formCommissionType,
           commissionValue: Number(formCommissionValue || 0),
+          validityDays: Number(formValidityDays || 0),
           items: formItems.map((item) => ({ service: item.serviceId, quota: Number(item.quota) })),
         }),
       });
@@ -337,6 +341,12 @@ export default function PackagesPage() {
                 {(pkg.commissionValue || 0) > 0 && (
                   <p className="text-xs text-green-600 font-semibold">Komisi: {pkg.commissionType === 'percentage' ? `${pkg.commissionValue}%` : `${settings.symbol}${(pkg.commissionValue || 0).toLocaleString('id-ID')}`}</p>
                 )}
+                {(pkg.validityDays || 0) > 0 && (
+                  <p className="text-xs text-orange-600 font-semibold">Berlaku: {pkg.validityDays} hari</p>
+                )}
+                {(pkg.validityDays || 0) === 0 && (
+                  <p className="text-xs text-gray-400 font-medium">Tanpa batas waktu</p>
+                )}
                 <div className="mt-2 space-y-1">
                   {pkg.items.map((item, idx) => (
                     <p key={idx} className="text-xs text-gray-700">- {item.serviceName}: {item.quota}x</p>
@@ -353,6 +363,7 @@ export default function PackagesPage() {
                         setFormDescription(pkg.description || "");
                         setFormCommissionType(pkg.commissionType || 'fixed');
                         setFormCommissionValue(pkg.commissionValue || 0);
+                        setFormValidityDays(pkg.validityDays || 0);
                         setFormItems(pkg.items.map(i => ({ serviceId: typeof i.service === 'string' ? i.service : (i.service as any)?._id || '', quota: i.quota })));
                         setIsModalOpen(true);
                       }}
@@ -457,6 +468,18 @@ export default function PackagesPage() {
                 onChange={(e) => setFormCommissionValue(e.target.value)}
               />
             </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-1 block">Masa Berlaku (hari)</label>
+            <input
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              placeholder="0 = tanpa batas"
+              type="number"
+              min="0"
+              value={formValidityDays}
+              onChange={(e) => setFormValidityDays(e.target.value)}
+            />
+            <p className="text-[10px] text-gray-400 mt-1">Isi 0 jika paket tidak ada kedaluwarsa. Contoh: 90 = berlaku 90 hari setelah pembelian.</p>
           </div>
           <textarea
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"

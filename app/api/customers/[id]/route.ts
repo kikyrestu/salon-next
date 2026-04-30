@@ -44,6 +44,30 @@ export async function PUT(
             body.phone = normalizeIndonesianPhone(body.phone);
         }
 
+        // Handle membership tier change → manage referral code
+        if (body.membershipTier) {
+            const existing = await Customer.findById(id).lean() as any;
+            if (existing) {
+                // Upgrading to premium → auto-generate referral code if missing
+                if (body.membershipTier === 'premium' && !existing.referralCode) {
+                    const crypto = await import('crypto');
+                    let referralCode: string | undefined;
+                    let attempts = 0;
+                    while (!referralCode && attempts < 10) {
+                        const candidate = crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 6);
+                        const exists = await Customer.findOne({ referralCode: candidate }).lean();
+                        if (!exists) referralCode = candidate;
+                        attempts++;
+                    }
+                    if (referralCode) body.referralCode = referralCode;
+                }
+                // Downgrading from premium → remove referral code
+                if (body.membershipTier !== 'premium' && existing.membershipTier === 'premium') {
+                    body.referralCode = null;
+                }
+            }
+        }
+
         const customer = await Customer.findByIdAndUpdate(
             id,
             body,

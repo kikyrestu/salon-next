@@ -202,6 +202,7 @@ export default function POSPage() {
   // Loyalty point redemption
   const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
   const [customerLoyaltyPoints, setCustomerLoyaltyPoints] = useState(0);
+  const [customerWalletBalance, setCustomerWalletBalance] = useState(0);
   const [isNonQrisConfirmOpen, setIsNonQrisConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
@@ -270,11 +271,14 @@ export default function POSPage() {
       const cust = customers.find((c) => c._id === selectedCustomer);
       if (cust) {
         setCustomerLoyaltyPoints(cust.loyaltyPoints || 0);
+        setCustomerWalletBalance((cust as any).walletBalance || 0);
       } else {
         setCustomerLoyaltyPoints(0);
+        setCustomerWalletBalance(0);
       }
     } else {
       setCustomerLoyaltyPoints(0);
+      setCustomerWalletBalance(0);
     }
   }, [selectedCustomer, customers]);
 
@@ -2005,6 +2009,30 @@ export default function POSPage() {
             // Split payment: create one deposit per method
             for (const entry of depositEntries) {
               const entryAmount = parseFloat(String(entry.amount || "0")) || 0;
+
+              // If payment method is Wallet, deduct from customer wallet
+              if (entry.method === 'Wallet' && customerId) {
+                try {
+                  const walletRes = await fetch('/api/wallet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      customerId,
+                      amount: entryAmount,
+                      type: 'payment',
+                      description: `Bayar invoice ${data.data.invoiceNumber}`,
+                      invoiceId: data.data._id,
+                    }),
+                  });
+                  const walletData = await walletRes.json();
+                  if (!walletData.success) {
+                    alert(`Gagal deduct wallet: ${walletData.error}`);
+                  }
+                } catch (err) {
+                  console.error('Wallet deduction failed:', err);
+                }
+              }
+
               await fetch("/api/deposits", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -3058,6 +3086,14 @@ export default function POSPage() {
                     )
                   )}
 
+                  {/* Wallet Balance Info */}
+                  {selectedCustomer && selectedCustomer !== 'walking-customer' && customerWalletBalance > 0 && (
+                    <div className="flex justify-between text-[10px] font-semibold text-green-700 items-center bg-green-50 px-2 py-1.5 rounded-lg border border-green-200">
+                      <span className="flex items-center gap-1">💳 Saldo Wallet</span>
+                      <span className="font-bold">{settings.symbol}{customerWalletBalance.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                    </div>
+                  )}
+
                 {tips > 0 && (
                   <div className="flex justify-between text-indigo-600 items-center animate-in fade-in slide-in-from-right-2 duration-300">
                     <span className="flex items-center gap-1">
@@ -3120,7 +3156,7 @@ export default function POSPage() {
                     className={`flex-1 text-[10px] lg:text-xs font-bold border border-gray-200 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-900 outline-none cursor-pointer ${payment.method ? 'text-gray-900 bg-white' : 'text-gray-400 bg-gray-50'}`}
                   >
                     <option value="" disabled className="text-gray-400 font-normal">Pilih Metode...</option>
-                    {["Cash", "Transfer", "Debit", "Credit Card", "QRIS"].map(
+                    {["Cash", "Transfer", "Debit", "Credit Card", "QRIS", ...(selectedCustomer && selectedCustomer !== 'walking-customer' && customerWalletBalance > 0 ? ["Wallet"] : [])].map(
                       (m) => (
                         <option
                           key={m}

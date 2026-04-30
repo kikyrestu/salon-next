@@ -23,6 +23,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Wallet,
 } from "lucide-react";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import FormInput, { FormButton } from "@/components/dashboard/FormInput";
@@ -48,6 +49,7 @@ interface Customer {
   referralCode?: string;
   referredBy?: { _id: string; name: string };
   waNotifEnabled: boolean;
+  walletBalance: number;
   createdAt: string;
 }
 
@@ -431,7 +433,7 @@ export default function CustomerDashboardPage() {
           </div>
 
           {/* ── Stats Row ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-5">
             {/* Membership */}
             <button
               onClick={() => setIsMembershipModalOpen(true)}
@@ -492,6 +494,19 @@ export default function CustomerDashboardPage() {
               </p>
               <p className="text-[9px] text-purple-500 mt-0.5">
                 {activePackages.length} paket aktif
+              </p>
+            </div>
+
+            {/* Wallet Balance */}
+            <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Wallet className="w-3.5 h-3.5 text-green-700" />
+                <span className="text-[10px] font-bold uppercase text-green-700">
+                  Saldo Wallet
+                </span>
+              </div>
+              <p className="text-sm font-black text-green-900">
+                {fmt(customer.walletBalance || 0, settings.symbol)}
               </p>
             </div>
           </div>

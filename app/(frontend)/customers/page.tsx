@@ -17,6 +17,7 @@ import {
   ExternalLink,
   LayoutDashboard,
   Crown,
+  Wallet,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Modal from "@/components/dashboard/Modal";
@@ -130,6 +131,7 @@ interface Customer {
   membershipExpiry?: string;
   packageSummary?: CustomerPackageSummary;
   referralCode?: string;
+  walletBalance?: number;
 }
 
 export default function CustomersPage() {
@@ -363,6 +365,9 @@ export default function CustomersPage() {
                     Total Purchases
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Wallet
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Paket
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -380,7 +385,7 @@ export default function CustomersPage() {
                 {loading && customers.length === 0 ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td colSpan={7} className="px-6 py-4">
+                      <td colSpan={8} className="px-6 py-4">
                         <div className="h-4 bg-gray-100 rounded"></div>
                       </td>
                     </tr>
@@ -388,7 +393,7 @@ export default function CustomersPage() {
                 ) : customers.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-6 py-12 text-center text-gray-500"
                     >
                       <User className="w-12 h-12 mx-auto mb-3 opacity-20" />
@@ -468,6 +473,18 @@ export default function CustomersPage() {
                             maximumFractionDigits: 0,
                           })}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {(customer as any).walletBalance > 0 ? (
+                          <span className="text-sm font-bold text-green-700">
+                            {settings.symbol}
+                            {((customer as any).walletBalance || 0).toLocaleString("id-ID", {
+                              maximumFractionDigits: 0,
+                            })}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {customer.packageSummary?.hasPackage ? (
@@ -754,6 +771,19 @@ export default function CustomersPage() {
                         </p>
                         <span className="font-black text-amber-700">
                           {customer.packageSummary.totalRemainingQuota}
+                        </span>
+                      </div>
+                    )}
+                    {(customer as any).walletBalance > 0 && (
+                      <div className="flex justify-between items-center text-sm pt-1 mt-1 border-t border-gray-50">
+                        <p className="text-[10px] text-green-600 uppercase font-bold tracking-wider flex items-center gap-1">
+                          <Wallet className="w-3 h-3" /> Saldo Wallet
+                        </p>
+                        <span className="font-black text-green-700">
+                          {settings.symbol}
+                          {((customer as any).walletBalance || 0).toLocaleString("id-ID", {
+                            maximumFractionDigits: 0,
+                          })}
                         </span>
                       </div>
                     )}

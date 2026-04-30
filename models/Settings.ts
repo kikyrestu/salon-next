@@ -50,6 +50,15 @@ const SettingsSchema = new mongoose.Schema({
         type: String,
         default: 'Thank you for your business!'
     },
+    showStaffOnReceipt: {
+        type: Boolean,
+        default: true
+    },
+    // Wallet Bonus Tiers (top-up bonus %)
+    walletBonusTiers: [{
+        minAmount: { type: Number, required: true },
+        bonusPercent: { type: Number, required: true }
+    }],
     termsAndConditions: {
         type: String,
         default: ''

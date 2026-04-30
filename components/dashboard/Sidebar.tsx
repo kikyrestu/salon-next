@@ -32,6 +32,7 @@ import {
   FileSpreadsheet,
   Megaphone,
   Wallet,
+  CreditCard,
 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import { signOut } from "next-auth/react";
@@ -83,6 +84,7 @@ const menuSections = [
     title: "Finance",
     items: [
       { name: "Cash Drawer", href: "/cash-drawer", icon: Wallet },
+      { name: "E-Wallet", href: "/wallet", icon: CreditCard },
       { name: "Payroll", href: "/payroll", icon: DollarSign },
       { name: "Expenses", href: "/expenses", icon: DollarSign },
       { name: "QRIS", href: "/payments/qris", icon: QrCode },
@@ -148,6 +150,7 @@ export default function Sidebar({
       Customers: "customers",
       Suppliers: "suppliers",
       "Cash Drawer": "pos",
+      "E-Wallet": "customers",
       Payroll: "payroll",
       Expenses: "expenses",
       QRIS: "invoices",

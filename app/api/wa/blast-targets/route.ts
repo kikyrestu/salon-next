@@ -174,8 +174,9 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Small delay between messages to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Delay between messages to avoid rate limiting / WA suspension
+        // 3 seconds per message = ~20 messages per minute (safe for Fonnte)
+        await new Promise((resolve) => setTimeout(resolve, 3000));
     }
 
     // Save blast log

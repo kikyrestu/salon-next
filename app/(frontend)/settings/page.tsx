@@ -22,6 +22,8 @@ interface Settings {
     logoUrl: string;
     businessHours: string;
     receiptFooter: string;
+    showStaffOnReceipt: boolean;
+    walletBonusTiers: { minAmount: number; bonusPercent: number }[];
     termsAndConditions: string;
 
     // Loyalty & Referral
@@ -85,6 +87,8 @@ export default function SettingsPage() {
         logoUrl: "",
         businessHours: "Mon-Fri: 9:00 AM - 6:00 PM",
         receiptFooter: "Thank you for your business!",
+        showStaffOnReceipt: true,
+        walletBonusTiers: [],
         termsAndConditions: "",
         loyaltyPointPerSpend: 0,
         loyaltyPointValue: 0,
@@ -176,6 +180,8 @@ export default function SettingsPage() {
                     logoUrl: data.data.logoUrl || "",
                     businessHours: data.data.businessHours || "Mon-Fri: 9:00 AM - 6:00 PM",
                     receiptFooter: data.data.receiptFooter || "Thank you for your business!",
+                    showStaffOnReceipt: data.data.showStaffOnReceipt !== false,
+                    walletBonusTiers: data.data.walletBonusTiers || [],
                     termsAndConditions: data.data.termsAndConditions || "",
                     loyaltyPointPerSpend: data.data.loyaltyPointPerSpend || 0,
                     loyaltyPointValue: data.data.loyaltyPointValue || 0,
@@ -465,6 +471,103 @@ export default function SettingsPage() {
                             onChange={(e) => setSettings({ ...settings, taxId: e.target.value })}
                             placeholder="e.g. 123-456-789"
                         />
+                    </div>
+                </div>
+
+                {/* Receipt Settings */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-blue-900" />
+                        Receipt / Nota Settings
+                    </h2>
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <div>
+                                <p className="text-sm font-bold text-gray-900">Tampilkan "Served By" di Nota</p>
+                                <p className="text-xs text-gray-500 mt-0.5">Menampilkan nama staff yang melayani di struk cetak</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.showStaffOnReceipt}
+                                    onChange={(e) => setSettings({ ...settings, showStaffOnReceipt: e.target.checked })}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Wallet Bonus Tiers */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <CreditCard className="w-5 h-5 text-blue-900" />
+                        Wallet Bonus Tiers
+                    </h2>
+                    <p className="text-xs text-gray-500 mb-4">
+                        Atur bonus otomatis berdasarkan nominal top-up. Contoh: Top-up 500rb bonus 10%, top-up 1jt bonus 20%.
+                    </p>
+                    <div className="space-y-3">
+                        {(settings.walletBonusTiers || []).map((tier, idx) => (
+                            <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                                <div className="col-span-5">
+                                    <label className="text-[10px] text-gray-500 mb-0.5 block">Min Top-Up (Rp)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={tier.minAmount}
+                                        onChange={(e) => {
+                                            const newTiers = [...settings.walletBonusTiers];
+                                            newTiers[idx] = { ...newTiers[idx], minAmount: Number(e.target.value) };
+                                            setSettings({ ...settings, walletBonusTiers: newTiers });
+                                        }}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white"
+                                        placeholder="500000"
+                                    />
+                                </div>
+                                <div className="col-span-5">
+                                    <label className="text-[10px] text-gray-500 mb-0.5 block">Bonus (%)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={tier.bonusPercent}
+                                        onChange={(e) => {
+                                            const newTiers = [...settings.walletBonusTiers];
+                                            newTiers[idx] = { ...newTiers[idx], bonusPercent: Number(e.target.value) };
+                                            setSettings({ ...settings, walletBonusTiers: newTiers });
+                                        }}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white"
+                                        placeholder="10"
+                                    />
+                                </div>
+                                <div className="col-span-2 flex justify-center pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const newTiers = settings.walletBonusTiers.filter((_, i) => i !== idx);
+                                            setSettings({ ...settings, walletBonusTiers: newTiers });
+                                        }}
+                                        className="text-red-500 text-xs font-bold hover:text-red-700"
+                                    >
+                                        Hapus
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSettings({
+                                    ...settings,
+                                    walletBonusTiers: [...(settings.walletBonusTiers || []), { minAmount: 0, bonusPercent: 0 }],
+                                });
+                            }}
+                            className="text-sm text-blue-700 font-semibold hover:underline"
+                        >
+                            + Tambah Tier
+                        </button>
                     </div>
                 </div>
 

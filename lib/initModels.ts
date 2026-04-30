@@ -35,6 +35,9 @@ import WaBlastLog from "@/models/WaBlastLog";
 import CashBalance from "@/models/CashBalance";
 import CashSession from "@/models/CashSession";
 import CashLog from "@/models/CashLog";
+import WalletTransaction from "@/models/WalletTransaction";
+import WaCampaignQueue from "@/models/WaCampaignQueue";
+import WaAutomation from "@/models/WaAutomation";
 
 // Export all models for convenience
 export {
@@ -72,6 +75,9 @@ export {
   CashBalance,
   CashSession,
   CashLog,
+  WalletTransaction,
+  WaCampaignQueue,
+  WaAutomation,
 };
 
 // This function can be called to ensure models are loaded
@@ -112,5 +118,8 @@ export function initModels() {
     CashBalance,
     CashSession,
     CashLog,
+    WalletTransaction,
+    WaCampaignQueue,
+    WaAutomation,
   };
 }

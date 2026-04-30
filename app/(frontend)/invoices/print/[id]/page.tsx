@@ -93,12 +93,7 @@ export default function PrintInvoicePage() {
                         <span className="text-gray-500">Customer:</span>
                         <span className="font-bold">{invoice.customer?.name || "Walk-in"}</span>
                     </div>
-                    {invoice.customer?.referralCode && (
-                        <div className="flex justify-between">
-                            <span className="text-gray-500">Ref Code:</span>
-                            <span className="font-bold tracking-widest">{invoice.customer.referralCode}</span>
-                        </div>
-                    )}
+                    
                     {invoice.referralCode && (
                         <div className="flex justify-between items-start text-xs border-dashed border border-gray-300 p-1 mt-1 bg-gray-50/50">
                             <span className="text-gray-500">Referred By:</span>
@@ -117,14 +112,19 @@ export default function PrintInvoicePage() {
                 <table className="w-full mb-8 border-collapse">
                     <thead>
                         <tr className="border-b-2 border-gray-900 text-xs text-left text-gray-800 uppercase tracking-wider">
-                            <th className="py-3 font-bold">Item Description</th>
-                            <th className="py-3 font-bold text-center">Qty</th>
-                            <th className="py-3 font-bold text-right">Unit Price</th>
-                            <th className="py-3 font-bold text-right">Subtotal</th>
+                            <th className="py-3 font-bold" style={{ width: '45%' }}>Item Description</th>
+                            <th className="py-3 font-bold text-center" style={{ width: '10%' }}>Qty</th>
+                            <th className="py-3 font-bold text-right pr-2" style={{ width: '22%' }}>Unit Price</th>
+                            <th className="py-3 font-bold text-right" style={{ width: '23%' }}>Subtotal</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {invoice.items.map((item: any, idx: number) => (
+                        {invoice.items.map((item: any, idx: number) => {
+                            // Bundle items: show individual service price as 0
+                            const isBundleChild = item.name && item.name.includes('(Bundle:');
+                            const displayPrice = isBundleChild ? 0 : item.price;
+                            const displayTotal = isBundleChild ? 0 : item.total;
+                            return (
                             <tr key={idx} className="text-sm">
                                 <td className="py-4 align-top">
                                     <p className="font-bold text-gray-900">{item.name}</p>
@@ -143,10 +143,11 @@ export default function PrintInvoicePage() {
                                     </div>
                                 </td>
                                 <td className="py-4 text-center align-top font-medium">{item.quantity}</td>
-                                <td className="py-4 text-right align-top">{currencySymbol}{item.price.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</td>
-                                <td className="py-4 text-right align-top font-black text-gray-900">{currencySymbol}{item.total.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</td>
+                                <td className="py-4 text-right align-top pr-2">{isBundleChild ? '-' : `${currencySymbol}${displayPrice.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
+                                <td className="py-4 text-right align-top font-black text-gray-900">{isBundleChild ? '-' : `${currencySymbol}${displayTotal.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
                             </tr>
-                        ))}
+                            );
+                        })}
                     </tbody>
                 </table>
 
@@ -181,8 +182,8 @@ export default function PrintInvoicePage() {
                         <span>{currencySymbol}{invoice.totalAmount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                     </div>
 
-                    {/* Staff Recognition (Commission hidden from customer receipt) */}
-                    {invoice.staffAssignments && invoice.staffAssignments.length > 0 && (
+                    {/* Staff Recognition — conditional via settings */}
+                    {settings?.showStaffOnReceipt !== false && invoice.staffAssignments && invoice.staffAssignments.length > 0 && (
                         <div className="mt-8 pt-6 border-t border-gray-100">
                             <p className="mb-3 uppercase font-black tracking-widest text-[9px] text-gray-400 border-l-2 border-gray-200 pl-2">Served By</p>
                             <div className="space-y-1.5 px-1 py-1">

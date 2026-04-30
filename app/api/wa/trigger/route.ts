@@ -19,12 +19,16 @@ export async function POST(request: NextRequest) {
             if (permissionError) return permissionError;
         }
 
-        const result = await processPendingWaSchedules();
+        const { processPendingWaSchedules, processPendingCampaigns, processAutomations } = await import('@/lib/scheduler');
+
+        const scheduleResult = await processPendingWaSchedules();
+        await processPendingCampaigns();
+        await processAutomations();
 
         return NextResponse.json({
             success: true,
-            message: 'WA scheduler triggered successfully',
-            data: result,
+            message: 'Scheduler trigger executed successfully',
+            data: scheduleResult,
         });
     } catch (error: any) {
         return NextResponse.json(
