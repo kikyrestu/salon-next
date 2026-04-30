@@ -269,6 +269,60 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Process Wallet Top-Up items
+    if (invoice.status === "paid" && invoice.customer) {
+      for (const item of normalizedBody.items) {
+        if (item.itemModel === "TopUp") {
+          const topUpAmount = toNum(item.total || (item.price * item.quantity));
+          
+          if (topUpAmount > 0) {
+            // Find settings for bonus
+            const settings = await Settings.findOne({}).lean() as any;
+            const tiers = (settings?.walletBonusTiers || [])
+                .filter((t: any) => t.minAmount && t.bonusPercent)
+                .sort((a: any, b: any) => b.minAmount - a.minAmount);
+            
+            let bonusPercent = 0;
+            let bonusAmount = 0;
+
+            for (const tier of tiers) {
+                if (topUpAmount >= tier.minAmount) {
+                    bonusPercent = tier.bonusPercent;
+                    bonusAmount = Math.round(topUpAmount * (tier.bonusPercent / 100));
+                    break;
+                }
+            }
+
+            const totalCredited = topUpAmount + bonusAmount;
+            
+            // Update customer wallet balance
+            const cust = await Customer.findById(invoice.customer);
+            if (cust) {
+                cust.walletBalance = (cust.walletBalance || 0) + totalCredited;
+                await cust.save();
+
+                const session: any = await auth();
+                const WalletTransaction = (await import('@/models/WalletTransaction')).default;
+
+                // Create WalletTransaction
+                await WalletTransaction.create({
+                    customer: cust._id,
+                    type: 'topup',
+                    amount: totalCredited,
+                    balanceAfter: cust.walletBalance,
+                    description: `Top-Up via POS Invoice ${invoiceNumber}`,
+                    topupMethod: invoice.paymentMethod || 'Cash',
+                    bonusPercent,
+                    bonusAmount,
+                    invoice: invoice._id,
+                    performedBy: session?.user?.id,
+                });
+            }
+          }
+        }
+      }
+    }
+
     // Loyalty Point Logic: Calculate points if status is 'paid'
     let pointsToGain = 0;
     if (invoice.status === "paid" && invoice.customer) {

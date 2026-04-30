@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Zap,
   X,
+  Wallet,
 } from "lucide-react";
 import { FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
@@ -35,7 +36,7 @@ interface Item {
   price: number;
   memberPrice?: number;
   image?: string;
-  type: "Service" | "Product" | "Package" | "Bundle";
+  type: "Service" | "Product" | "Package" | "Bundle" | "TopUp";
   duration?: number; // Service only
   stock?: number; // Product only
   commissionType?: "percentage" | "fixed";
@@ -155,8 +156,10 @@ export default function POSPage() {
   const searchParams = useSearchParams();
   const { settings } = useSettings();
   const [activeTab, setActiveTab] = useState<
-    "all" | "services" | "products" | "packages" | "bundles"
+    "all" | "services" | "products" | "packages" | "bundles" | "topup"
   >("all");
+  // Top-Up Wallet state
+  const [topupAmount, setTopupAmount] = useState<number | string>("");
   const [services, setServices] = useState<Item[]>([]);
   const [products, setProducts] = useState<Item[]>([]);
   const [packages, setPackages] = useState<Item[]>([]);
@@ -729,6 +732,35 @@ export default function POSPage() {
       });
       setServiceStaffAssignments((prev) => ({ ...prev, ...newStaffAssignments }));
       setServiceSplitModes((prev) => ({ ...prev, ...newSplitModes }));
+    }
+  };
+
+  const addTopUpToCart = () => {
+    const amount = Number(topupAmount);
+    if (!amount || amount <= 0) {
+      alert("Masukkan nominal top-up yang valid");
+      return;
+    }
+    if (!selectedCustomer || selectedCustomer === "walking-customer") {
+      alert("Pilih customer terdaftar untuk top-up wallet");
+      return;
+    }
+    // Check if there's already a TopUp item – replace it
+    setCart((prev) => {
+      const withoutOldTopup = prev.filter((i) => i.type !== "TopUp");
+      const topUpItem: CartItem = {
+        _id: `topup-${Date.now()}`,
+        name: `Top-Up Saldo Wallet`,
+        price: amount,
+        type: "TopUp",
+        quantity: 1,
+      };
+      return [...withoutOldTopup, topUpItem];
+    });
+    setTopupAmount("");
+    setActiveTab("all");
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setMobileTab("cart");
     }
   };
 
@@ -1797,6 +1829,19 @@ export default function POSPage() {
             ).flat();
           }
 
+          // TopUp Wallet items — no staff, no commission
+          if (item.type === "TopUp") {
+            return [
+              {
+                itemModel: "TopUp",
+                name: item.name,
+                price: item.price,
+                quantity: 1,
+                total: item.price,
+              },
+            ];
+          }
+
           // Normal Service / Product / Package items
           return [
             {
@@ -2239,6 +2284,13 @@ export default function POSPage() {
               >
                 Bundling
               </button>
+              <button
+                onClick={() => setActiveTab("topup")}
+                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors flex items-center gap-1.5 ${activeTab === "topup" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"}`}
+              >
+                <Wallet className="w-3.5 h-3.5" />
+                Top-Up
+              </button>
             </div>
           </div>
 
@@ -2247,6 +2299,69 @@ export default function POSPage() {
             {loading ? (
               <div className="flex justify-center py-20">
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-900 border-t-transparent"></div>
+              </div>
+            ) : activeTab === "topup" ? (
+              <div className="h-full flex flex-col items-center justify-center px-4">
+                <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-gray-200 p-6 space-y-5">
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center mb-3 shadow-lg">
+                      <Wallet className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900">Top-Up Saldo Wallet</h3>
+                    <p className="text-xs text-gray-500 mt-1">Isi saldo e-wallet pelanggan, otomatis masuk ke invoice & laporan kasir</p>
+                  </div>
+
+                  {(!selectedCustomer || selectedCustomer === "walking-customer") && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+                      <p className="text-xs text-amber-700 font-semibold">⚠️ Pilih Customer terdaftar terlebih dahulu di panel kanan</p>
+                    </div>
+                  )}
+
+                  {selectedCustomer && selectedCustomer !== "walking-customer" && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center justify-between">
+                      <span className="text-xs text-emerald-700 font-medium">Saldo saat ini</span>
+                      <span className="text-sm font-bold text-emerald-700">
+                        {settings.symbol}{(customerWalletBalance || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">Nominal Top-Up</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Contoh: 100000"
+                      value={topupAmount}
+                      onChange={(e) => setTopupAmount(e.target.value)}
+                      className="w-full px-4 py-3 text-lg font-bold border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-900 bg-white"
+                    />
+                  </div>
+
+                  {/* Quick amount buttons */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {[50000, 100000, 200000, 300000, 500000, 1000000].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setTopupAmount(amt)}
+                        className="py-2 px-2 text-xs font-semibold rounded-lg border border-gray-200 bg-gray-50 hover:bg-emerald-50 hover:border-emerald-300 transition-colors text-gray-700"
+                      >
+                        {settings.symbol}{amt.toLocaleString("id-ID")}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={addTopUpToCart}
+                    disabled={!selectedCustomer || selectedCustomer === "walking-customer" || !topupAmount || Number(topupAmount) <= 0}
+                    className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    Tambahkan ke Keranjang
+                  </button>
+                </div>
               </div>
             ) : activeTab === "packages" && filteredItems.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center px-4">
@@ -2492,6 +2607,10 @@ export default function POSPage() {
                         {item.type === "Service" ? (
                           <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center">
                             <ScissorsIcon className="w-3 h-3 text-purple-600" />
+                          </div>
+                        ) : item.type === "TopUp" ? (
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
+                            <Wallet className="w-3 h-3 text-emerald-600" />
                           </div>
                         ) : (
                           <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">

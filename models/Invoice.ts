@@ -102,13 +102,13 @@ const invoiceSchema = new Schema<IInvoice>(
       {
         item: {
           type: Schema.Types.ObjectId,
-          required: true,
+          required: function(this: any) { return this.itemModel !== 'TopUp'; },
           refPath: "items.itemModel",
         },
         itemModel: {
           type: String,
           required: true,
-          enum: ["Service", "Product"],
+          enum: ["Service", "Product", "TopUp"],
         },
         name: String,
         price: Number,

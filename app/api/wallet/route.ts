@@ -9,6 +9,7 @@ import { auth } from '@/auth';
 import Customer from '@/models/Customer';
 import WalletTransaction from '@/models/WalletTransaction';
 import Settings from '@/models/Settings';
+import { checkPermission } from '@/lib/rbac';
 
 /* ------------------------------------------------------------------ */
 /*  GET — Wallet history for a customer                                */
@@ -17,6 +18,9 @@ import Settings from '@/models/Settings';
 export async function GET(request: NextRequest) {
     await connectToDB();
     initModels();
+
+    const permissionError = await checkPermission(request, 'customers', 'view');
+    if (permissionError) return permissionError;
 
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
@@ -65,6 +69,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     await connectToDB();
     initModels();
+
+    const permissionError = await checkPermission(request, 'customers', 'edit');
+    if (permissionError) return permissionError;
 
     const session: any = await auth();
     const body = await request.json();
@@ -119,6 +126,37 @@ export async function POST(request: NextRequest) {
                 bonusAmount,
                 performedBy: session?.user?.id,
             });
+
+            // Cash Drawer integration: if top-up paid in Cash, record it
+            if ((paymentMethod || 'Cash').toLowerCase() === 'cash') {
+                try {
+                    const CashBalance = (await import('@/models/CashBalance')).default;
+                    const CashLog = (await import('@/models/CashLog')).default;
+
+                    let balance = await CashBalance.findOne();
+                    if (!balance) balance = await CashBalance.create({ kasirBalance: 0, brankasBalance: 0, bankBalance: 0 });
+
+                    balance.kasirBalance += amount; // Only the actual cash received (not the bonus)
+                    balance.lastUpdatedAt = new Date();
+                    await balance.save();
+
+                    await CashLog.create({
+                        type: 'sale',
+                        amount: amount,
+                        sourceLocation: 'customer',
+                        destinationLocation: 'kasir',
+                        performedBy: session?.user?.id,
+                        description: `Wallet Top-Up Cash - ${customer.name}`,
+                        balanceAfter: {
+                            kasir: balance.kasirBalance,
+                            brankas: balance.brankasBalance,
+                            bank: balance.bankBalance,
+                        },
+                    });
+                } catch (cashErr) {
+                    console.error('[Wallet] Cash Drawer log error:', cashErr);
+                }
+            }
 
             return NextResponse.json({
                 success: true,

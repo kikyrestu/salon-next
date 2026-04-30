@@ -175,7 +175,7 @@ export default function WalletPage() {
           <FormButton onClick={loadData} variant="secondary" icon={<RefreshCw className="w-4 h-4" />}>
             Refresh
           </FormButton>
-          <PermissionGate resource="wallet" action="create">
+          <PermissionGate resource="customers" action="edit">
             <FormButton
               onClick={() => { resetTopup(); setIsTopupModalOpen(true); }}
               icon={<Plus className="w-4 h-4" />}

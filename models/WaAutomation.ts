@@ -4,6 +4,8 @@ export interface IWaAutomation extends Document {
   name: string;
   category: 'daily_report' | 'stock_alert' | 'membership_expiry' | 'package_expiry' | 'birthday';
   targetRole: 'owner' | 'admin' | 'customer';
+  frequency: 'daily' | 'weekly' | 'monthly';
+  scheduleDays?: number[]; // For weekly: [1=Mon..7=Sun], for monthly: [1..28]
   scheduleTime?: string; // HH:mm format, e.g., "21:00"
   daysBefore?: number; // E.g., 7 for "7 days before expiry"
   messageTemplate: string;
@@ -26,6 +28,12 @@ const waAutomationSchema = new Schema<IWaAutomation>(
       enum: ['owner', 'admin', 'customer'],
       required: true,
     },
+    frequency: {
+      type: String,
+      enum: ['daily', 'weekly', 'monthly'],
+      default: 'daily',
+    },
+    scheduleDays: [{ type: Number }],
     scheduleTime: { type: String, trim: true },
     daysBefore: { type: Number, min: 0 },
     messageTemplate: { type: String, required: true },

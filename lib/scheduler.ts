@@ -130,17 +130,27 @@ export async function processAutomations(now: Date = new Date()) {
         const lastRunStr = rule.lastRunDate ? rule.lastRunDate.toLocaleDateString('en-US', { timeZone: DEFAULT_SCHEDULER_TIMEZONE }) : '';
         if (lastRunStr === todayStr) continue;
 
+        // Frequency check: daily runs every day, weekly/monthly only on specific days
+        const freq = rule.frequency || 'daily';
+        const scheduleDays: number[] = rule.scheduleDays || [];
+
+        if (freq === 'weekly' && scheduleDays.length > 0) {
+            // JS getDay: 0=Sun, convert: Mon=1..Sun=7
+            const jsDay = now.getDay(); // 0-6
+            const isoDay = jsDay === 0 ? 7 : jsDay; // 1-7 (Mon-Sun)
+            if (!scheduleDays.includes(isoDay)) continue;
+        } else if (freq === 'monthly' && scheduleDays.length > 0) {
+            const dayOfMonth = now.getDate(); // 1-31
+            if (!scheduleDays.includes(dayOfMonth)) continue;
+        }
+
         // Determine targets based on targetRole
         let targetPhones: string[] = [];
         if (rule.targetRole === 'owner' && settings.waOwnerNumber) targetPhones.push(settings.waOwnerNumber);
         if (rule.targetRole === 'admin' && settings.waAdminNumber) targetPhones.push(settings.waAdminNumber);
 
-        // Daily Report & Stock Alert execution matches specific time
-        if (rule.category === 'daily_report' || rule.category === 'stock_alert' || rule.category === 'birthday') {
-            if (rule.scheduleTime && rule.scheduleTime !== currentHourMin) continue;
-        } else if (rule.category === 'membership_expiry' || rule.category === 'package_expiry') {
-            if (rule.scheduleTime && rule.scheduleTime !== currentHourMin) continue;
-        }
+        // Time check: all automations match their scheduleTime
+        if (rule.scheduleTime && rule.scheduleTime !== currentHourMin) continue;
 
         try {
             if (rule.category === 'daily_report') {

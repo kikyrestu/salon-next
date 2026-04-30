@@ -24,7 +24,9 @@ import {
   RefreshCw,
   Zap,
   Plus,
+  Eye,
 } from "lucide-react";
+import Modal from "@/components/dashboard/Modal";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -69,6 +71,8 @@ interface AutomationRule {
   name: string;
   category: "daily_report" | "stock_alert" | "membership_expiry" | "package_expiry" | "birthday";
   targetRole: "owner" | "admin" | "customer";
+  frequency?: "daily" | "weekly" | "monthly";
+  scheduleDays?: number[];
   scheduleTime?: string;
   daysBefore?: number;
   messageTemplate: string;
@@ -143,11 +147,17 @@ export default function WAMarketingPage() {
     name: "",
     category: "daily_report",
     targetRole: "owner",
+    frequency: "daily",
+    scheduleDays: [],
     scheduleTime: "09:00",
     daysBefore: 0,
     messageTemplate: "",
     isActive: true,
   });
+
+  // Campaign detail modal
+  const [detailCampaign, setDetailCampaign] = useState<CampaignQueue | null>(null);
+  const [detailRefreshing, setDetailRefreshing] = useState(false);
 
   // Services dropdown
   const [services, setServices] = useState<Service[]>([]);
@@ -238,6 +248,20 @@ export default function WAMarketingPage() {
       fetchAutomations();
     }
   }, [activeTab, fetchHistory, fetchQueue, fetchAutomations]);
+
+  /* ────── Refresh single campaign detail ────── */
+  const refreshDetailCampaign = useCallback(async (id: string) => {
+    setDetailRefreshing(true);
+    try {
+      const res = await fetch(`/api/wa/campaigns/${id}`);
+      const data = await res.json();
+      if (data.success) setDetailCampaign(data.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDetailRefreshing(false);
+    }
+  }, []);
 
   /* ────── Send blast ────── */
   const handleBlast = async () => {
@@ -832,6 +856,13 @@ export default function WAMarketingPage() {
                           </div>
                           
                           <div className="flex items-center gap-4">
+                            <button
+                              onClick={() => { setDetailCampaign(camp); refreshDetailCampaign(camp._id); }}
+                              className="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="Lihat Detail"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
                             {camp.status === "processing" ? (
                               <div className="text-right">
                                 <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded animate-pulse">
@@ -857,11 +888,17 @@ export default function WAMarketingPage() {
                             )}
                           </div>
                         </div>
-                        {camp.status === "processing" && (
-                          <div className="w-full bg-gray-100 rounded-full h-1.5 mt-3 overflow-hidden">
-                            <div className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+                        {/* Per-target summary bar */}
+                        <div className="flex items-center gap-3 mt-2">
+                          <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div className="h-2 rounded-full transition-all duration-500 bg-gradient-to-r from-green-400 to-green-500" style={{ width: `${total > 0 ? (sentCount / total) * 100 : 0}%` }}></div>
                           </div>
-                        )}
+                          <div className="flex items-center gap-2 text-[10px] shrink-0">
+                            <span className="text-green-600 font-bold">✓ {sentCount}</span>
+                            {failedCount > 0 && <span className="text-red-500 font-bold">✗ {failedCount}</span>}
+                            <span className="text-gray-400">/ {total}</span>
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
@@ -996,6 +1033,73 @@ export default function WAMarketingPage() {
                       <option value="customer">Customer Terkait</option>
                     </select>
                   </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Frekuensi</label>
+                    <select
+                      value={autoForm.frequency || "daily"}
+                      onChange={(e) => setAutoForm({ ...autoForm, frequency: e.target.value as any, scheduleDays: [] })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="daily">Harian (Setiap Hari)</option>
+                      <option value="weekly">Mingguan (Pilih Hari)</option>
+                      <option value="monthly">Bulanan (Pilih Tanggal)</option>
+                    </select>
+                  </div>
+                  {autoForm.frequency === "weekly" && (
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Hari (klik untuk pilih)</label>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {[
+                          { val: 1, label: "Sen" }, { val: 2, label: "Sel" }, { val: 3, label: "Rab" },
+                          { val: 4, label: "Kam" }, { val: 5, label: "Jum" }, { val: 6, label: "Sab" }, { val: 7, label: "Min" },
+                        ].map((d) => {
+                          const selected = (autoForm.scheduleDays || []).includes(d.val);
+                          return (
+                            <button
+                              key={d.val}
+                              type="button"
+                              onClick={() => {
+                                const current = autoForm.scheduleDays || [];
+                                setAutoForm({
+                                  ...autoForm,
+                                  scheduleDays: selected ? current.filter((v) => v !== d.val) : [...current, d.val],
+                                });
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${selected ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"}`}
+                            >
+                              {d.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {autoForm.frequency === "monthly" && (
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Tanggal (klik untuk pilih)</label>
+                      <div className="flex gap-1 flex-wrap">
+                        {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => {
+                          const selected = (autoForm.scheduleDays || []).includes(d);
+                          return (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() => {
+                                const current = autoForm.scheduleDays || [];
+                                setAutoForm({
+                                  ...autoForm,
+                                  scheduleDays: selected ? current.filter((v) => v !== d) : [...current, d],
+                                });
+                              }}
+                              className={`w-8 h-8 rounded-lg text-xs font-bold border transition-colors ${selected ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"}`}
+                            >
+                              {d}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                   {(autoForm.category === "daily_report" || autoForm.category === "stock_alert" || autoForm.category === "birthday") && (
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">Jam Eksekusi Harian</label>
@@ -1138,6 +1242,88 @@ export default function WAMarketingPage() {
           </div>
         )}
       </div>
+
+      {/* ────── CAMPAIGN DETAIL MODAL ────── */}
+      {detailCampaign && (
+        <Modal
+          isOpen={!!detailCampaign}
+          onClose={() => setDetailCampaign(null)}
+          title={detailCampaign.campaignName || "Detail Campaign"}
+        >
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+            {/* Summary */}
+            <div className="flex items-center gap-3">
+              {(() => {
+                const targets = detailCampaign.targets || [];
+                const sent = targets.filter((t: any) => t.status === 'sent').length;
+                const failed = targets.filter((t: any) => t.status === 'failed').length;
+                const pending = targets.filter((t: any) => t.status === 'pending').length;
+                return (
+                  <>
+                    <div className="px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg text-center">
+                      <div className="text-lg font-bold text-green-700">{sent}</div>
+                      <div className="text-[10px] text-green-600 font-medium">Terkirim</div>
+                    </div>
+                    <div className="px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                      <div className="text-lg font-bold text-amber-700">{pending}</div>
+                      <div className="text-[10px] text-amber-600 font-medium">Menunggu</div>
+                    </div>
+                    <div className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-center">
+                      <div className="text-lg font-bold text-red-700">{failed}</div>
+                      <div className="text-[10px] text-red-600 font-medium">Gagal</div>
+                    </div>
+                    <button
+                      onClick={() => refreshDetailCampaign(detailCampaign._id)}
+                      className="ml-auto p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                      title="Refresh"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${detailRefreshing ? "animate-spin" : ""}`} />
+                    </button>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Per-target table */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-semibold text-gray-600">Nama</th>
+                    <th className="text-left px-3 py-2 font-semibold text-gray-600">No. HP</th>
+                    <th className="text-center px-3 py-2 font-semibold text-gray-600">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {(detailCampaign.targets || []).map((t: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-gray-50/50">
+                      <td className="px-3 py-2 font-medium text-gray-800">
+                        {t.customerId?.name || "-"}
+                      </td>
+                      <td className="px-3 py-2 text-gray-500">{t.phone}</td>
+                      <td className="px-3 py-2 text-center">
+                        {t.status === "sent" ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">
+                            <CheckCircle2 className="w-3 h-3" /> Terkirim
+                          </span>
+                        ) : t.status === "failed" ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-bold" title={t.error || ""}>
+                            <XCircle className="w-3 h-3" /> Gagal
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">
+                            <Clock className="w-3 h-3" /> Menunggu
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
