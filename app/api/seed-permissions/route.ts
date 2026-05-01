@@ -1,11 +1,10 @@
+import { getTenantModels } from "@/lib/tenantDb";
+import { NextRequest, NextResponse } from "next/server";
 
-import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Role from "@/models/Role";
-
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        await connectToDB();
+        const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+        const { Role } = await getTenantModels(tenantSlug);
 
         const newPermissions = {
             appointments: { view: "all", create: true, edit: true, delete: true },

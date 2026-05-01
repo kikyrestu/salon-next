@@ -1,14 +1,14 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Voucher from "@/models/Voucher";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+
+export async function GET(_request: NextRequest, props: any) {
+    const tenantSlug = _request.headers.get('x-store-slug') || 'pusat';
+    const { Voucher } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
-    const { id } = await params;
+    
+    const { id } = await props.params;
 
     const voucher = await Voucher.findById(id);
     if (!voucher) {
@@ -28,13 +28,13 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Voucher } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
-    const { id } = await params;
+    
+    const { id } = await props.params;
     const body = await request.json();
 
     const {
@@ -134,13 +134,13 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(_request: NextRequest, props: any) {
+    const tenantSlug = _request.headers.get('x-store-slug') || 'pusat';
+    const { Voucher } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
-    const { id } = await params;
+    
+    const { id } = await props.params;
 
     // Soft delete — just deactivate
     const voucher = await Voucher.findByIdAndUpdate(

@@ -1,11 +1,14 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Payroll from "@/models/Payroll";
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Payroll, Staff, Appointment, Invoice } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         const payroll = await Payroll.findById(id).populate("staff", "name email phone");
 
         if (!payroll) {
@@ -18,13 +21,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 }
 
-import { Staff, Appointment, Invoice } from "@/lib/initModels";
+
 import { startOfMonth, endOfMonth } from "date-fns";
 
-export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Payroll, Staff, Appointment, Invoice } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         const body = await request.json();
 
         let payroll = await Payroll.findById(id).populate("staff");
@@ -151,10 +157,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 }
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Payroll, Staff, Appointment, Invoice } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
 
         const payroll = await Payroll.findById(id);
         if (!payroll) {

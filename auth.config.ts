@@ -4,31 +4,42 @@ export const authConfig = {
     session: {
         strategy: "jwt",
     },
-    pages: {
-        signIn: "/login",
-    },
     callbacks: {
         authorized({ auth, request: { nextUrl } }) {
             const isLoggedIn = !!auth?.user;
+            const pathParts = nextUrl.pathname.split('/').filter(Boolean);
+            // pathParts[0] could be a slug like "pusat", "bintaro", or "api"
+            const isApiRoute = pathParts[0] === 'api';
+            const slugSegment = !isApiRoute ? pathParts[0] : null;
+            // The "page" part is the path after the slug, e.g. /pusat/login -> "login"
+            const pageSegment = slugSegment ? pathParts.slice(1).join('/') : pathParts.join('/');
 
-            // Define public routes
-            const isPublicRoute =
-                nextUrl.pathname === "/login" ||
-                nextUrl.pathname === "/register" ||
-                nextUrl.pathname === "/setup" ||
-                nextUrl.pathname === "/api/setup" ||
-                nextUrl.pathname === "/api/settings" ||
-                nextUrl.pathname === "/api/payments/xendit/webhook" ||
-                nextUrl.pathname.startsWith("/api/auth") ||
-                nextUrl.pathname.startsWith("/api/public");
+            const isPublicPage =
+                pageSegment === 'login' ||
+                pageSegment === 'register' ||
+                pageSegment === 'setup' ||
+                nextUrl.pathname.startsWith('/admin');
+
+            const isPublicApi =
+                nextUrl.pathname === '/api/setup' ||
+                nextUrl.pathname === '/api/settings' ||
+                nextUrl.pathname === '/api/payments/xendit/webhook' ||
+                nextUrl.pathname.startsWith('/api/auth') ||
+                nextUrl.pathname.startsWith('/api/public') ||
+                nextUrl.pathname.startsWith('/api/admin');
+
+            const isPublicRoute = isPublicPage || isPublicApi;
 
             // Redirect logic
             if (!isLoggedIn && !isPublicRoute) {
-                return false; // Redirects to login page
+                // Redirect to /{slug}/login if slug is known, otherwise /pusat/login
+                const loginSlug = slugSegment || 'pusat';
+                return Response.redirect(new URL(`/${loginSlug}/login`, nextUrl));
             }
 
-            if (isLoggedIn && (nextUrl.pathname === "/login" || nextUrl.pathname === "/register")) {
-                return Response.redirect(new URL("/dashboard", nextUrl));
+            if (isLoggedIn && (pageSegment === 'login' || pageSegment === 'register')) {
+                const dashSlug = slugSegment || (auth?.user as any)?.tenantSlug || 'pusat';
+                return Response.redirect(new URL(`/${dashSlug}/dashboard`, nextUrl));
             }
 
             return true;
@@ -36,6 +47,7 @@ export const authConfig = {
         async jwt({ token, user }) {
             if (user) {
                 token.id = user.id;
+                token.tenantSlug = (user as any).tenantSlug;
                 if (user.role) {
                     token.role = user.role.name;
                     token.permissions = user.role.permissions;
@@ -67,6 +79,7 @@ export const authConfig = {
                 session.user.id = token.id;
                 session.user.role = token.role;
                 session.user.permissions = token.permissions;
+                session.user.tenantSlug = token.tenantSlug;
             }
             return session;
         },

@@ -1,9 +1,7 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { authConfig } from "./auth.config";
-import dbConnect from "@/lib/mongodb";
-import User from "@/models/User";
-import Role from "@/models/Role";
+import { getTenantModels } from "@/lib/tenantDb";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     ...authConfig,
@@ -13,20 +11,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             credentials: {
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" },
+                slug: { label: "Slug", type: "text" }
             },
             async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) {
-                    throw new Error("Please provide email and password");
+                if (!credentials?.email || !credentials?.password || !credentials?.slug) {
+                    throw new Error("Please provide email, password, and branch slug");
                 }
 
                 const email = String(credentials.email).toLowerCase().trim();
                 const password = String(credentials.password);
+                const slug = String(credentials.slug).toLowerCase().trim();
 
                 try {
-                    await dbConnect();
-
-                    // Ensure Role model is registered
-                    void Role;
+                    // Get models for specific tenant
+                    const { User, Role } = await getTenantModels(slug);
 
                     // Find user and include password field & role
                     const user: any = await User.findOne({
@@ -38,9 +36,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     }
 
                     // Check password
-                    const isPasswordValid = await user.comparePassword(
-                        password
-                    );
+                    const isPasswordValid = await user.comparePassword(password);
 
                     if (!isPasswordValid) {
                         throw new Error("Invalid email or password");
@@ -51,7 +47,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         id: user._id.toString(),
                         email: user.email,
                         name: user.name,
-                        role: user.role
+                        role: user.role,
+                        tenantSlug: slug
                     };
                 } catch (error) {
                     console.error("Authentication error:", error);
@@ -67,6 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             // Initial sign in or manual update
             if (user) {
                 token.id = user.id;
+                token.tenantSlug = (user as any).tenantSlug;
                 if (user.role) {
                     token.role = user.role.name;
                     token.permissions = user.role.permissions;
@@ -74,10 +72,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 }
             } else if (trigger === "update" || !token.permissions) {
                 // Only refresh permissions if explicitly updated or missing
-                if (token.roleId && typeof token.roleId === 'string') {
+                if (token.roleId && typeof token.roleId === 'string' && token.tenantSlug) {
                     try {
-                        await dbConnect();
-                        const { Role } = await import("@/lib/initModels");
+                        const { Role } = await getTenantModels(token.tenantSlug as string);
                         const role = await Role.findById(token.roleId);
                         if (role) {
                             token.role = role.name;

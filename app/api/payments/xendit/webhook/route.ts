@@ -1,11 +1,11 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
-import { connectToDB } from '@/lib/mongodb';
-import Deposit from '@/models/Deposit';
-import Invoice from '@/models/Invoice';
-import PaymentTransaction from '@/models/PaymentTransaction';
-import PackageOrder from '@/models/PackageOrder';
-import CustomerPackage from '@/models/CustomerPackage';
+
+
+
+
+
 
 function mapXenditStatus(status?: string): 'pending' | 'paid' | 'failed' | 'expired' {
   const normalized = (status || '').toUpperCase();
@@ -70,7 +70,10 @@ function normalizeWebhookPayload(payload: Record<string, unknown>) {
   };
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Deposit, Invoice, PaymentTransaction, PackageOrder, CustomerPackage } = await getTenantModels(tenantSlug);
+
   try {
     const callbackToken = request.headers.get('x-callback-token');
     const expectedToken = process.env.XENDIT_WEBHOOK_TOKEN;
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Invalid callback token' }, { status: 401 });
     }
 
-    await connectToDB();
+    
 
     const payload = (await request.json()) as Record<string, unknown>;
     const normalized = normalizeWebhookPayload(payload);

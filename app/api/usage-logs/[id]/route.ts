@@ -1,18 +1,18 @@
+import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import { initModels } from "@/lib/initModels";
-import UsageLog from "@/models/UsageLog";
-import Product from "@/models/Product";
 
-export async function DELETE(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+
+
+
+export async function DELETE(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { UsageLog, Product } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
-        const { id } = await params;
+        
+        
+        const { id } = await props.params;
 
         const log = await UsageLog.findById(id);
         if (!log) {

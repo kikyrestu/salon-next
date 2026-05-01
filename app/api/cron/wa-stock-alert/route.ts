@@ -1,14 +1,17 @@
+import { getTenantModels } from "@/lib/tenantDb";
 /**
  * GET /api/cron/wa-stock-alert
  * Check products with low stock and notify admin via WA.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import Product from '@/models/Product';
-import Settings from '@/models/Settings';
+
+
 import { sendWhatsApp } from '@/lib/fonnte';
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Product, Settings } = await getTenantModels(tenantSlug);
+
     try {
         const authHeader = request.headers.get('authorization');
         const cronSecret = process.env.CRON_SECRET;
@@ -16,7 +19,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
         }
 
-        await connectToDB();
+        
         const settings = await Settings.findOne();
         const adminPhone = settings?.waAdminNumber;
 

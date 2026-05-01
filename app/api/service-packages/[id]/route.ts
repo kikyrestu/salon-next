@@ -1,7 +1,7 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
 import { checkPermission } from '@/lib/rbac';
-import { initModels, ServicePackage, Service } from '@/lib/initModels';
+
 
 interface PackageInputItem {
   service: string;
@@ -43,14 +43,17 @@ function validateItems(items: PackageInputItem[]): string | null {
   return null;
 }
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { ServicePackage, Service } = await getTenantModels(tenantSlug);
+
   try {
     const permissionError = await checkPermission(request, 'services', 'view');
     if (permissionError) return permissionError;
 
-    await connectToDB();
-    initModels();
-    const { id } = await params;
+    
+    
+    const { id } = await props.params;
 
     const item = await ServicePackage.findById(id).populate('items.service', 'name price');
     if (!item) return NextResponse.json({ success: false, error: 'Service package not found' }, { status: 404 });
@@ -62,15 +65,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { ServicePackage, Service } = await getTenantModels(tenantSlug);
+
   try {
     const permissionError = await checkPermission(request, 'services', 'edit');
     if (permissionError) return permissionError;
 
-    await connectToDB();
-    initModels();
+    
+    
 
-    const { id } = await params;
+    const { id } = await props.params;
     const body = (await request.json()) as PackageUpdateBody;
 
     const updatePayload: Record<string, unknown> = {};
@@ -120,14 +126,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { ServicePackage, Service } = await getTenantModels(tenantSlug);
+
   try {
     const permissionError = await checkPermission(request, 'services', 'delete');
     if (permissionError) return permissionError;
 
-    await connectToDB();
-    initModels();
-    const { id } = await params;
+    
+    
+    const { id } = await props.params;
 
     const updated = await ServicePackage.findByIdAndUpdate(id, { isActive: false }, { new: true });
     if (!updated) return NextResponse.json({ success: false, error: 'Service package not found' }, { status: 404 });

@@ -1,13 +1,16 @@
+import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Staff from "@/models/Staff";
-import { initModels } from "@/lib/initModels";
 
-export async function GET(request: Request) {
+
+
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Staff } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search");
         const page = parseInt(searchParams.get("page") || "1");
@@ -39,9 +42,12 @@ export async function GET(request: Request) {
     }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Staff } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
+        
         const body = await request.json();
         const staff = await Staff.create(body);
         return NextResponse.json({ success: true, data: staff });

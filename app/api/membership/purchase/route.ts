@@ -1,18 +1,21 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Customer from "@/models/Customer";
-import Settings from "@/models/Settings";
-import Invoice from "@/models/Invoice";
-import { checkPermission } from "@/lib/rbac";
-import { initModels } from "@/lib/initModels";
 
-export async function POST(request: NextRequest) {
+
+
+import { checkPermission } from "@/lib/rbac";
+
+
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer, Settings, Invoice } = await getTenantModels(tenantSlug);
+
   try {
     const permissionError = await checkPermission(request, "customers", "edit");
     if (permissionError) return permissionError;
 
-    await connectToDB();
-    initModels();
+    
+    
 
     const body = await request.json();
     const { customerId, paymentMethod, staffId } = body;

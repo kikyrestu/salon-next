@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import dbConnect from '@/lib/mongodb';
 import mongoose from 'mongoose';
 
 export async function GET() {
@@ -15,7 +14,6 @@ export async function GET() {
     }
 
     // Test database connectivity by attempting a simple query
-    await dbConnect();
     // Simple test to check if we can perform a basic DB operation
     const testCollection = mongoose.connection.collection('test_connection');
     const dbPing = await testCollection.findOne({}).catch(() => null);

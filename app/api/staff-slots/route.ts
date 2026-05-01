@@ -1,9 +1,9 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import { initModels } from "@/lib/initModels";
-import StaffSlot from "@/models/StaffSlot";
-import Appointment from "@/models/Appointment";
-import Staff from "@/models/Staff";
+
+
+
+
 import { parse, format, addMinutes, isBefore, isAfter } from "date-fns";
 
 // Generate time slots between start and end time
@@ -22,10 +22,13 @@ function generateTimeSlots(startTime: string, endTime: string, slotDuration: num
 }
 
 // Get available slots for a staff member on a specific date or day
-export async function GET(request: Request) {
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { StaffSlot, Appointment, Staff } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
 
         const { searchParams } = new URL(request.url);
         const staffId = searchParams.get("staffId");
@@ -181,10 +184,13 @@ export async function GET(request: Request) {
 }
 
 // Create or update staff slots
-export async function POST(request: Request) {
+export async function POST(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { StaffSlot, Appointment, Staff } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
 
         const body = await request.json();
         const { staffId, date, dayOfWeek, type, slots } = body;

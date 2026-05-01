@@ -1,15 +1,18 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
 import { checkPermission } from '@/lib/rbac';
-import WaSchedule from '@/models/WaSchedule';
-import WaFollowUpContact from '@/models/WaFollowUpContact';
 
-export async function GET(request: NextRequest) {
+
+
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaSchedule, WaFollowUpContact } = await getTenantModels(tenantSlug);
+
     try {
         const permissionError = await checkPermission(request, 'services', 'view');
         if (permissionError) return permissionError;
 
-        await connectToDB();
+        
 
         const { searchParams } = new URL(request.url);
         const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
@@ -99,12 +102,15 @@ export async function GET(request: NextRequest) {
     }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function PATCH(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaSchedule, WaFollowUpContact } = await getTenantModels(tenantSlug);
+
     try {
         const permissionError = await checkPermission(request, 'services', 'edit');
         if (permissionError) return permissionError;
 
-        await connectToDB();
+        
         const body = await request.json();
         const phoneNumber = String(body?.phoneNumber || '').trim();
         const isActive = Boolean(body?.isActive);

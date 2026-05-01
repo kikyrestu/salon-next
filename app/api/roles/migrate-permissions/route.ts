@@ -1,6 +1,5 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import { Role } from '@/lib/initModels';
 
 // All permission keys that should exist on every role
 const FULL_PERMISSION_KEYS: Record<string, any> = {
@@ -33,9 +32,10 @@ const FULL_PERMISSION_KEYS: Record<string, any> = {
 };
 
 // Force-update ALL permission keys on ALL roles
-async function migratePermissions() {
+async function migratePermissions(request: NextRequest) {
     try {
-        await connectDB();
+        const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+        const { Role } = await getTenantModels(tenantSlug);
 
         const roles = await Role.find({});
         const results: { name: string; updated: string[] }[] = [];
@@ -83,5 +83,5 @@ async function migratePermissions() {
 }
 
 // GET & POST both work
-export async function GET() { return migratePermissions(); }
-export async function POST() { return migratePermissions(); }
+export async function GET(request: NextRequest) { return migratePermissions(request); }
+export async function POST(request: NextRequest) { return migratePermissions(request); }

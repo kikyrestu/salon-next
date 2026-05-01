@@ -1,17 +1,17 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
 import { checkPermission } from "@/lib/rbac";
-import { connectToDB } from "@/lib/mongodb";
-import Invoice from "@/models/Invoice";
-import Customer from "@/models/Customer";
-import Product from "@/models/Product";
-import Settings from "@/models/Settings";
-import { initModels } from "@/lib/initModels";
+
+
+
+
+
 import { logActivity } from "@/lib/logger";
 import { scheduleFollowUp } from "@/lib/waFollowUp";
 import { normalizeIndonesianPhone } from "@/lib/phone";
 import { sendWhatsApp } from "@/lib/fonnte";
-import CashBalance from "@/models/CashBalance";
-import CashLog from "@/models/CashLog";
+
+
 import { auth } from "@/auth";
 
 const SPLIT_TOLERANCE = 0.01;
@@ -82,9 +82,12 @@ const normalizeSplitAssignments = (assignments: any[] = []) => {
   });
 };
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Invoice, Customer, Product, Settings, CashBalance, CashLog } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
+    
 
     // Security Check
     const permissionError = await checkPermission(
@@ -94,7 +97,7 @@ export async function POST(request: NextRequest) {
     );
     if (permissionError) return permissionError;
 
-    initModels();
+    
     const body = await request.json();
 
     const normalizedBody = {
@@ -436,15 +439,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Invoice, Customer, Product, Settings, CashBalance, CashLog } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
+    
 
     // Security Check
     const permissionError = await checkPermission(request, "invoices", "view");
     if (permissionError) return permissionError;
 
-    initModels();
+    
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");

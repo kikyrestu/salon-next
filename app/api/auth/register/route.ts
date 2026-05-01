@@ -1,8 +1,11 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/mongodb';
-import User from '@/models/User';
 
-export async function POST(req: NextRequest) {
+
+export async function POST(req: NextRequest, props: any) {
+    const tenantSlug = req.headers.get('x-store-slug') || 'pusat';
+    const { User } = await getTenantModels(tenantSlug);
+
     console.log('=== REGISTRATION ENDPOINT CALLED ===');
 
     try {
@@ -40,7 +43,6 @@ export async function POST(req: NextRequest) {
 
         // Connect to database
         console.log('📡 Connecting to database...');
-        await dbConnect();
         console.log('✅ Database connected');
 
         // Check if user already exists

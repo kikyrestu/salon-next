@@ -1,18 +1,18 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import { initModels } from "@/lib/initModels";
-import StaffSlot from "@/models/StaffSlot";
+
+
 
 // Delete a specific slot by ID
-export async function DELETE(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { StaffSlot } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
         
-        const { id } = await params;
+        
+        
+        const { id } = await props.params;
         
         if (!id) {
             return NextResponse.json(

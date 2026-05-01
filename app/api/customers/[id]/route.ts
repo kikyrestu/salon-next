@@ -1,16 +1,16 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import Customer from '@/models/Customer';
+
 import { normalizeIndonesianPhone } from '@/lib/phone';
 
 // GET /api/customers/[id] - Get single customer
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
 
         const customer = await Customer.findById(id).populate('referredBy', 'name');
 
@@ -31,13 +31,13 @@ export async function GET(
 }
 
 // PUT /api/customers/[id] - Update customer
-export async function PUT(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         const body = await request.json();
 
         if (body?.phone) {
@@ -91,13 +91,13 @@ export async function PUT(
 }
 
 // DELETE /api/customers/[id] - Delete customer
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
 
         const customer = await Customer.findByIdAndDelete(id);
 

@@ -1,17 +1,20 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import { initModels } from '@/lib/initModels';
-import { checkPermission } from '@/lib/rbac';
-import WaAutomation from '@/models/WaAutomation';
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+import { checkPermission } from '@/lib/rbac';
+
+
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaAutomation } = await getTenantModels(tenantSlug);
+
     const permError = await checkPermission(request, 'settings', 'edit');
     if (permError) return permError;
 
     try {
-        const { id } = await params;
-        await connectToDB();
-        initModels();
+        const { id } = await props.params;
+        
+        
 
         const body = await request.json();
         
@@ -26,14 +29,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaAutomation } = await getTenantModels(tenantSlug);
+
     const permError = await checkPermission(request, 'settings', 'edit');
     if (permError) return permError;
 
     try {
-        const { id } = await params;
-        await connectToDB();
-        initModels();
+        const { id } = await props.params;
+        
+        
 
         const automation = await WaAutomation.findByIdAndDelete(id);
         if (!automation) {

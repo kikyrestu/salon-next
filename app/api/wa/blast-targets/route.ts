@@ -1,27 +1,30 @@
+import { getTenantModels } from "@/lib/tenantDb";
 /**
  * GET  /api/wa/blast-targets — Filter customers for WA blast
  * POST /api/wa/blast-targets — Send WA blast to filtered customers
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import { initModels } from '@/lib/initModels';
+
 import { checkPermission } from '@/lib/rbac';
 import { auth } from '@/auth';
-import Customer from '@/models/Customer';
-import Invoice from '@/models/Invoice';
-import WaBlastLog from '@/models/WaBlastLog';
+
+
+
 import { sendWhatsApp } from '@/lib/fonnte';
 
 /* ------------------------------------------------------------------ */
 /*  GET — Filter customers for blast preview                           */
 /* ------------------------------------------------------------------ */
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer, Invoice, WaBlastLog } = await getTenantModels(tenantSlug);
+
     const permError = await checkPermission(request, 'customers', 'view');
     if (permError) return permError;
 
-    await connectToDB();
-    initModels();
+    
+    
 
     const { searchParams } = new URL(request.url);
     const lastVisitSince = searchParams.get('lastVisitSince');
@@ -112,12 +115,15 @@ export async function GET(request: NextRequest) {
 /*  POST — Send WA blast to selected customers                         */
 /* ------------------------------------------------------------------ */
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer, Invoice, WaBlastLog } = await getTenantModels(tenantSlug);
+
     const permError = await checkPermission(request, 'customers', 'edit');
     if (permError) return permError;
 
-    await connectToDB();
-    initModels();
+    
+    
 
     const body = await request.json();
     const { customerIds, message, campaignName, filters } = body;

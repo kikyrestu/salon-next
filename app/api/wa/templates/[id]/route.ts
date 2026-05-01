@@ -1,15 +1,18 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
 import { checkPermission } from '@/lib/rbac';
-import WaTemplate from '@/models/WaTemplate';
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaTemplate } = await getTenantModels(tenantSlug);
+
     try {
         const permissionError = await checkPermission(request, 'services', 'edit');
         if (permissionError) return permissionError;
 
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
 
         const body = await request.json();
         const name = String(body?.name || '').trim();
@@ -59,13 +62,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaTemplate } = await getTenantModels(tenantSlug);
+
     try {
         const permissionError = await checkPermission(request, 'services', 'delete');
         if (permissionError) return permissionError;
 
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
 
         const template = await WaTemplate.findByIdAndDelete(id);
         if (!template) {

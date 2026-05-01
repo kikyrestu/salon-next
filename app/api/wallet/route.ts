@@ -1,23 +1,26 @@
+import { getTenantModels } from "@/lib/tenantDb";
 /**
  * GET  /api/wallet — Get wallet history for a customer
  * POST /api/wallet — Top-up or deduct wallet balance
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import { initModels } from '@/lib/initModels';
+
 import { auth } from '@/auth';
-import Customer from '@/models/Customer';
-import WalletTransaction from '@/models/WalletTransaction';
-import Settings from '@/models/Settings';
+
+
+
 import { checkPermission } from '@/lib/rbac';
 
 /* ------------------------------------------------------------------ */
 /*  GET — Wallet history for a customer                                */
 /* ------------------------------------------------------------------ */
 
-export async function GET(request: NextRequest) {
-    await connectToDB();
-    initModels();
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer, WalletTransaction, Settings } = await getTenantModels(tenantSlug);
+
+    
+    
 
     const permissionError = await checkPermission(request, 'customers', 'view');
     if (permissionError) return permissionError;
@@ -66,9 +69,12 @@ export async function GET(request: NextRequest) {
 /*  POST — Top-up or deduct wallet                                     */
 /* ------------------------------------------------------------------ */
 
-export async function POST(request: NextRequest) {
-    await connectToDB();
-    initModels();
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer, WalletTransaction, Settings } = await getTenantModels(tenantSlug);
+
+    
+    
 
     const permissionError = await checkPermission(request, 'customers', 'edit');
     if (permissionError) return permissionError;

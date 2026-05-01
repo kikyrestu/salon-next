@@ -1,14 +1,17 @@
+import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Deposit from "@/models/Deposit";
-import Invoice from "@/models/Invoice";
-import { initModels } from "@/lib/initModels";
 
-export async function GET(request: Request) {
+
+
+
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Deposit, Invoice } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
         const { searchParams } = new URL(request.url);
         const invoiceId = searchParams.get("invoiceId");
 
@@ -22,9 +25,12 @@ export async function GET(request: Request) {
     }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Deposit, Invoice } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
+        
         const body = await request.json();
 
         // 1. Create the deposit

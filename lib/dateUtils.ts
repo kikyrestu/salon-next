@@ -91,9 +91,12 @@ const pad = (value: number) => String(value).padStart(2, "0");
 export const getTimezone = async (): Promise<string> => {
     if (cachedTimezone) return cachedTimezone;
     try {
-        const res = await fetch('/api/settings');
-        const data = await res.json();
-        if (data.success && data.data.timezone) {
+        const res = await fetch('/api/settings', { cache: 'no-store' });
+        if (!res.ok) return 'UTC';
+        const text = await res.text();
+        if (!text) return 'UTC';
+        const data = JSON.parse(text);
+        if (data.success && data.data?.timezone) {
             cachedTimezone = data.data.timezone;
             return data.data.timezone;
         }

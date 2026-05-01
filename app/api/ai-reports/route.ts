@@ -1,23 +1,16 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextResponse, NextRequest } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import {
-    Invoice,
-    Expense,
-    Appointment,
-    Customer,
-    Product,
-    Service,
-    Staff,
-    Payroll,
-    Purchase
-} from "@/lib/initModels";
-import Settings from "@/models/Settings";
+
+
 import { startOfMonth, endOfMonth, subDays } from "date-fns";
 import { checkPermission } from "@/lib/rbac";
 import { checkRateLimit } from "@/lib/rateLimiter";
 import { auth } from "@/auth";
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Settings, Invoice, Expense, Appointment, Customer, Product, Service, Staff, Payroll, Purchase } = await getTenantModels(tenantSlug);
+
     try {
         const session = await auth();
         if (!session) {
@@ -37,7 +30,7 @@ export async function POST(request: NextRequest) {
         const permissionError = await checkPermission(request, 'ai-reports', 'view');
         if (permissionError) return permissionError;
 
-        await connectToDB();
+        
         const { prompt, timeRange = '30d' } = await request.json();
 
         // 1. Fetch AI Settings

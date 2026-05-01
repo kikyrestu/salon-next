@@ -1,26 +1,29 @@
+import { getTenantModels } from "@/lib/tenantDb";
 // appointments/[id]/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Appointment from "@/models/Appointment";
-import Invoice from "@/models/Invoice";
-import Deposit from "@/models/Deposit";
-import Settings from "@/models/Settings";
-import Staff from "@/models/Staff";
-import Service from "@/models/Service";
-import { initModels } from "@/lib/initModels";
+
+
+
+
+
+
+
 import { checkPermission } from "@/lib/rbac";
 import { handleApiError } from "@/lib/errorHandler";
 import { scheduleFollowUp } from "@/lib/waFollowUp";
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Appointment, Invoice, Deposit, Settings, Staff, Service } = await getTenantModels(tenantSlug);
+
     try {
         const permissionError = await checkPermission(request, 'appointments', 'view');
         if (permissionError) return permissionError;
 
-        await connectToDB();
-        initModels();
-        const { id } = await params;
+        
+        
+        const { id } = await props.params;
 
         const appointment = await Appointment.findById(id)
             .populate('customer')
@@ -36,16 +39,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Appointment, Invoice, Deposit, Settings, Staff, Service } = await getTenantModels(tenantSlug);
+
     try {
         const permissionError = await checkPermission(request, 'appointments', 'edit');
         if (permissionError) return permissionError;
 
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         const body = await request.json();
 
-        initModels();
+        
         const settings = await Settings.findOne();
         const taxRate = settings?.taxRate || 0;
 
@@ -85,7 +91,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         }, { new: true });
 
         if (appointment && (appointment.status === 'confirmed' || appointment.status === 'completed')) {
-            initModels();
+            
             const existingInvoice = await Invoice.findOne({ appointment: id });
             if (!existingInvoice) {
                 const count = await Invoice.countDocuments();
@@ -132,13 +138,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Appointment, Invoice, Deposit, Settings, Staff, Service } = await getTenantModels(tenantSlug);
+
     try {
         const permissionError = await checkPermission(request, 'appointments', 'delete');
         if (permissionError) return permissionError;
 
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
 
         const linkedInvoices = await Invoice.find({ appointment: id }).select('_id');
         const invoiceIds = linkedInvoices.map((inv: any) => inv._id);

@@ -1,12 +1,15 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import { Payroll, Staff, Appointment, Service, Invoice } from "@/lib/initModels";
+
 import { startOfMonth, endOfMonth } from "date-fns";
 
 // GET /api/payroll - List all payroll records
-export async function GET(request: Request) {
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Payroll, Staff, Appointment, Service, Invoice } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
+        
 
         const { searchParams } = new URL(request.url);
         const month = searchParams.get("month");
@@ -79,9 +82,12 @@ export async function GET(request: Request) {
 }
 
 // POST /api/payroll - Generate payroll for a staff member
-export async function POST(request: Request) {
+export async function POST(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Payroll, Staff, Appointment, Service, Invoice } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
+        
         const body = await request.json();
         const { staffId, month, year } = body;
 

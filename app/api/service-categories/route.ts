@@ -1,11 +1,14 @@
+import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import ServiceCategory from "@/models/ServiceCategory";
 
-export async function GET(request: Request) {
+
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { ServiceCategory } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
+        
         const categories = await ServiceCategory.find({ status: "active" }).sort({ name: 1 });
         return NextResponse.json({ success: true, data: categories });
     } catch (error) {
@@ -13,9 +16,12 @@ export async function GET(request: Request) {
     }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { ServiceCategory } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
+        
         const body = await request.json();
         const category = await ServiceCategory.create(body);
         return NextResponse.json({ success: true, data: category });

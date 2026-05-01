@@ -1,21 +1,24 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Invoice from "@/models/Invoice";
-import Customer from "@/models/Customer";
-import { initModels } from "@/lib/initModels";
+
+
+
 import { checkPermission } from "@/lib/rbac";
 import { logActivity } from "@/lib/logger";
 import { auth } from "@/auth";
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Invoice, Customer } = await getTenantModels(tenantSlug);
+
     try {
         // Security Check
         const permissionError = await checkPermission(request, 'invoices', 'view');
         if (permissionError) return permissionError;
 
-        await connectToDB();
-        initModels();
-        const { id } = await params;
+        
+        
+        const { id } = await props.params;
         const invoice = await Invoice.findById(id)
             .populate({
                 path: 'customer',
@@ -31,11 +34,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Invoice, Customer } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
-        const { id } = await params;
+        
+        
+        const { id } = await props.params;
 
         // Security Check
         const permissionError = await checkPermission(request, 'invoices', 'edit');
@@ -88,7 +94,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
  * A void reason is required for the audit trail.
  * ──────────────────────────────────────────────────────
  */
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Invoice, Customer } = await getTenantModels(tenantSlug);
+
     try {
         // Must be Super Admin to void an invoice
         const session: any = await auth();
@@ -110,9 +119,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
             );
         }
 
-        await connectToDB();
-        initModels();
-        const { id } = await params;
+        
+        
+        const { id } = await props.params;
 
         const invoice = await Invoice.findById(id);
         if (!invoice) {

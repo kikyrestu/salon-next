@@ -1,6 +1,6 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Service from "@/models/Service";
+
 
 const normalizeServicePayload = (payload: any) => {
     const body = { ...payload };
@@ -34,10 +34,13 @@ const normalizeServicePayload = (payload: any) => {
     return body;
 };
 
-export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Service } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         const rawBody = await request.json();
         const body = normalizeServicePayload(rawBody);
         const service = await Service.findByIdAndUpdate(id, body, { new: true });
@@ -53,10 +56,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 }
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Service } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         const service = await Service.findByIdAndUpdate(id, { status: "inactive" }, { new: true });
 
         if (!service) {

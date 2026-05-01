@@ -1,25 +1,17 @@
+import { getTenantModels } from "@/lib/tenantDb";
 /**
  * POST /api/import/[entity]
  * Upload an Excel file and bulk-insert rows into the database.
  * Returns { success: true, imported: N, failed: N, errors: [...] }
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import { initModels } from '@/lib/initModels';
+
 import { checkPermission } from '@/lib/rbac';
 import { logActivity } from '@/lib/logger';
 import { normalizeIndonesianPhone } from '@/lib/phone';
 import { parseExcelBuffer, ENTITY_COLUMNS, EntityType, ParsedRow } from '@/lib/excel';
 import crypto from 'crypto';
 
-import Service from '@/models/Service';
-import Product from '@/models/Product';
-import Customer from '@/models/Customer';
-import Staff from '@/models/Staff';
-import Supplier from '@/models/Supplier';
-import ServiceCategory from '@/models/ServiceCategory';
-import Expense from '@/models/Expense';
-import Voucher from '@/models/Voucher';
 import { auth } from '@/auth';
 
 /* ------------------------------------------------------------------ */
@@ -37,11 +29,12 @@ const RESOURCE_MAP: Record<EntityType, string> = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
+/*  Helpers (now accept models as parameter)                           */
 /* ------------------------------------------------------------------ */
 
 /** Resolve or auto-create a ServiceCategory by name, returning its _id */
-async function resolveServiceCategory(name: string): Promise<string> {
+async function resolveServiceCategory(name: string, models: any): Promise<string> {
+    const { ServiceCategory } = models;
     const slug = name.toLowerCase().replace(/\s+/g, '-');
     let cat = await ServiceCategory.findOne({
         $or: [
@@ -56,7 +49,8 @@ async function resolveServiceCategory(name: string): Promise<string> {
 }
 
 /** Generate a unique referral code for a customer */
-async function generateReferralCode(): Promise<string> {
+async function generateReferralCode(models: any): Promise<string> {
+    const { Customer } = models;
     let code = '';
     let attempts = 0;
     while (!code && attempts < 15) {
@@ -69,19 +63,20 @@ async function generateReferralCode(): Promise<string> {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Entity-specific inserters                                          */
+/*  Entity-specific inserters (now accept models as parameter)         */
 /* ------------------------------------------------------------------ */
 
 type InsertResult = { inserted: number; rowErrors: { row: number; errors: string[] }[] };
 
-async function insertServices(rows: ParsedRow[]): Promise<InsertResult> {
+async function insertServices(rows: ParsedRow[], models: any): Promise<InsertResult> {
+    const { Service } = models;
     const errors: InsertResult['rowErrors'] = [];
     let inserted = 0;
 
     for (const row of rows) {
         try {
             const d = row.data;
-            const categoryId = await resolveServiceCategory(d.categoryName);
+            const categoryId = await resolveServiceCategory(d.categoryName, models);
             await Service.create({
                 name: d.name,
                 category: categoryId,
@@ -102,7 +97,8 @@ async function insertServices(rows: ParsedRow[]): Promise<InsertResult> {
     return { inserted, rowErrors: errors };
 }
 
-async function insertProducts(rows: ParsedRow[]): Promise<InsertResult> {
+async function insertProducts(rows: ParsedRow[], models: any): Promise<InsertResult> {
+    const { Product } = models;
     const errors: InsertResult['rowErrors'] = [];
     let inserted = 0;
 
@@ -134,14 +130,15 @@ async function insertProducts(rows: ParsedRow[]): Promise<InsertResult> {
     return { inserted, rowErrors: errors };
 }
 
-async function insertCustomers(rows: ParsedRow[]): Promise<InsertResult> {
+async function insertCustomers(rows: ParsedRow[], models: any): Promise<InsertResult> {
+    const { Customer } = models;
     const errors: InsertResult['rowErrors'] = [];
     let inserted = 0;
 
     for (const row of rows) {
         try {
             const d = row.data;
-            const referralCode = await generateReferralCode();
+            const referralCode = await generateReferralCode(models);
             const phone = d.phone ? normalizeIndonesianPhone(d.phone) : undefined;
             await Customer.create({
                 name: d.name,
@@ -162,7 +159,8 @@ async function insertCustomers(rows: ParsedRow[]): Promise<InsertResult> {
     return { inserted, rowErrors: errors };
 }
 
-async function insertStaff(rows: ParsedRow[]): Promise<InsertResult> {
+async function insertStaff(rows: ParsedRow[], models: any): Promise<InsertResult> {
+    const { Staff } = models;
     const errors: InsertResult['rowErrors'] = [];
     let inserted = 0;
 
@@ -191,7 +189,8 @@ async function insertStaff(rows: ParsedRow[]): Promise<InsertResult> {
     return { inserted, rowErrors: errors };
 }
 
-async function insertSuppliers(rows: ParsedRow[]): Promise<InsertResult> {
+async function insertSuppliers(rows: ParsedRow[], models: any): Promise<InsertResult> {
+    const { Supplier } = models;
     const errors: InsertResult['rowErrors'] = [];
     let inserted = 0;
 
@@ -214,7 +213,8 @@ async function insertSuppliers(rows: ParsedRow[]): Promise<InsertResult> {
     return { inserted, rowErrors: errors };
 }
 
-async function insertServiceCategories(rows: ParsedRow[]): Promise<InsertResult> {
+async function insertServiceCategories(rows: ParsedRow[], models: any): Promise<InsertResult> {
+    const { ServiceCategory } = models;
     const errors: InsertResult['rowErrors'] = [];
     let inserted = 0;
 
@@ -244,7 +244,8 @@ async function insertServiceCategories(rows: ParsedRow[]): Promise<InsertResult>
     return { inserted, rowErrors: errors };
 }
 
-async function insertExpenses(rows: ParsedRow[], userId: string): Promise<InsertResult> {
+async function insertExpenses(rows: ParsedRow[], userId: string, models: any): Promise<InsertResult> {
+    const { Expense } = models;
     const errors: InsertResult['rowErrors'] = [];
     let inserted = 0;
 
@@ -269,7 +270,8 @@ async function insertExpenses(rows: ParsedRow[], userId: string): Promise<Insert
     return { inserted, rowErrors: errors };
 }
 
-async function insertVouchers(rows: ParsedRow[]): Promise<InsertResult> {
+async function insertVouchers(rows: ParsedRow[], models: any): Promise<InsertResult> {
+    const { Voucher } = models;
     const errors: InsertResult['rowErrors'] = [];
     let inserted = 0;
 
@@ -299,11 +301,11 @@ async function insertVouchers(rows: ParsedRow[]): Promise<InsertResult> {
 /*  Main POST handler                                                  */
 /* ------------------------------------------------------------------ */
 
-export async function POST(
-    request: NextRequest,
-    { params }: { params: Promise<{ entity: string }> }
-) {
-    const { entity: rawEntity } = await params;
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const models = await getTenantModels(tenantSlug);
+
+    const { entity: rawEntity } = await props.params;
     const entity = rawEntity as EntityType;
 
     if (!ENTITY_COLUMNS[entity]) {
@@ -317,9 +319,6 @@ export async function POST(
     const resource = RESOURCE_MAP[entity];
     const permError = await checkPermission(request, resource, 'create');
     if (permError) return permError;
-
-    await connectToDB();
-    initModels();
 
     // Read file from FormData
     const formData = await request.formData();
@@ -350,28 +349,28 @@ export async function POST(
 
     switch (entity) {
         case 'services':
-            result = await insertServices(parsed.success);
+            result = await insertServices(parsed.success, models);
             break;
         case 'products':
-            result = await insertProducts(parsed.success);
+            result = await insertProducts(parsed.success, models);
             break;
         case 'customers':
-            result = await insertCustomers(parsed.success);
+            result = await insertCustomers(parsed.success, models);
             break;
         case 'staff':
-            result = await insertStaff(parsed.success);
+            result = await insertStaff(parsed.success, models);
             break;
         case 'suppliers':
-            result = await insertSuppliers(parsed.success);
+            result = await insertSuppliers(parsed.success, models);
             break;
         case 'service-categories':
-            result = await insertServiceCategories(parsed.success);
+            result = await insertServiceCategories(parsed.success, models);
             break;
         case 'expenses':
-            result = await insertExpenses(parsed.success, userId);
+            result = await insertExpenses(parsed.success, userId, models);
             break;
         case 'vouchers':
-            result = await insertVouchers(parsed.success);
+            result = await insertVouchers(parsed.success, models);
             break;
     }
 

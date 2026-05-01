@@ -1,10 +1,13 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Voucher from "@/models/Voucher";
 
-export async function GET(request: NextRequest) {
+
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Voucher } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
+    
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -41,9 +44,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Voucher } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
+    
 
     const body = await request.json();
 

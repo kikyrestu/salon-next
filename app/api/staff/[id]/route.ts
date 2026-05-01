@@ -1,12 +1,15 @@
+import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Staff from "@/models/Staff";
 
-export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+
+export async function PUT(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Staff } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         const body = await request.json();
         const staff = await Staff.findByIdAndUpdate(id, body, { new: true });
         return NextResponse.json({ success: true, data: staff });
@@ -15,10 +18,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 }
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Staff } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         await Staff.findByIdAndUpdate(id, { isActive: false }); // Soft delete
         return NextResponse.json({ success: true });
     } catch (error) {

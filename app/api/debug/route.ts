@@ -1,12 +1,10 @@
-
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import { initModels } from "@/lib/initModels";
+import { getTenantModels } from "@/lib/tenantDb";
 
-export async function GET() {
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     try {
-        await connectToDB();
-        const models = initModels();
+        const models = await getTenantModels(tenantSlug);
         // Try to perform a simple operation on a new model
         // @ts-ignore
         const purchaseCount = await models.Purchase.countDocuments();

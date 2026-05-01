@@ -1,19 +1,22 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import { initModels } from '@/lib/initModels';
+
 import { checkPermission } from '@/lib/rbac';
 import { auth } from '@/auth';
-import Customer from '@/models/Customer';
-import WaCampaignQueue from '@/models/WaCampaignQueue';
+
+
 
 // GET: Fetch upcoming campaigns
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer, WaCampaignQueue } = await getTenantModels(tenantSlug);
+
     const permError = await checkPermission(request, 'customers', 'view');
     if (permError) return permError;
 
     try {
-        await connectToDB();
-        initModels();
+        
+        
 
         const campaigns = await WaCampaignQueue.find({
             status: { $in: ['pending', 'processing'] }
@@ -29,12 +32,15 @@ export async function GET(request: NextRequest) {
 }
 
 // POST: Create a new scheduled campaign
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer, WaCampaignQueue } = await getTenantModels(tenantSlug);
+
     const permError = await checkPermission(request, 'customers', 'edit');
     if (permError) return permError;
 
-    await connectToDB();
-    initModels();
+    
+    
 
     try {
         const body = await request.json();
@@ -96,7 +102,10 @@ export async function POST(request: NextRequest) {
 }
 
 // DELETE: Cancel an upcoming campaign
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer, WaCampaignQueue } = await getTenantModels(tenantSlug);
+
     const permError = await checkPermission(request, 'customers', 'edit');
     if (permError) return permError;
 
@@ -106,7 +115,7 @@ export async function DELETE(request: NextRequest) {
 
         if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 });
 
-        await connectToDB();
+        
         
         const campaign = await WaCampaignQueue.findById(id);
         if (!campaign) {

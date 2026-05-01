@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import { initModels } from '@/lib/initModels';
+import { getTenantModels } from '@/lib/tenantDb';
 
 /**
  * Initial Setup API - Creates Super Admin Role and First Admin User
  * This endpoint should only be accessible when no users exist in the system
  */
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
     try {
         console.log('🚀 Starting initial setup...');
-        await connectDB();
-        const { User, Role } = initModels();
+        const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+        const { User, Role } = await getTenantModels(tenantSlug);
 
         // Check if any users already exist
         const existingUsers = await User.countDocuments();
@@ -150,10 +149,10 @@ export async function POST(request: NextRequest) {
 /**
  * Check if setup is required
  */
-export async function GET() {
+export async function GET(request: Request, props: any) {
     try {
-        await connectDB();
-        const { User, Role } = initModels();
+        const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+        const { User, Role } = await getTenantModels(tenantSlug);
 
         const userCount = await User.countDocuments();
         const roleCount = await Role.countDocuments();

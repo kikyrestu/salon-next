@@ -1,7 +1,7 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
 import { checkPermission } from '@/lib/rbac';
-import WaGreetingLog from '@/models/WaGreetingLog';
+
 
 const normalizePhone = (phone: string): string => {
     const digits = String(phone || '').replace(/\D/g, '');
@@ -18,14 +18,17 @@ function hasValidSecret(request: NextRequest): boolean {
     return headerSecret === configuredSecret;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaGreetingLog } = await getTenantModels(tenantSlug);
+
     try {
         if (!hasValidSecret(request)) {
             const permissionError = await checkPermission(request, 'settings', 'edit');
             if (permissionError) return permissionError;
         }
 
-        await connectToDB();
+        
         const total = await WaGreetingLog.countDocuments();
         const items = await WaGreetingLog.find({})
             .select('phoneRaw phoneNormalized greetingSentAt createdAt')
@@ -42,14 +45,17 @@ export async function GET(request: NextRequest) {
     }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaGreetingLog } = await getTenantModels(tenantSlug);
+
     try {
         if (!hasValidSecret(request)) {
             const permissionError = await checkPermission(request, 'settings', 'edit');
             if (permissionError) return permissionError;
         }
 
-        await connectToDB();
+        
         const body = await request.json();
         const phone = String(body?.phone || '').trim();
         const clearAll = Boolean(body?.clearAll);

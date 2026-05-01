@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import * as Models from '@/lib/initModels';
 import { checkPermission } from '@/lib/rbac';
 import { logActivity } from '@/lib/logger';
+import { getTenantModels } from '@/lib/tenantDb';
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
     try {
         // Security Check
         const permissionError = await checkPermission(request, 'settings', 'view');
         if (permissionError) return permissionError;
 
-        await connectToDB();
-        const models = Models.initModels();
+        const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+        const models = await getTenantModels(tenantSlug);
 
         const backupData: any = {};
 

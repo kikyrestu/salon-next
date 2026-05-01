@@ -1,9 +1,9 @@
+import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Service from "@/models/Service";
-import ServiceCategory from "@/models/ServiceCategory"; // Ensure it's registered
-import { initModels } from "@/lib/initModels";
+
+ // Ensure it's registered
+
 
 const normalizeServicePayload = (payload: any) => {
     const body = { ...payload };
@@ -37,10 +37,13 @@ const normalizeServicePayload = (payload: any) => {
     return body;
 };
 
-export async function GET(request: Request) {
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Service, ServiceCategory } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
 
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get("page") || "1");
@@ -77,9 +80,12 @@ export async function GET(request: Request) {
     }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Service, ServiceCategory } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
+        
         const rawBody = await request.json();
         const body = normalizeServicePayload(rawBody);
         const service = await Service.create(body);

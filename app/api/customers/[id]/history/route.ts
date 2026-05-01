@@ -1,8 +1,8 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
-import connectDB from '@/lib/mongodb';
 import { checkPermission } from '@/lib/rbac';
-import { initModels, Invoice, PackageOrder, PackageUsageLedger, Customer } from '@/lib/initModels';
+
 
 interface CustomerInfo {
   _id: string;
@@ -51,18 +51,18 @@ interface PackageUsageHistoryItem {
   };
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Invoice, PackageOrder, PackageUsageLedger, Customer } = await getTenantModels(tenantSlug);
+
   try {
-    await connectDB();
-    initModels();
+    
+    
 
     const permissionError = await checkPermission(request, 'customers', 'view');
     if (permissionError) return permissionError;
 
-    const { id } = await params;
+    const { id } = await props.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ success: false, error: 'Invalid customer id' }, { status: 400 });

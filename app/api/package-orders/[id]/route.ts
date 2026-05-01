@@ -1,15 +1,16 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
 import { checkPermission } from '@/lib/rbac';
-import { initModels, PackageOrder, CustomerPackage } from '@/lib/initModels';
-import Invoice from '@/models/Invoice';
+
+
 
 interface PatchBody {
   paid?: boolean;
   paymentMethod?: string;
 }
 
-async function generateInvoiceNumber(): Promise<string> {
+async function generateInvoiceNumber(models: any): Promise<string> {
+  const { Invoice } = models;
   const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });
   let nextNum = 1;
 
@@ -23,15 +24,17 @@ async function generateInvoiceNumber(): Promise<string> {
   return `INV-${new Date().getFullYear()}-${nextNum.toString().padStart(5, '0')}`;
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Invoice, PackageOrder, CustomerPackage } = await getTenantModels(tenantSlug);
   try {
     const permissionError = await checkPermission(request, 'invoices', 'edit');
     if (permissionError) return permissionError;
 
-    await connectToDB();
-    initModels();
+    
+    
 
-    const { id } = await params;
+    const { id } = await props.params;
     const body = (await request.json()) as PatchBody;
 
     const order = await PackageOrder.findById(id).populate('package');
@@ -89,7 +92,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         commissionAmount = commissionValue;
       }
 
-      const invoiceNumber = await generateInvoiceNumber();
+      const invoiceNumber = await generateInvoiceNumber({ Invoice });
 
       createdInvoice = await Invoice.create({
         invoiceNumber,

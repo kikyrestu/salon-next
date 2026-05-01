@@ -1,20 +1,23 @@
+import { getTenantModels } from "@/lib/tenantDb";
 // app/api/products/routes.tsx
 
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Product from "@/models/Product";
-import { initModels } from "@/lib/initModels";
+
+
 import { checkPermission } from "@/lib/rbac";
 import { validateAndSanitize, validationErrorResponse } from "@/lib/validation";
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Product } = await getTenantModels(tenantSlug);
+
     try {
         // Security Check
         const permissionError = await checkPermission(request, 'products', 'view');
         if (permissionError) return permissionError;
 
-        await connectToDB();
-        initModels();
+        
+        
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get("page") || "1");
         const limit = parseInt(searchParams.get("limit") || "10");
@@ -46,13 +49,16 @@ export async function GET(request: NextRequest) {
     }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Product } = await getTenantModels(tenantSlug);
+
     try {
         // Security Check
         const permissionError = await checkPermission(request, 'products', 'create');
         if (permissionError) return permissionError;
 
-        await connectToDB();
+        
         const body = await request.json();
 
         // Validate and sanitize input

@@ -1,13 +1,16 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import Settings from '@/models/Settings';
+
 import { auth } from '@/auth';
 import { checkPermission } from '@/lib/rbac';
 
 // GET /api/settings - Get store settings
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Settings } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
+        
 
         // Check if user is authenticated for full settings access
         const session = await auth();
@@ -68,7 +71,10 @@ export async function GET(request: NextRequest) {
 }
 
 // PUT /api/settings - Update store settings
-export async function PUT(request: NextRequest) {
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Settings } = await getTenantModels(tenantSlug);
+
     try {
         const session = await auth();
         if (!session) {
@@ -78,7 +84,7 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        await connectDB();
+        
 
         // Check Permissions
         // Settings edit uses 'edit' permission

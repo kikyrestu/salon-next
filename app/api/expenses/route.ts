@@ -1,18 +1,21 @@
+import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Expense from "@/models/Expense";
-import { initModels } from "@/lib/initModels";
-import Settings from "@/models/Settings";
+
+
+
 import { getUtcRangeForDateRange } from "@/lib/dateUtils";
-import CashBalance from "@/models/CashBalance";
-import CashLog from "@/models/CashLog";
+
+
 import { auth } from "@/auth";
 
-export async function GET(request: Request) {
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Expense, Settings, CashBalance, CashLog } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
 
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search");
@@ -70,9 +73,12 @@ export async function GET(request: Request) {
     }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Expense, Settings, CashBalance, CashLog } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
+        
         const body = await request.json();
         const expense: any = await Expense.create(body);
         

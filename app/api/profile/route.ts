@@ -1,11 +1,14 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import { User } from '@/lib/initModels';
+
 import { auth } from '@/auth';
 import bcrypt from 'bcryptjs';
 
 // GET /api/profile - Get current user profile
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { User } = await getTenantModels(tenantSlug);
+
     try {
         const session = await auth();
         if (!session || !session.user?.email) {
@@ -15,7 +18,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        await connectDB();
+        
 
         const user = await User.findOne({ email: session.user.email }).select('-password');
         if (!user) {
@@ -39,7 +42,10 @@ export async function GET(request: NextRequest) {
 }
 
 // PUT /api/profile - Update user profile
-export async function PUT(request: NextRequest) {
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { User } = await getTenantModels(tenantSlug);
+
     try {
         const session = await auth();
         if (!session || !session.user?.email) {
@@ -49,7 +55,7 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        await connectDB();
+        
         const body = await request.json();
         const { name, email, password, confirmPassword } = body;
 

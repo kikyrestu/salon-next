@@ -1,8 +1,5 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import { initModels } from '@/lib/initModels';
-import WaGreetingLog from '@/models/WaGreetingLog';
-import WaTemplate from '@/models/WaTemplate';
 import { sendWhatsApp } from '@/lib/fonnte';
 
 const normalizePhone = (phone: string): string => {
@@ -55,17 +52,18 @@ const renderTemplate = (message: string, vars: Record<string, string>): string =
     return String(message || '').replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, key: string) => vars[key] ?? '');
 };
 
-const getGreetingMessage = async (): Promise<string> => {
+const getGreetingMessage = async (models: any): Promise<string> => {
+    const { WaTemplate } = models;
     const activeGreetingTemplate = await WaTemplate.findOne({
         isGreetingEnabled: true,
         $or: [
             { templateType: 'greeting' },
-            { templateType: { $exists: false } }, // legacy data before type separation
+            { templateType: { $exists: false } },
         ],
     })
         .select('message')
         .sort({ createdAt: -1 })
-        .lean<any>();
+        .lean();
 
     if (activeGreetingTemplate?.message) {
         return String(activeGreetingTemplate.message);
@@ -81,11 +79,12 @@ export async function GET() {
     return NextResponse.json({ success: true, message: 'Fonnte webhook endpoint is reachable' });
 }
 
-export async function POST(request: NextRequest) {
-    try {
-        await connectToDB();
-        initModels();
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const models = await getTenantModels(tenantSlug);
+    const { WaGreetingLog } = models;
 
+    try {
         const contentType = request.headers.get('content-type') || '';
         let payload: any = null;
 
@@ -117,7 +116,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, skipped: true, reason: 'already greeted' });
         }
 
-        const greetingMessageTemplate = await getGreetingMessage();
+        const greetingMessageTemplate = await getGreetingMessage(models);
         const greetingMessage = renderTemplate(greetingMessageTemplate, {
             nama_customer: customerName,
             nama_service: process.env.SALON_NAME || 'salon kami',

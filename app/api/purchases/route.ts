@@ -1,15 +1,18 @@
+import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import { initModels } from "@/lib/initModels";
-import Purchase from "@/models/Purchase";
-import Product from "@/models/Product";
-import Supplier from "@/models/Supplier";
 
-export async function POST(request: Request) {
+
+
+
+
+export async function POST(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Purchase, Product, Supplier } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
         const body = await request.json();
 
         // Generate Purchase Number
@@ -45,10 +48,13 @@ export async function POST(request: Request) {
     }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Purchase, Product, Supplier } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
 
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get("page") || "1");

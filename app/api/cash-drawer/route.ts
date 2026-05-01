@@ -1,14 +1,17 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import { initModels } from "@/lib/initModels";
-import CashBalance from "@/models/CashBalance";
-import CashSession from "@/models/CashSession";
+
+
+
 import { checkPermission } from "@/lib/rbac";
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { CashBalance, CashSession } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
 
         // Check permission if needed
         const permissionError = await checkPermission(request, 'reports', 'view'); // Assuming reports or pos permission is enough

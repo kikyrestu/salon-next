@@ -1,8 +1,8 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
-import { connectToDB } from '@/lib/mongodb';
 import { checkPermission } from '@/lib/rbac';
-import { initModels, PackageOrder, ServicePackage, Customer } from '@/lib/initModels';
+
 
 interface PackageOrderBody {
   customerId: string;
@@ -13,13 +13,16 @@ function makeOrderNumber(): string {
   return `PKG-${new Date().getFullYear()}-${Date.now().toString().slice(-8)}`;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { PackageOrder, ServicePackage, Customer } = await getTenantModels(tenantSlug);
+
   try {
     const permissionError = await checkPermission(request, 'invoices', 'view');
     if (permissionError) return permissionError;
 
-    await connectToDB();
-    initModels();
+    
+    
 
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
@@ -42,13 +45,16 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { PackageOrder, ServicePackage, Customer } = await getTenantModels(tenantSlug);
+
   try {
     const permissionError = await checkPermission(request, 'invoices', 'create');
     if (permissionError) return permissionError;
 
-    await connectToDB();
-    initModels();
+    
+    
 
     const body = (await request.json()) as PackageOrderBody;
     const { customerId, packageId } = body;

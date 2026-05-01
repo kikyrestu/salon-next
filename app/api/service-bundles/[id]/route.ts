@@ -1,17 +1,17 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import ServiceBundle from "@/models/ServiceBundle";
-import { initModels } from "@/lib/initModels";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+
+
+export async function GET(_request: NextRequest, props: any) {
+    const tenantSlug = _request.headers.get('x-store-slug') || 'pusat';
+    const { ServiceBundle } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
-    initModels();
+    
+    
 
-    const { id } = await params;
+    const { id } = await props.params;
 
     const bundle = await ServiceBundle.findById(id).populate(
       "services.service",
@@ -35,15 +35,15 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    await connectToDB();
-    initModels();
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { ServiceBundle } = await getTenantModels(tenantSlug);
 
-    const { id } = await params;
+  try {
+    
+    
+
+    const { id } = await props.params;
     const body = await request.json();
 
     const { name, description, price, image, services } = body;
@@ -126,15 +126,15 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    await connectToDB();
-    initModels();
+export async function DELETE(_request: NextRequest, props: any) {
+    const tenantSlug = _request.headers.get('x-store-slug') || 'pusat';
+    const { ServiceBundle } = await getTenantModels(tenantSlug);
 
-    const { id } = await params;
+  try {
+    
+    
+
+    const { id } = await props.params;
 
     const bundle = await ServiceBundle.findByIdAndUpdate(
       id,

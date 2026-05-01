@@ -1,14 +1,17 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
 import { checkPermission } from '@/lib/rbac';
-import WaTemplate from '@/models/WaTemplate';
 
-export async function GET(request: NextRequest) {
+
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaTemplate } = await getTenantModels(tenantSlug);
+
     try {
         const permissionError = await checkPermission(request, 'services', 'view');
         if (permissionError) return permissionError;
 
-        await connectToDB();
+        
 
         const { searchParams } = new URL(request.url);
         const search = String(searchParams.get('search') || '').trim();
@@ -43,12 +46,15 @@ export async function GET(request: NextRequest) {
     }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaTemplate } = await getTenantModels(tenantSlug);
+
     try {
         const permissionError = await checkPermission(request, 'services', 'create');
         if (permissionError) return permissionError;
 
-        await connectToDB();
+        
 
         const body = await request.json();
         const name = String(body?.name || '').trim();

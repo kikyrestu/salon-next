@@ -1,15 +1,15 @@
+import { getTenantModels } from "@/lib/tenantDb";
 /**
  * One-time cleanup script: Remove referral codes from non-premium customers
  * Run via: node -e "require('./scripts/cleanup-referral-codes.js')"
  * Or just hit this API endpoint once
  */
-import { NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import Customer from '@/models/Customer';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
     try {
-        await connectToDB();
+        const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+        const { Customer } = await getTenantModels(tenantSlug);
 
         // Remove referral codes from non-premium customers
         const result = await Customer.updateMany(

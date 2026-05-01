@@ -1,12 +1,15 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import { Role } from '@/lib/initModels';
+
 import { checkPermission } from '@/lib/rbac';
 
 // GET /api/roles - List all roles
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Role } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
+        
 
         // Check Permissions
         const permissionError = await checkPermission(request, 'roles', 'view');
@@ -52,9 +55,12 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/roles - Create new role
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Role } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
+        
 
         // Check Permissions
         const permissionError = await checkPermission(request, 'roles', 'create');

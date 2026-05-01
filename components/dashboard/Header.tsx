@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { User, Menu, ChevronLeft, ChevronRight, LogOut, Settings, Clock } from "lucide-react";
-import Link from "next/link";
+import TenantLink from '@/components/TenantLink';
 import { signOut } from "next-auth/react";
 
 interface HeaderProps {
@@ -16,6 +17,8 @@ interface HeaderProps {
 }
 
 export default function Header({ toggleSidebar, toggleCollapse, isSidebarCollapsed, user }: HeaderProps) {
+    const params = useParams();
+    const slug = (params?.slug as string) || 'pusat';
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [currentTime, setCurrentTime] = useState("");
     const [timezone, setTimezone] = useState("UTC");
@@ -53,9 +56,12 @@ export default function Header({ toggleSidebar, toggleCollapse, isSidebarCollaps
     useEffect(() => {
         const fetchTimezone = async () => {
             try {
-                const res = await fetch('/api/settings');
-                const data = await res.json();
-                if (data.success && data.data.timezone) {
+                const res = await fetch('/api/settings', { cache: 'no-store' });
+                if (!res.ok) return;
+                const text = await res.text();
+                if (!text) return;
+                const data = JSON.parse(text);
+                if (data.success && data.data?.timezone) {
                     setTimezone(data.data.timezone);
                 }
             } catch (error) {
@@ -132,7 +138,7 @@ export default function Header({ toggleSidebar, toggleCollapse, isSidebarCollaps
             </div>
 
             <div className="flex items-center gap-6">
-                <Link href="/wa-templates" className="hidden md:flex">
+                <TenantLink href="/wa-templates" className="hidden md:flex">
                     <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${waGreetingEnabled
                             ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                             : 'bg-red-50 border-red-200 text-red-700'
@@ -143,7 +149,7 @@ export default function Header({ toggleSidebar, toggleCollapse, isSidebarCollaps
                             <span className="text-[11px]">{waGreetingEnabled ? waGreetingName : 'Belum aktif'}</span>
                         </div>
                     </div>
-                </Link>
+                </TenantLink>
 
                 {/* Time and Timezone Display */}
                 <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
@@ -177,17 +183,17 @@ export default function Header({ toggleSidebar, toggleCollapse, isSidebarCollaps
                                     <p className="text-sm font-medium text-gray-900">{user?.name || "User"}</p>
                                     <p className="text-xs text-gray-500 truncate">{user?.email || ""}</p>
                                 </div>
-                                <Link href="/profile" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <TenantLink href="/profile" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                     <User className="w-4 h-4 mr-2" />
                                     Profile
-                                </Link>
-                                <Link href="/settings" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                </TenantLink>
+                                <TenantLink href="/settings" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                     <Settings className="w-4 h-4 mr-2" />
                                     Settings
-                                </Link>
+                                </TenantLink>
 
                                 <button
-                                    onClick={() => signOut({ callbackUrl: '/login' })}
+                                    onClick={() => signOut({ callbackUrl: `/${slug}/login` })}
                                     className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                                 >
                                     <LogOut className="w-4 h-4 mr-2" />

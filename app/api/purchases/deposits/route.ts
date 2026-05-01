@@ -1,14 +1,17 @@
+import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import { initModels } from "@/lib/initModels";
-import PurchaseDeposit from "@/models/PurchaseDeposit";
-import Purchase from "@/models/Purchase";
 
-export async function POST(request: Request) {
+
+
+
+export async function POST(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { PurchaseDeposit, Purchase } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
         const body = await request.json();
         const { purchase: purchaseId, amount, paymentMethod, notes, supplier } = body;
 
@@ -42,10 +45,13 @@ export async function POST(request: Request) {
     }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { PurchaseDeposit, Purchase } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
         const { searchParams } = new URL(request.url);
         const purchaseId = searchParams.get("purchaseId");
 

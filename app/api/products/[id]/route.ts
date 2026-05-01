@@ -1,14 +1,14 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Product from "@/models/Product";
 
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+
+export async function PUT(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Product } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
-    const { id } = await params;
+    
+    const { id } = await props.params;
     const body = await request.json();
 
     const updateData: Record<string, any> = { ...body };
@@ -46,13 +46,13 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Product } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
-    const { id } = await params;
+    
+    const { id } = await props.params;
     const product = await Product.findByIdAndUpdate(
       id,
       { status: "inactive" },

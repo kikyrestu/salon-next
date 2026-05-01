@@ -1,18 +1,21 @@
+import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import { initModels } from "@/lib/initModels";
-import UsageLog from "@/models/UsageLog";
-import Product from "@/models/Product";
-import Staff from "@/models/Staff";
+
+
+
+
 import { checkPermission } from "@/lib/rbac";
 import { validateAndSanitize, validationErrorResponse } from "@/lib/validation";
 import { logActivity } from "@/lib/logger";
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { UsageLog, Product, Staff } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
 
         // Security Check
         const permissionError = await checkPermission(request, 'usage-logs', 'create');
@@ -64,10 +67,13 @@ export async function POST(request: NextRequest) {
     }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { UsageLog, Product, Staff } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        initModels();
+        
+        
 
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get("page") || "1");

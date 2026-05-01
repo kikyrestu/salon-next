@@ -1,25 +1,28 @@
+import { getTenantModels } from "@/lib/tenantDb";
 // appointments/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Appointment, { IAppointment } from "@/models/Appointment";
-import Invoice from "@/models/Invoice";
-import Settings from "@/models/Settings";
-import Staff from "@/models/Staff";
-import Service from "@/models/Service";
+import { IAppointment } from "@/models/Appointment";
+
+
+
+
 import mongoose from "mongoose";
-import { initModels } from "@/lib/initModels";
+
 import { checkPermission } from "@/lib/rbac";
 import { handleApiError } from "@/lib/errorHandler";
 import { scheduleFollowUp } from "@/lib/waFollowUp";
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Appointment, Invoice, Settings, Staff, Service } = await getTenantModels(tenantSlug);
+
     try {
         const permissionError = await checkPermission(request, 'appointments', 'view');
         if (permissionError) return permissionError;
 
-        await connectToDB();
-        initModels();
+        
+        
         const { searchParams } = new URL(request.url);
 
         const page = parseInt(searchParams.get("page") || "1");
@@ -94,13 +97,16 @@ export async function GET(request: NextRequest) {
     }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Appointment, Invoice, Settings, Staff, Service } = await getTenantModels(tenantSlug);
+
     try {
         const permissionError = await checkPermission(request, 'appointments', 'create');
         if (permissionError) return permissionError;
 
-        await connectToDB();
-        initModels();
+        
+        
         const body = await request.json();
 
         if (!body.customer || !body.staff || !body.startTime || !body.services || !Array.isArray(body.services) || body.services.length === 0) {

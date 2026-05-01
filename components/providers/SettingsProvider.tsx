@@ -44,8 +44,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
     const fetchSettings = async () => {
         try {
-            const res = await fetch('/api/settings');
-            const data = await res.json();
+            const res = await fetch('/api/settings', { cache: 'no-store' });
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error(`Settings fetch failed. Status: ${res.status}. Body: "${text}"`);
+                setLoading(false);
+                return;
+            }
             if (data.success) {
                 // Get currency symbol from our utility
                 const { getCurrencySymbol } = await import('@/lib/currency');

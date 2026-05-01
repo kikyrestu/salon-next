@@ -1,15 +1,15 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import { User } from '@/lib/initModels';
+
 
 // GET /api/users/[id] - Get single user
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { User } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         const user = await User.findById(id).select('-password').populate('role');
 
         if (!user) {
@@ -29,13 +29,13 @@ export async function GET(
 }
 
 // PUT /api/users/[id] - Update user
-export async function PUT(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { User } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         const body = await request.json();
 
         // If password is being updated, it will be hashed by the pre-save hook in the Model
@@ -77,13 +77,13 @@ export async function PUT(
 }
 
 // DELETE /api/users/[id] - Delete user
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { User } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
 
         // Prevent deleting yourself? (Middleware should handle that, but safety check here is good)
         // For now, simple delete.

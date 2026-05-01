@@ -1,15 +1,15 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import Supplier from '@/models/Supplier';
+
 
 // GET /api/suppliers/[id] - Get single supplier
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Supplier } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
 
         const supplier = await Supplier.findById(id);
 
@@ -30,13 +30,13 @@ export async function GET(
 }
 
 // PUT /api/suppliers/[id] - Update supplier
-export async function PUT(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Supplier } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
 
         const body = await request.json();
         const supplier = await Supplier.findByIdAndUpdate(
@@ -62,13 +62,13 @@ export async function PUT(
 }
 
 // DELETE /api/suppliers/[id] - Delete supplier
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Supplier } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
 
         const supplier = await Supplier.findByIdAndDelete(id);
 

@@ -1,6 +1,6 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import { Appointment } from "@/lib/initModels";
+
 import { addDays, startOfDay, endOfDay, format } from "date-fns";
 import {
     sendSMS,
@@ -12,9 +12,12 @@ import {
 } from "@/lib/notifications";
 
 // POST /api/appointments/send-reminders - Send reminders for upcoming appointments
-export async function POST(request: Request) {
+export async function POST(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Appointment } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
+        
 
         const body = await request.json();
         const { daysBefore = 1, method = 'both' } = body; // method: 'sms', 'email', or 'both'
@@ -152,9 +155,12 @@ export async function POST(request: Request) {
 }
 
 // GET /api/appointments/send-reminders - Check appointments needing reminders
-export async function GET(request: Request) {
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Appointment } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
+        
 
         const { searchParams } = new URL(request.url);
         const daysBefore = parseInt(searchParams.get("daysBefore") || "1");

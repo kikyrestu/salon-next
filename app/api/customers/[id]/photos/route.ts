@@ -1,14 +1,14 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Customer from "@/models/Customer";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+
+export async function GET(_request: NextRequest, props: any) {
+    const tenantSlug = _request.headers.get('x-store-slug') || 'pusat';
+    const { Customer } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
-    const { id } = await params;
+    
+    const { id } = await props.params;
 
     const customer = await Customer.findById(id).select("beforeAfterPhotos name");
     if (!customer) {
@@ -31,13 +31,13 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
-    const { id } = await params;
+    
+    const { id } = await props.params;
     const body = await request.json();
 
     const { before, after, note } = body;
@@ -87,13 +87,13 @@ export async function POST(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer } = await getTenantModels(tenantSlug);
+
   try {
-    await connectToDB();
-    const { id } = await params;
+    
+    const { id } = await props.params;
 
     const { searchParams } = new URL(request.url);
     const photoId = searchParams.get("photoId");

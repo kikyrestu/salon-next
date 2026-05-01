@@ -1,13 +1,16 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Customer from "@/models/Customer";
-import Settings from "@/models/Settings";
-import Voucher from "@/models/Voucher";
+
+
+
 import { sendWhatsApp } from "@/lib/fonnte";
 
 // GET /api/cron/birthday-voucher
 // Called daily by external cron (crontab / cron-job.org)
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer, Settings, Voucher } = await getTenantModels(tenantSlug);
+
   try {
     // Optional: protect with a secret key
     const authHeader = request.headers.get("authorization");
@@ -16,7 +19,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    await connectToDB();
+    
 
     const settings = await Settings.findOne();
     if (!settings?.birthdayVoucherId) {

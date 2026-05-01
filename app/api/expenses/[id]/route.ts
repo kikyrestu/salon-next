@@ -1,11 +1,14 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Expense from "@/models/Expense";
 
-export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+
+export async function PUT(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Expense } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         const body = await request.json();
         const expense = await Expense.findByIdAndUpdate(id, body, { new: true });
         return NextResponse.json({ success: true, data: expense });
@@ -14,10 +17,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 }
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Expense } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         await Expense.findByIdAndDelete(id);
         return NextResponse.json({ success: true });
     } catch (error) {

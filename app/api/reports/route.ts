@@ -1,23 +1,16 @@
+import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import {
-    Invoice,
-    Expense,
-    Appointment,
-    Customer,
-    Product,
-    Service,
-    Staff,
-    Payroll,
-    Purchase
-} from "@/lib/initModels";
-import Settings from "@/models/Settings";
+
+
 import { getMonthDateRangeInTimezone, getUtcRangeForDateRange } from "@/lib/dateUtils";
 
-export async function GET(request: Request) {
+export async function GET(request: Request, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Settings, Invoice, Expense, Appointment, Customer, Product, Service, Staff, Payroll, Purchase } = await getTenantModels(tenantSlug);
+
     try {
-        await connectToDB();
+        
         const { searchParams } = new URL(request.url);
         const type = searchParams.get("type");
         const startDate = searchParams.get("startDate");

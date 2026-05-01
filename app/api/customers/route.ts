@@ -1,6 +1,6 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
-import connectDB from "@/lib/mongodb";
-import Customer from "@/models/Customer";
+
 import crypto from "crypto";
 
 import { checkPermission, getViewScope } from "@/lib/rbac";
@@ -8,7 +8,7 @@ import { auth } from "@/auth";
 import { validateAndSanitize, validationErrorResponse } from "@/lib/validation";
 import { logActivity } from "@/lib/logger";
 import { normalizeIndonesianPhone } from "@/lib/phone";
-import { initModels, CustomerPackage } from "@/lib/initModels";
+
 
 type CustomerQuery = Record<string, unknown>;
 
@@ -46,10 +46,13 @@ interface CustomerPackageRow {
 }
 
 // GET /api/customers - List all customers
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer, CustomerPackage } = await getTenantModels(tenantSlug);
+
   try {
-    await connectDB();
-    initModels();
+    
+    
 
     // Check Permissions
     const permissionError = await checkPermission(request, "customers", "view");
@@ -196,9 +199,12 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/customers - Create new customer
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Customer, CustomerPackage } = await getTenantModels(tenantSlug);
+
   try {
-    await connectDB();
+    
 
     // Check Permissions
     const permissionError = await checkPermission(

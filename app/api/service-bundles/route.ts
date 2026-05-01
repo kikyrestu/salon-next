@@ -1,12 +1,10 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import ServiceBundle from "@/models/ServiceBundle";
-import { initModels } from "@/lib/initModels";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    await connectToDB();
-    initModels();
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { ServiceBundle } = await getTenantModels(tenantSlug);
 
     const bundles = await ServiceBundle.find({ isActive: true })
       .populate("services.service", "name price commissionType commissionValue duration")
@@ -22,11 +20,11 @@ export async function GET() {
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    await connectToDB();
-    initModels();
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { ServiceBundle } = await getTenantModels(tenantSlug);
 
+  try {
     const body = await request.json();
 
     const { name, description, price, image, services } = body;

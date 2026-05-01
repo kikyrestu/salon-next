@@ -1,14 +1,17 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import Supplier from '@/models/Supplier';
+
 
 import { checkPermission, getViewScope } from '@/lib/rbac';
 import { auth } from '@/auth';
 
 // GET /api/suppliers - List all suppliers
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Supplier } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
+        
 
         // Check Permissions
         const permissionError = await checkPermission(request, 'suppliers', 'view');
@@ -71,9 +74,12 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/suppliers - Create new supplier
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Supplier } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
+        
 
         // Check Permissions
         const permissionError = await checkPermission(request, 'suppliers', 'create');

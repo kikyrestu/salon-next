@@ -1,16 +1,19 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
-import { connectToDB } from '@/lib/mongodb';
 import { checkPermission } from '@/lib/rbac';
-import { initModels, CustomerPackage, PackageUsageLedger } from '@/lib/initModels';
 
-export async function GET(request: NextRequest) {
+
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { CustomerPackage, PackageUsageLedger } = await getTenantModels(tenantSlug);
+
   try {
     const permissionError = await checkPermission(request, 'customers', 'view');
     if (permissionError) return permissionError;
 
-    await connectToDB();
-    initModels();
+    
+    
 
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');

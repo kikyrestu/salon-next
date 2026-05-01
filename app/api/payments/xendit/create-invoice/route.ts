@@ -1,22 +1,25 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
 import { checkPermission } from '@/lib/rbac';
 import { createXenditInvoice } from '@/lib/xendit';
-import Invoice from '@/models/Invoice';
-import PaymentTransaction from '@/models/PaymentTransaction';
-import PackageOrder from '@/models/PackageOrder';
+
+
+
 import mongoose from 'mongoose';
 
 function makeExternalId(): string {
   return `xdt-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Invoice, PaymentTransaction, PackageOrder } = await getTenantModels(tenantSlug);
+
   try {
     const permissionError = await checkPermission(request, 'invoices', 'create');
     if (permissionError) return permissionError;
 
-    await connectToDB();
+    
 
     const body = await request.json();
     const {

@@ -1,15 +1,15 @@
+import { getTenantModels } from "@/lib/tenantDb";
 /**
  * GET /api/seed-superadmin
  * Creates a Super Admin user with full permissions.
  * DELETE THIS FILE AFTER USE IN PRODUCTION.
  */
-import { NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import { User, Role } from '@/lib/initModels';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        await connectDB();
+        const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+        const { Role, User } = await getTenantModels(tenantSlug);
 
         const email = 'superadmin@salon.com';
         const password = 'Admin@123';

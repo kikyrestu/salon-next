@@ -1,10 +1,10 @@
+import { getTenantModels } from "@/lib/tenantDb";
 /**
  * GET /api/export/[entity]
  * Export data from the database as an Excel file.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import { initModels } from '@/lib/initModels';
+
 import { checkPermission } from '@/lib/rbac';
 import {
     exportToExcel,
@@ -13,16 +13,6 @@ import {
     EntityType,
     ExcelColumn,
 } from '@/lib/excel';
-
-import Service from '@/models/Service';
-import Product from '@/models/Product';
-import Customer from '@/models/Customer';
-import Staff from '@/models/Staff';
-import Supplier from '@/models/Supplier';
-import ServiceCategory from '@/models/ServiceCategory';
-import Expense from '@/models/Expense';
-import Voucher from '@/models/Voucher';
-import Invoice from '@/models/Invoice';
 
 /* ------------------------------------------------------------------ */
 /*  Export columns for "export-only" entities                           */
@@ -63,10 +53,12 @@ const RESOURCE_MAP: Record<string, string> = {
 type ExportEntity = EntityType | 'invoices';
 
 /* ------------------------------------------------------------------ */
-/*  Data fetchers                                                      */
+/*  Data fetchers (now accepts models as parameter)                    */
 /* ------------------------------------------------------------------ */
 
-async function fetchExportData(entity: ExportEntity, searchParams: URLSearchParams) {
+async function fetchExportData(entity: ExportEntity, searchParams: URLSearchParams, models: any) {
+    const { Service, Product, Customer, Staff, Supplier, ServiceCategory, Expense, Voucher, Invoice } = models;
+
     switch (entity) {
         case 'services': {
             const docs = await Service.find({ status: 'active' })
@@ -135,11 +127,11 @@ async function fetchExportData(entity: ExportEntity, searchParams: URLSearchPara
 /*  GET handler                                                        */
 /* ------------------------------------------------------------------ */
 
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ entity: string }> }
-) {
-    const { entity: rawEntity } = await params;
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const models = await getTenantModels(tenantSlug);
+
+    const { entity: rawEntity } = await props.params;
     const entity = rawEntity as ExportEntity;
 
     const allEntities = [...Object.keys(ENTITY_COLUMNS), 'invoices'];
@@ -155,12 +147,9 @@ export async function GET(
     const permError = await checkPermission(request, resource, 'view');
     if (permError) return permError;
 
-    await connectToDB();
-    initModels();
-
     try {
         const { searchParams } = new URL(request.url);
-        const data = await fetchExportData(entity, searchParams);
+        const data = await fetchExportData(entity, searchParams, models);
 
         const columns = entity === 'invoices'
             ? INVOICE_EXPORT_COLUMNS

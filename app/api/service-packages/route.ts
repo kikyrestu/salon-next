@@ -1,7 +1,7 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
 import { checkPermission } from '@/lib/rbac';
-import { initModels, ServicePackage, Service } from '@/lib/initModels';
+
 
 interface PackageInputItem {
   service: string;
@@ -43,13 +43,16 @@ function validateItems(items: PackageInputItem[]): string | null {
   return null;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { ServicePackage, Service } = await getTenantModels(tenantSlug);
+
   try {
     const permissionError = await checkPermission(request, 'services', 'view');
     if (permissionError) return permissionError;
 
-    await connectToDB();
-    initModels();
+    
+    
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
@@ -76,13 +79,16 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { ServicePackage, Service } = await getTenantModels(tenantSlug);
+
   try {
     const permissionError = await checkPermission(request, 'services', 'create');
     if (permissionError) return permissionError;
 
-    await connectToDB();
-    initModels();
+    
+    
 
     const body = (await request.json()) as PackageBody;
     const { name, code, description, price, image, items } = body;

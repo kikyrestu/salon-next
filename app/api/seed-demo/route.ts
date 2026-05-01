@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import { Customer, Staff, Service, ServiceCategory, Appointment } from '@/lib/initModels';
+import { getTenantModels } from "@/lib/tenantDb";
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        await connectDB();
-        
+        const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+        const { ServiceCategory, Service, Staff, Customer, Appointment } = await getTenantModels(tenantSlug);
+
         // 1. Create Service Categories
         const catHair = await ServiceCategory.findOneAndUpdate(
             { slug: 'hair-care' },
@@ -111,10 +111,7 @@ export async function GET() {
         );
 
         // 5. Create Appointments
-
-        // Scheduled for today (Pending)
         const dateToday = new Date();
-        // Zero time parts so it matches UI queries easily
         dateToday.setHours(0, 0, 0, 0); 
         await Appointment.create({
             customer: custAgus._id,
@@ -139,7 +136,6 @@ export async function GET() {
             notes: 'Minta potong rapi'
         });
 
-        // Completed yesterday 
         const dateYesterday = new Date();
         dateYesterday.setDate(dateToday.getDate() - 1);
         dateYesterday.setHours(0, 0, 0, 0);

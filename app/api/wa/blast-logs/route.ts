@@ -1,18 +1,21 @@
+import { getTenantModels } from "@/lib/tenantDb";
 /**
  * GET /api/wa/blast-logs — View blast history
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import { initModels } from '@/lib/initModels';
-import { checkPermission } from '@/lib/rbac';
-import WaBlastLog from '@/models/WaBlastLog';
 
-export async function GET(request: NextRequest) {
+import { checkPermission } from '@/lib/rbac';
+
+
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaBlastLog } = await getTenantModels(tenantSlug);
+
     const permError = await checkPermission(request, 'customers', 'view');
     if (permError) return permError;
 
-    await connectToDB();
-    initModels();
+    
+    
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');

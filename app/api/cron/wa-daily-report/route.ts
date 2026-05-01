@@ -1,15 +1,18 @@
+import { getTenantModels } from "@/lib/tenantDb";
 /**
  * GET /api/cron/wa-daily-report
  * Send daily sales summary to the owner via WA.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import { initModels } from '@/lib/initModels';
-import Invoice from '@/models/Invoice';
-import Settings from '@/models/Settings';
+
+
+
 import { sendWhatsApp } from '@/lib/fonnte';
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Invoice, Settings } = await getTenantModels(tenantSlug);
+
     try {
         const authHeader = request.headers.get('authorization');
         const cronSecret = process.env.CRON_SECRET;
@@ -17,8 +20,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
         }
 
-        await connectToDB();
-        initModels();
+        
+        
 
         const settings = await Settings.findOne();
         const ownerPhone = settings?.waOwnerNumber;

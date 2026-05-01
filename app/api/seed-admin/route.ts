@@ -1,10 +1,13 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import { User, Role } from '@/lib/initModels';
 
-export async function GET(request: NextRequest) {
+
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { User, Role } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
+        
 
         const { searchParams } = new URL(request.url);
         const email = searchParams.get('email');

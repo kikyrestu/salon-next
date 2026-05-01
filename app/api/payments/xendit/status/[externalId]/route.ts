@@ -1,12 +1,12 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
 import { checkPermission } from '@/lib/rbac';
 import { getXenditInvoiceById } from '@/lib/xendit';
-import Deposit from '@/models/Deposit';
-import Invoice from '@/models/Invoice';
-import PaymentTransaction from '@/models/PaymentTransaction';
-import PackageOrder from '@/models/PackageOrder';
-import CustomerPackage from '@/models/CustomerPackage';
+
+
+
+
+
 
 function mapXenditStatus(status?: string): 'pending' | 'paid' | 'failed' | 'expired' {
   const normalized = (status || '').toUpperCase();
@@ -16,17 +16,17 @@ function mapXenditStatus(status?: string): 'pending' | 'paid' | 'failed' | 'expi
   return 'pending';
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ externalId: string }> }
-) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Deposit, Invoice, PaymentTransaction, PackageOrder, CustomerPackage } = await getTenantModels(tenantSlug);
+
   try {
     const permissionError = await checkPermission(request, 'invoices', 'view');
     if (permissionError) return permissionError;
 
-    await connectToDB();
+    
 
-    const { externalId } = await params;
+    const { externalId } = await props.params;
     const transaction = await PaymentTransaction.findOne({ externalId });
 
     if (!transaction) {

@@ -1,16 +1,19 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import { initModels } from '@/lib/initModels';
-import { checkPermission } from '@/lib/rbac';
-import WaAutomation from '@/models/WaAutomation';
 
-export async function GET(request: NextRequest) {
+import { checkPermission } from '@/lib/rbac';
+
+
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaAutomation } = await getTenantModels(tenantSlug);
+
     const permError = await checkPermission(request, 'settings', 'view');
     if (permError) return permError;
 
     try {
-        await connectToDB();
-        initModels();
+        
+        
 
         const automations = await WaAutomation.find().sort({ createdAt: -1 }).lean();
         return NextResponse.json({ success: true, data: automations });
@@ -19,13 +22,16 @@ export async function GET(request: NextRequest) {
     }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { WaAutomation } = await getTenantModels(tenantSlug);
+
     const permError = await checkPermission(request, 'settings', 'edit');
     if (permError) return permError;
 
     try {
-        await connectToDB();
-        initModels();
+        
+        
 
         const body = await request.json();
         

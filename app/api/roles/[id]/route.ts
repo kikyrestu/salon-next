@@ -1,15 +1,15 @@
+import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import { Role, User } from '@/lib/initModels';
+
 
 // GET /api/roles/[id] - Get single role
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Role, User } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         const role = await Role.findById(id);
 
         if (!role) {
@@ -29,13 +29,13 @@ export async function GET(
 }
 
 // PUT /api/roles/[id] - Update role
-export async function PUT(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Role, User } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
         const body = await request.json();
 
         // Prevent modifying system roles significantly if needed
@@ -72,13 +72,13 @@ export async function PUT(
 }
 
 // DELETE /api/roles/[id] - Delete role
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { Role, User } = await getTenantModels(tenantSlug);
+
     try {
-        await connectDB();
-        const { id } = await params;
+        
+        const { id } = await props.params;
 
         const role = await Role.findById(id);
         if (!role) {

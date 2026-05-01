@@ -1,16 +1,19 @@
+import { getTenantModels } from "@/lib/tenantDb";
 /**
  * GET /api/cron/wa-package-expiry
  * Notify customers whose packages are expiring soon.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDB } from '@/lib/mongodb';
-import { initModels } from '@/lib/initModels';
-import CustomerPackage from '@/models/CustomerPackage';
-import Customer from '@/models/Customer';
-import Settings from '@/models/Settings';
+
+
+
+
 import { sendWhatsApp } from '@/lib/fonnte';
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, props: any) {
+    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+    const { CustomerPackage, Customer, Settings } = await getTenantModels(tenantSlug);
+
     try {
         const authHeader = request.headers.get('authorization');
         const cronSecret = process.env.CRON_SECRET;
@@ -18,8 +21,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
         }
 
-        await connectToDB();
-        initModels();
+        
+        
 
         const settings = await Settings.findOne();
         const reminderDays = settings?.packageExpiryReminderDays || 30;

@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, FileText, AlertTriangle } from "lucide-react";
-import Link from "next/link";
+import TenantLink from '@/components/TenantLink';
 
 interface LowStockItem {
     _id: string;
@@ -21,14 +21,14 @@ export default function QuickActions({ lowStockItems = [] }: QuickActionsProps) 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
                 <div className="grid grid-cols-2 gap-4">
-                    <Link href="#" className="flex flex-col items-center justify-center p-4 bg-blue-900 rounded-lg text-white hover:bg-blue-800 transition-colors">
+                    <TenantLink href="#" className="flex flex-col items-center justify-center p-4 bg-blue-900 rounded-lg text-white hover:bg-blue-800 transition-colors">
                         <Plus className="w-6 h-6 mb-2" />
                         <span className="text-sm font-medium">Add Product</span>
-                    </Link>
-                    <Link href="#" className="flex flex-col items-center justify-center p-4 bg-green-50 rounded-lg text-green-700 hover:bg-green-100 transition-colors">
+                    </TenantLink>
+                    <TenantLink href="#" className="flex flex-col items-center justify-center p-4 bg-green-50 rounded-lg text-green-700 hover:bg-green-100 transition-colors">
                         <FileText className="w-6 h-6 mb-2" />
                         <span className="text-sm font-medium">New Sale</span>
-                    </Link>
+                    </TenantLink>
                 </div>
             </div>
 
@@ -55,21 +55,21 @@ export default function QuickActions({ lowStockItems = [] }: QuickActionsProps) 
                                         <p className="text-xs text-red-600">Only {item.stock} left (Alert: {item.alertLimit})</p>
                                     </div>
                                 </div>
-                                <Link
+                                <TenantLink
                                     href="#"
                                     className="text-xs font-medium text-red-700 hover:text-red-900 bg-white px-2 py-1 rounded border border-red-200"
                                 >
                                     View
-                                </Link>
+                                </TenantLink>
                             </div>
                         ))
                     )}
                 </div>
                 {lowStockItems.length > 5 && (
                     <div className="mt-3 text-center">
-                        <Link href="#" className="text-sm text-blue-900 hover:text-blue-700 font-medium">
+                        <TenantLink href="#" className="text-sm text-blue-900 hover:text-blue-700 font-medium">
                             View all {lowStockItems.length} items →
-                        </Link>
+                        </TenantLink>
                     </div>
                 )}
             </div>

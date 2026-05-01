@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import TenantLink from '@/components/TenantLink';
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -249,7 +249,7 @@ export default function Sidebar({
                   pathname.startsWith(item.href + "/");
                 return (
                   <li key={item.name}>
-                    <Link
+                    <TenantLink
                       href={item.href}
                       title={isSidebarCollapsed ? item.name : ""}
                       className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200
@@ -270,7 +270,7 @@ export default function Sidebar({
                       {isActive && !isSidebarCollapsed && (
                         <div className="ml-auto w-1 h-1 bg-white rounded-full"></div>
                       )}
-                    </Link>
+                    </TenantLink>
                   </li>
                 );
               })}
