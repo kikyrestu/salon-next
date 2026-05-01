@@ -15,6 +15,13 @@ export async function getTenantConnection(slug: string): Promise<mongoose.Connec
     
     // 2. Find Store by slug
     const store = await master.Store.findOne({ slug, isActive: true });
+
+    const opts = {
+        bufferCommands: false,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+        socketTimeoutMS: 10000,
+    };
     
     if (!store) {
         // For the default/pusat slug, allow fallback to MONGODB_URI
@@ -44,16 +51,6 @@ export async function getTenantConnection(slug: string): Promise<mongoose.Connec
     }
     
     const dbUri = store.dbUri;
-
-    // 3. Connect to Tenant DB
-    // To share the connection pool, we can connect to the base URI, 
-    // but if the URI is completely different, we must use createConnection.
-    const opts = {
-        bufferCommands: false,
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 5000,
-        socketTimeoutMS: 10000,
-    };
 
     const conn = mongoose.createConnection(dbUri, opts);
     
