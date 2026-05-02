@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import { StoreSchema, IStore } from '@/models/Store';
+import { RegistrationSchema, IRegistration } from '@/models/Registration';
+import { AdminSettingsSchema, IAdminSettings } from '@/models/AdminSettings';
 
 const getMasterMongoUri = () => process.env.MASTER_MONGODB_URI?.trim();
 
@@ -8,6 +10,8 @@ interface MasterCache {
   promise: Promise<mongoose.Connection> | null;
   models: {
     Store: mongoose.Model<IStore> | null;
+    Registration: mongoose.Model<IRegistration> | null;
+    AdminSettings: mongoose.Model<IAdminSettings> | null;
   };
 }
 
@@ -18,7 +22,7 @@ declare global {
 let cached: MasterCache = global.masterMongoose || {
   conn: null,
   promise: null,
-  models: { Store: null },
+  models: { Store: null, Registration: null, AdminSettings: null },
 };
 
 if (!global.masterMongoose) {
@@ -44,6 +48,7 @@ async function connectToMasterDB(): Promise<mongoose.Connection> {
       serverSelectionTimeoutMS: 5000,
       connectTimeoutMS: 5000,
       socketTimeoutMS: 10000,
+      family: 4, // Force IPv4 to prevent ECONNREFUSED issues on Windows with Node 18+
     };
 
     const conn = mongoose.createConnection(mongoUri, opts);
@@ -73,8 +78,16 @@ export async function getMasterModels() {
   if (!cached.models.Store) {
     cached.models.Store = conn.model<IStore>('Store', StoreSchema);
   }
+  if (!cached.models.Registration) {
+    cached.models.Registration = conn.model<IRegistration>('Registration', RegistrationSchema);
+  }
+  if (!cached.models.AdminSettings) {
+    cached.models.AdminSettings = conn.model<IAdminSettings>('AdminSettings', AdminSettingsSchema);
+  }
 
   return {
     Store: cached.models.Store,
+    Registration: cached.models.Registration,
+    AdminSettings: cached.models.AdminSettings,
   };
 }

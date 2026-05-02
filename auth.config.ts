@@ -14,7 +14,10 @@ export const authConfig = {
             // The "page" part is the path after the slug, e.g. /pusat/login -> "login"
             const pageSegment = slugSegment ? pathParts.slice(1).join('/') : pathParts.join('/');
 
+            const isRootOrRegister = nextUrl.pathname === '/' || nextUrl.pathname === '/register';
+
             const isPublicPage =
+                isRootOrRegister ||
                 pageSegment === 'login' ||
                 pageSegment === 'register' ||
                 pageSegment === 'setup' ||
@@ -22,6 +25,7 @@ export const authConfig = {
 
             const isPublicApi =
                 nextUrl.pathname === '/api/setup' ||
+                nextUrl.pathname === '/api/register' ||
                 nextUrl.pathname === '/api/settings' ||
                 nextUrl.pathname === '/api/payments/xendit/webhook' ||
                 nextUrl.pathname.startsWith('/api/auth') ||
@@ -37,8 +41,8 @@ export const authConfig = {
                 return Response.redirect(new URL(`/${loginSlug}/login`, nextUrl));
             }
 
-            if (isLoggedIn && (pageSegment === 'login' || pageSegment === 'register')) {
-                const dashSlug = slugSegment || (auth?.user as any)?.tenantSlug || 'pusat';
+            if (isLoggedIn && (isRootOrRegister || pageSegment === 'login' || pageSegment === 'register')) {
+                const dashSlug = slugSegment && !isRootOrRegister ? slugSegment : (auth?.user as any)?.tenantSlug || 'pusat';
                 return Response.redirect(new URL(`/${dashSlug}/dashboard`, nextUrl));
             }
 

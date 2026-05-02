@@ -21,6 +21,7 @@ export async function getTenantConnection(slug: string): Promise<mongoose.Connec
         serverSelectionTimeoutMS: 5000,
         connectTimeoutMS: 5000,
         socketTimeoutMS: 10000,
+        family: 4, // Force IPv4
     };
     
     if (!store) {
