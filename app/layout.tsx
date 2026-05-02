@@ -22,18 +22,21 @@ export const metadata: Metadata = {
   description: "Advanced Salon Management System",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { auth } = await import("@/auth");
+  const session = await auth();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <SessionProviderWrapper>
+        <SessionProviderWrapper session={session}>
           <SettingsProvider>
             {children}
           </SettingsProvider>

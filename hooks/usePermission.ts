@@ -12,7 +12,11 @@ export function usePermission() {
         return permissions[resource];
     };
 
+    const roleName = session?.user?.role?.toLowerCase() || '';
+    const isSuperAdmin = roleName === 'super admin' || roleName === 'superadmin' || roleName === 'admin' || roleName === 'owner';
+
     const canView = (resource: string): boolean => {
+        if (isSuperAdmin) return true;
         const permission = getPermission(resource);
         if (!permission) return false;
 
@@ -27,18 +31,21 @@ export function usePermission() {
     };
 
     const viewScope = (resource: string): ViewScope => {
+        if (isSuperAdmin) return 'all';
         const permission = getPermission(resource);
         if (!permission) return 'none';
         return permission.view || 'none';
     };
 
     const canCreate = (resource: string): boolean => {
+        if (isSuperAdmin) return true;
         const permission = getPermission(resource);
         if (!permission) return false;
         return !!permission.create;
     };
 
     const canEdit = (resource: string): boolean => {
+        if (isSuperAdmin) return true;
         const permission = getPermission(resource);
         if (!permission) return false;
 
@@ -54,6 +61,7 @@ export function usePermission() {
     };
 
     const canDelete = (resource: string): boolean => {
+        if (isSuperAdmin) return true;
         const permission = getPermission(resource);
         if (!permission) return false;
         return !!permission.delete;

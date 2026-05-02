@@ -45,7 +45,7 @@ export async function GET(request: Request, props: any) {
                     salesQuery['items.itemModel'] = 'Service';
                 }
 
-                data = await Invoice.find(salesQuery).populate('customer staff').lean();
+                data = await Invoice.find(salesQuery).populate('customer staff').populate('items.staffAssignments.staff', 'name').populate('staffAssignments.staff', 'name').lean();
                 break;
 
             case "services":

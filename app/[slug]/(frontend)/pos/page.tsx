@@ -1276,9 +1276,9 @@ export default function POSPage() {
       });
     });
 
-    // Product commission — single staff, no split
+    // Product & Package commission — single staff, no split
     cart.forEach((item) => {
-      if (item.type !== "Product") return;
+      if (item.type !== "Product" && item.type !== "Package") return;
       if (!item.commissionValue || Number(item.commissionValue) <= 0) return;
 
       const key = getCartItemKey(item._id, item.type);
@@ -1347,6 +1347,17 @@ export default function POSPage() {
       };
     });
 
+    const maxWalletAllowedSubtotal = cart.reduce((sum, item) => {
+      if (item.type === "Service" && packageClaims[getCartItemKey(item._id, item.type)]?.enabled) return sum;
+      let isAllowed = false;
+      if (item.type === "Service" && settings.walletIncludedServices?.includes(item._id)) isAllowed = true;
+      if (item.type === "Product" && settings.walletIncludedProducts?.includes(item._id)) isAllowed = true;
+      if (item.type === "Bundle" && settings.walletIncludedBundles?.includes(item._id)) isAllowed = true;
+      if (isAllowed) return sum + getEffectivePrice(item) * item.quantity;
+      return sum;
+    }, 0);
+    const maxWalletPaymentAllowed = Math.min(total, maxWalletAllowedSubtotal * (1 + (settings.taxRate / 100)));
+
     return {
       subtotal,
       payableSubtotal,
@@ -1358,6 +1369,7 @@ export default function POSPage() {
       lineItemSplits,
       redeemItems,
       referralDiscount,
+      maxWalletPaymentAllowed
     };
   };
 
@@ -1870,7 +1882,7 @@ export default function POSPage() {
                     tip: assignment.tip,
                   })),
                 }
-                : item.type === "Product" &&
+                : (item.type === "Product" || item.type === "Package") &&
                   (
                     lineItemSplits[getCartItemKey(item._id, item.type)]
                       ?.staffAssignments || []
@@ -2200,6 +2212,7 @@ export default function POSPage() {
     tips,
     commission,
     assignments,
+    maxWalletPaymentAllowed
   } = calculateTotal();
   const hasInvalidSplitInCart = cart.some((item) => {
     if (item.type !== "Service") return false;
@@ -2763,9 +2776,11 @@ export default function POSPage() {
                                           <input type="number" min="0" max="100" value={assignment.percentage} onChange={(e) => updateServiceStaffPercentage(item._id, item.type, assignment.staffId, parseFloat(e.target.value) || 0)} disabled={splitMode === "auto"} className={`w-10 text-right text-[11px] font-black border-0 bg-transparent focus:outline-none ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`} />
                                           <span className="text-[9px] font-bold text-blue-700">%</span>
                                         </div>
-                                        <span className="text-[9px] font-bold text-emerald-700 min-w-[60px] text-right">
-                                          {settings.symbol}{(previewMap.get(assignment.staffId) || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
-                                        </span>
+                                        {settings.showCommissionInPOS && (
+                                          <span className="text-[9px] font-bold text-emerald-700 min-w-[60px] text-right">
+                                            {settings.symbol}{(previewMap.get(assignment.staffId) || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                                          </span>
+                                        )}
                                         <button onClick={() => removeServiceStaffAssignment(item._id, item.type, assignment.staffId)} className="p-0.5 text-gray-400 hover:text-red-500 rounded">
                                           <Trash2 className="w-2.5 h-2.5" />
                                         </button>
@@ -2780,16 +2795,16 @@ export default function POSPage() {
                       </div>
                     );
                   })()}
-                  {item.type === "Product" &&
+                  {(item.type === "Product" || item.type === "Package") &&
                     Number(item.commissionValue || 0) > 0 && (
                       <div className="pl-8 space-y-1.5 mt-1">
                         <div className="flex items-center gap-1 bg-green-50 border border-green-100 rounded p-1.5">
                           <span className="text-[10px] font-bold text-green-700 flex-1">
-                            Staff Penjual (Komisi{" "}
-                            {item.commissionType === "percentage"
-                              ? `${item.commissionValue}%`
-                              : `Rp${Number(item.commissionValue).toLocaleString("id-ID")}/pcs`}
-                            )
+                            Staff Penjual {settings.showCommissionInPOS && (
+                              `(Komisi ${item.commissionType === "percentage"
+                                ? `${item.commissionValue}%`
+                                : `Rp${Number(item.commissionValue).toLocaleString("id-ID")}/pcs`})`
+                            )}
                           </span>
                         </div>
                         <SearchableSelect
@@ -3014,7 +3029,7 @@ export default function POSPage() {
                     <div className="flex justify-between text-indigo-600 font-bold mb-1 border-b border-indigo-200/50 pb-0.5 px-1">
                       <span>Staff Earnings</span>
                       <div className="flex gap-4 text-[8px] uppercase tracking-tighter">
-                        <span>Comm</span>
+                        {settings.showCommissionInPOS && <span>Comm</span>}
                         <span className="w-10 text-right">Tip</span>
                       </div>
                     </div>
@@ -3031,13 +3046,15 @@ export default function POSPage() {
                             {staff?.name}
                           </span>
                           <div className="flex items-center gap-2">
-                            <span className="text-[9px] text-indigo-400">
-                              {settings.symbol}
-                              {(assignment.commission || 0).toLocaleString(
-                                "id-ID",
-                                { maximumFractionDigits: 0 },
-                              )}
-                            </span>
+                            {settings.showCommissionInPOS && (
+                              <span className="text-[9px] text-indigo-400">
+                                {settings.symbol}
+                                {(assignment.commission || 0).toLocaleString(
+                                  "id-ID",
+                                  { maximumFractionDigits: 0 },
+                                )}
+                              </span>
+                            )}
                             <div className="flex items-center gap-0.5 bg-indigo-100 px-1 rounded border border-indigo-200">
                               <span className="text-[8px] font-bold text-indigo-400">
                                 {settings.symbol}
@@ -3207,10 +3224,13 @@ export default function POSPage() {
                   )}
 
                   {/* Wallet Balance Info */}
-                  {selectedCustomer && selectedCustomer !== 'walking-customer' && customerWalletBalance > 0 && (
-                    <div className="flex justify-between text-[10px] font-semibold text-green-700 items-center bg-green-50 px-2 py-1.5 rounded-lg border border-green-200">
+                  {selectedCustomer && selectedCustomer !== 'walking-customer' && customerWalletBalance > 0 && maxWalletPaymentAllowed > 0 && (
+                    <div className="flex justify-between items-center text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1.5 shadow-sm">
                       <span className="flex items-center gap-1">💳 Saldo Wallet</span>
-                      <span className="font-bold">{settings.symbol}{customerWalletBalance.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                      <div className="text-right flex flex-col">
+                        <span className="font-bold">{settings.symbol}{customerWalletBalance.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                        <span className="text-[9px] text-emerald-600">Max usable: {settings.symbol}{maxWalletPaymentAllowed.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                      </div>
                     </div>
                   )}
 
@@ -3276,7 +3296,7 @@ export default function POSPage() {
                     className={`flex-1 text-[10px] lg:text-xs font-bold border border-gray-200 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-900 outline-none cursor-pointer ${payment.method ? 'text-gray-900 bg-white' : 'text-gray-400 bg-gray-50'}`}
                   >
                     <option value="" disabled className="text-gray-400 font-normal">Pilih Metode...</option>
-                    {["Cash", "Transfer", "Debit", "Credit Card", "QRIS", ...(selectedCustomer && selectedCustomer !== 'walking-customer' && customerWalletBalance > 0 ? ["Wallet"] : [])].map(
+                    {["Cash", "Transfer", "Debit", "Credit Card", "QRIS", ...(selectedCustomer && selectedCustomer !== 'walking-customer' && customerWalletBalance > 0 && maxWalletPaymentAllowed > 0 ? ["Wallet"] : [])].map(
                       (m) => (
                         <option
                           key={m}
@@ -3313,7 +3333,17 @@ export default function POSPage() {
                           : "0"
                     }
                     value={payment.amount}
-                    onChange={(e) => updateSplitAmount(index, e.target.value)}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (payment.method === 'Wallet') {
+                        const numVal = parseFloat(val) || 0;
+                        const maxAllowed = Math.min(customerWalletBalance, maxWalletPaymentAllowed);
+                        if (numVal > maxAllowed) {
+                          val = maxAllowed.toString();
+                        }
+                      }
+                      updateSplitAmount(index, val);
+                    }}
                     className="w-28 text-right text-xs lg:text-sm text-gray-900 border border-gray-200 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-900 outline-none font-black"
                   />
                   {splitPayments.length > 1 && (

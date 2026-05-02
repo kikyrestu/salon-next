@@ -47,7 +47,7 @@ export default function PrintInvoicePage() {
     if (loading) return <div className="p-8 text-center">Loading receipt...</div>;
     if (!invoice) return <div className="p-8 text-center text-red-500">Invoice not found</div>;
 
-    const currencySymbol = getCurrencySymbol(settings?.currency || 'USD');
+    const currencySymbol = getCurrencySymbol(settings?.currency || 'IDR');
 
     return (
         <div className="min-h-screen bg-gray-100 p-4 md:p-8 print:p-0 print:bg-white text-black">

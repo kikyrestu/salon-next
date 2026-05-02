@@ -5,8 +5,10 @@ import React from "react";
 
 export default function SessionProviderWrapper({
     children,
+    session
 }: {
     children: React.ReactNode;
+    session?: any;
 }) {
-    return <SessionProvider>{children}</SessionProvider>;
+    return <SessionProvider session={session}>{children}</SessionProvider>;
 }

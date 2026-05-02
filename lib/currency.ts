@@ -46,10 +46,10 @@ const currencies: Record<string, CurrencyInfo> = {
 };
 
 export function getCurrencySymbol(code: string): string {
-    return currencies[code]?.symbol || '$';
+    return currencies[code]?.symbol || 'Rp';
 }
 
-export function formatCurrency(amount: number, currencyCode: string = 'USD'): string {
+export function formatCurrency(amount: number, currencyCode: string = 'IDR'): string {
     const symbol = getCurrencySymbol(currencyCode);
     return `${symbol}${Number(amount || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}`;
 }

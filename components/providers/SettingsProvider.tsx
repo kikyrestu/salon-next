@@ -19,6 +19,10 @@ interface Settings {
     referralRewardPoints?: number;
     referralDiscountType?: "percentage" | "nominal";
     referralDiscountValue?: number;
+    showCommissionInPOS?: boolean;
+    walletIncludedServices?: string[];
+    walletIncludedProducts?: string[];
+    walletIncludedBundles?: string[];
 }
 
 interface SettingsContextType {
@@ -29,11 +33,11 @@ interface SettingsContextType {
 
 const defaultSettings: Settings = {
     storeName: 'SalonNext',
-    currency: 'USD',
-    timezone: 'UTC',
+    currency: 'IDR',
+    timezone: 'Asia/Jakarta',
     taxRate: 0,
     logoUrl: '',
-    symbol: '$'
+    symbol: 'Rp'
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -57,12 +61,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             if (data.success) {
                 // Get currency symbol from our utility
                 const { getCurrencySymbol } = await import('@/lib/currency');
-                const symbol = getCurrencySymbol(data.data.currency || 'USD');
+                const symbol = getCurrencySymbol(data.data.currency || 'IDR');
 
                 setSettings({
                     storeName: data.data.storeName || 'SalonNext',
-                    currency: data.data.currency || 'USD',
-                    timezone: data.data.timezone || 'UTC',
+                    currency: data.data.currency || 'IDR',
+                    timezone: data.data.timezone || 'Asia/Jakarta',
                     taxRate: data.data.taxRate || 0,
                     logoUrl: data.data.logoUrl || '',
                     symbol: symbol,
@@ -75,6 +79,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                     referralRewardPoints: data.data.referralRewardPoints || 0,
                     referralDiscountType: data.data.referralDiscountType || "nominal",
                     referralDiscountValue: data.data.referralDiscountValue || 0,
+                    showCommissionInPOS: data.data.showCommissionInPOS !== false,
+                    walletIncludedServices: data.data.walletIncludedServices || [],
+                    walletIncludedProducts: data.data.walletIncludedProducts || [],
+                    walletIncludedBundles: data.data.walletIncludedBundles || [],
                 });
             }
         } catch (error) {

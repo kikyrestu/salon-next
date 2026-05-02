@@ -33,12 +33,14 @@ import StatCard from "@/components/dashboard/StatCard";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { getCurrentDateInTimezone, getMonthDateRangeInTimezone } from "@/lib/dateUtils";
 import { useSession } from "next-auth/react";
+import { useTenantRouter } from "@/hooks/useTenantRouter";
 
 type ReportType = 'summary' | 'sales' | 'services' | 'products' | 'staff' | 'customers' | 'inventory' | 'expenses' | 'profit' | 'daily' | 'activity-log';
 
 export default function ReportsPage() {
     const { settings } = useSettings();
     const { data: session } = useSession();
+    const router = useTenantRouter();
     const [activeTab, setActiveTab] = useState<ReportType>('sales');
     const [loading, setLoading] = useState(true);
     const [sortConfig, setSortConfig] = useState({ key: null as string | null, direction: 'asc' as 'asc' | 'desc' });
@@ -55,6 +57,15 @@ export default function ReportsPage() {
     const [drillDownStaff, setDrillDownStaff] = useState<any>(null);
     const [drillDownData, setDrillDownData] = useState<any[]>([]);
     const [drillDownLoading, setDrillDownLoading] = useState(false);
+
+    // Invoice preview modal (for sales report)
+    const [previewInvoice, setPreviewInvoice] = useState<any>(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
+
+    // Customer history modal (for top spender)
+    const [spenderCustomer, setSpenderCustomer] = useState<any>(null);
+    const [spenderHistory, setSpenderHistory] = useState<any[]>([]);
+    const [spenderLoading, setSpenderLoading] = useState(false);
 
     // Role-based check: is current user Kasir?
     const userRole = (session as any)?.user?.role;
@@ -195,6 +206,31 @@ export default function ReportsPage() {
     const formatCurrency = (val: any) => {
         const num = parseFloat(val);
         return isNaN(num) ? `${settings.symbol}0` : `${settings.symbol}${num.toLocaleString()}`;
+    };
+
+    const openInvoicePreview = async (invoiceId: string) => {
+        setPreviewLoading(true);
+        setPreviewInvoice({ _loading: true });
+        try {
+            const res = await fetch(`/api/invoices/${invoiceId}`);
+            const data = await res.json();
+            if (data.success) {
+                setPreviewInvoice(data.data);
+            } else {
+                setPreviewInvoice(null);
+            }
+        } catch { setPreviewInvoice(null); } finally { setPreviewLoading(false); }
+    };
+
+    const openSpenderHistory = async (customer: any) => {
+        setSpenderCustomer(customer);
+        setSpenderLoading(true);
+        setSpenderHistory([]);
+        try {
+            const res = await fetch(`/api/invoices?customerId=${customer._id}&limit=100`);
+            const data = await res.json();
+            setSpenderHistory(data.success ? data.data : []);
+        } catch { setSpenderHistory([]); } finally { setSpenderLoading(false); }
     };
 
     const formatSafeDate = (date: any, formatStr: string = "dd MMM yyyy") => {
@@ -493,9 +529,9 @@ export default function ReportsPage() {
                             </div>
                         </div>
                         {renderTable(
-                            ['Invoice #', 'Date', 'Customer', 'Member', 'Total', 'Discount', 'Paid', 'Payment Method', 'Notes', 'Status'],
+                            ['Invoice #', 'Date', 'Customer', 'Staff', 'Total', 'Discount', 'Paid', 'Payment Method', 'Notes', 'Status'],
                             filteredSales.map((inv: any) => ({
-                                inv: inv.invoiceNumber,
+                                inv: <button onClick={() => openInvoicePreview(inv._id)} className="text-blue-700 hover:text-blue-900 underline underline-offset-2 font-bold cursor-pointer">{inv.invoiceNumber}</button>,
                                 date: formatSafeDate(inv.date),
                                 customer: inv.customer?.name || 'Walk-in',
                                 staff: inv.staff?.name || 'N/A',
@@ -509,6 +545,52 @@ export default function ReportsPage() {
                                 status: <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${inv.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'
                                     }`}>{inv.status?.replace('_', ' ') || 'N/A'}</span>
                             }))
+                        )}
+
+                        {/* Invoice Preview Modal */}
+                        {previewInvoice && (
+                            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setPreviewInvoice(null)}>
+                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                                        <h3 className="text-lg font-black text-gray-900">Invoice Preview</h3>
+                                        <button onClick={() => setPreviewInvoice(null)} className="p-2 rounded-lg hover:bg-gray-100"><X className="w-5 h-5" /></button>
+                                    </div>
+                                    <div className="flex-1 overflow-auto p-6">
+                                        {previewLoading ? (
+                                            <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-900 border-t-transparent" /></div>
+                                        ) : previewInvoice ? (
+                                            <div className="space-y-4">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <p className="text-sm font-black text-gray-900">{previewInvoice.invoiceNumber}</p>
+                                                        <p className="text-xs text-gray-500">{formatSafeDate(previewInvoice.date, 'dd MMM yyyy HH:mm')}</p>
+                                                    </div>
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${previewInvoice.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : previewInvoice.status === 'voided' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>{previewInvoice.status}</span>
+                                                </div>
+                                                <div className="text-xs text-gray-600">
+                                                    <p><span className="font-bold">Customer:</span> {previewInvoice.customer?.name || 'Walk-in'}</p>
+                                                </div>
+                                                <table className="w-full text-xs">
+                                                    <thead><tr className="bg-gray-50 border-b"><th className="px-2 py-2 text-left font-bold text-gray-500">Item</th><th className="px-2 py-2 text-right font-bold text-gray-500">Qty</th><th className="px-2 py-2 text-right font-bold text-gray-500">Price</th><th className="px-2 py-2 text-right font-bold text-gray-500">Total</th></tr></thead>
+                                                    <tbody className="divide-y divide-gray-50">
+                                                        {previewInvoice.items?.map((it: any, idx: number) => (
+                                                            <tr key={idx}><td className="px-2 py-2 font-medium">{it.name}</td><td className="px-2 py-2 text-right">{it.quantity}</td><td className="px-2 py-2 text-right">{formatCurrency(it.price)}</td><td className="px-2 py-2 text-right font-bold">{formatCurrency(it.total)}</td></tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                                <div className="border-t pt-3 space-y-1 text-xs">
+                                                    <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span className="font-bold">{formatCurrency(previewInvoice.subtotal)}</span></div>
+                                                    {previewInvoice.discount > 0 && <div className="flex justify-between"><span className="text-gray-500">Discount</span><span className="font-bold text-red-600">-{formatCurrency(previewInvoice.discount)}</span></div>}
+                                                    {previewInvoice.tax > 0 && <div className="flex justify-between"><span className="text-gray-500">Tax</span><span className="font-bold">{formatCurrency(previewInvoice.tax)}</span></div>}
+                                                    {previewInvoice.tips > 0 && <div className="flex justify-between"><span className="text-gray-500">Tips</span><span className="font-bold">{formatCurrency(previewInvoice.tips)}</span></div>}
+                                                    <div className="flex justify-between text-sm pt-2 border-t"><span className="font-black">Total</span><span className="font-black text-blue-900">{formatCurrency(previewInvoice.totalAmount)}</span></div>
+                                                    <div className="flex justify-between"><span className="text-gray-500">Paid</span><span className="font-bold text-green-700">{formatCurrency(previewInvoice.amountPaid)}</span></div>
+                                                </div>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </div>
                 );
@@ -609,27 +691,62 @@ export default function ReportsPage() {
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Date</th>
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Customer</th>
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Items</th>
+                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Commission</th>
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Total</th>
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Status</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-50">
-                                                    {drillDownData.map((inv: any) => (
+                                                    {drillDownData.map((inv: any) => {
+                                                        // Calculate this staff's commission from the invoice
+                                                        const staffMatch = staffList.find(s => s.name === drillDownStaff);
+                                                        const staffId = staffMatch?._id;
+                                                        let staffCommission = 0;
+                                                        // Check top-level staffAssignments
+                                                        if (inv.staffAssignments?.length > 0) {
+                                                            inv.staffAssignments.forEach((sa: any) => {
+                                                                const saId = sa.staff?._id || sa.staff || sa.staffId;
+                                                                if (String(saId) === String(staffId)) {
+                                                                    staffCommission += (sa.komisiNominal || sa.commission || 0);
+                                                                }
+                                                            });
+                                                        }
+                                                        // Also check item-level staffAssignments
+                                                        if (inv.items?.length > 0) {
+                                                            inv.items.forEach((item: any) => {
+                                                                (item.staffAssignments || []).forEach((sa: any) => {
+                                                                    const saId = sa.staff?._id || sa.staff || sa.staffId;
+                                                                    if (String(saId) === String(staffId)) {
+                                                                        staffCommission += (sa.komisiNominal || sa.commission || 0);
+                                                                    }
+                                                                });
+                                                            });
+                                                        }
+                                                        return (
                                                         <tr key={inv._id} className="hover:bg-gray-50/50">
-                                                            <td className="px-4 py-3 font-bold text-gray-900">{inv.invoiceNumber}</td>
+                                                            <td className="px-4 py-3 font-bold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline" onClick={() => openInvoicePreview(inv._id)}>{inv.invoiceNumber}</td>
                                                             <td className="px-4 py-3 text-gray-600">{formatSafeDate(inv.date)}</td>
                                                             <td className="px-4 py-3 text-gray-700">{inv.customer?.name || 'Walk-in'}</td>
                                                             <td className="px-4 py-3 text-gray-500 text-xs">{inv.items?.map((it: any) => it.name).join(', ') || '-'}</td>
+                                                            <td className="px-4 py-3 font-bold text-blue-700">{formatCurrency(staffCommission)}</td>
                                                             <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(inv.totalAmount)}</td>
                                                             <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${inv.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : inv.status === 'voided' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>{inv.status}</span></td>
                                                         </tr>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         )}
                                     </div>
                                     <div className="px-6 py-3 border-t border-gray-100 text-xs text-gray-500 shrink-0">
-                                        Total: {drillDownData.length} invoice(s) | {formatCurrency(drillDownData.reduce((s: number, inv: any) => s + (inv.totalAmount || 0), 0))}
+                                        Total: {drillDownData.length} invoice(s) | Commission: {formatCurrency(drillDownData.reduce((s: number, inv: any) => {
+                                            const staffMatch = staffList.find(sf => sf.name === drillDownStaff);
+                                            const sid = staffMatch?._id;
+                                            let c = 0;
+                                            (inv.staffAssignments || []).forEach((sa: any) => { if (String(sa.staff?._id || sa.staff || sa.staffId) === String(sid)) c += (sa.komisiNominal || sa.commission || 0); });
+                                            (inv.items || []).forEach((item: any) => { (item.staffAssignments || []).forEach((sa: any) => { if (String(sa.staff?._id || sa.staff || sa.staffId) === String(sid)) c += (sa.komisiNominal || sa.commission || 0); }); });
+                                            return s + c;
+                                        }, 0))} | Revenue: {formatCurrency(drillDownData.reduce((s: number, inv: any) => s + (inv.totalAmount || 0), 0))}
                                     </div>
                                 </div>
                             </div>
@@ -638,15 +755,62 @@ export default function ReportsPage() {
                 );
             case 'customers':
                 if (!Array.isArray(reportData)) return null;
-                return renderTable(
-                    ['Client Name', 'Contact Information', 'Total Spend', 'Transactions', 'Joined Date'],
-                    reportData.map((c: any) => ({
-                        name: c.name,
-                        phone: c.phone || 'N/A',
-                        spending: formatCurrency(c.spending || 0),
-                        transactions: c.transactions || 0,
-                        date: formatSafeDate(c.date || c.createdAt)
-                    }))
+                return (
+                    <div className="space-y-4">
+                        {renderTable(
+                            ['Client Name', 'Contact Information', 'Total Spend', 'Transactions', 'Joined Date'],
+                            reportData.map((c: any) => ({
+                                name: c._id && c._id !== 'walk-in' ? <button onClick={() => openSpenderHistory(c)} className="text-blue-700 hover:text-blue-900 underline underline-offset-2 font-bold cursor-pointer">{c.name}</button> : c.name,
+                                phone: c.phone || 'N/A',
+                                spending: formatCurrency(c.spending || 0),
+                                transactions: c.transactions || 0,
+                                date: formatSafeDate(c.date || c.createdAt)
+                            }))
+                        )}
+
+                        {/* Customer Spend History Modal */}
+                        {spenderCustomer && (
+                            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setSpenderCustomer(null); setSpenderHistory([]); }}>
+                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                                        <div>
+                                            <h3 className="text-lg font-black text-gray-900">Spend History — {spenderCustomer.name}</h3>
+                                            <p className="text-xs text-gray-500">{spenderCustomer.phone || 'No phone'}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={() => { router.push(`/customers/${spenderCustomer._id}`); }} className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">Open Dashboard</button>
+                                            <button onClick={() => { setSpenderCustomer(null); setSpenderHistory([]); }} className="p-2 rounded-lg hover:bg-gray-100"><X className="w-5 h-5" /></button>
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 overflow-auto p-6">
+                                        {spenderLoading ? (
+                                            <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-900 border-t-transparent" /></div>
+                                        ) : spenderHistory.length === 0 ? (
+                                            <div className="text-center text-gray-400 py-20 text-sm">Tidak ada riwayat transaksi</div>
+                                        ) : (
+                                            <table className="min-w-full text-left whitespace-nowrap text-sm">
+                                                <thead><tr className="bg-gray-50 border-b"><th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Invoice #</th><th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Date</th><th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Items</th><th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Total</th><th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Status</th></tr></thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {spenderHistory.map((inv: any) => (
+                                                        <tr key={inv._id} className="hover:bg-gray-50/50">
+                                                            <td className="px-4 py-3 font-bold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline" onClick={() => openInvoicePreview(inv._id)}>{inv.invoiceNumber}</td>
+                                                            <td className="px-4 py-3 text-gray-600">{formatSafeDate(inv.date)}</td>
+                                                            <td className="px-4 py-3 text-gray-500 text-xs">{inv.items?.map((it: any) => it.name).join(', ') || '-'}</td>
+                                                            <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(inv.totalAmount)}</td>
+                                                            <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${inv.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>{inv.status}</span></td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+                                    <div className="px-6 py-3 border-t border-gray-100 text-xs text-gray-500 shrink-0">
+                                        Total: {spenderHistory.length} invoice(s) | {formatCurrency(spenderHistory.reduce((s: number, inv: any) => s + (inv.totalAmount || 0), 0))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 );
             case 'inventory':
                 if (!Array.isArray(reportData)) return null;

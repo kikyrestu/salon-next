@@ -21,8 +21,8 @@ export async function GET(request: NextRequest, props: any) {
         if (!settings) {
             settings = await Settings.create({
                 storeName: 'SalonNext',
-                currency: 'USD',
-                timezone: 'UTC',
+                currency: 'IDR',
+                timezone: 'Asia/Jakarta',
                 taxRate: 0
             });
         }

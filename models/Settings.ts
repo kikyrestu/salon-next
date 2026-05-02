@@ -28,11 +28,11 @@ const SettingsSchema = new mongoose.Schema({
     },
     currency: {
         type: String,
-        default: 'USD'
+        default: 'IDR'
     },
     timezone: {
         type: String,
-        default: 'UTC'
+        default: 'Asia/Jakarta'
     },
     taxRate: {
         type: Number,
@@ -54,10 +54,26 @@ const SettingsSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    showCommissionInPOS: {
+        type: Boolean,
+        default: false
+    },
     // Wallet Bonus Tiers (top-up bonus %)
     walletBonusTiers: [{
         minAmount: { type: Number, required: true },
         bonusPercent: { type: Number, required: true }
+    }],
+    walletIncludedServices: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Service'
+    }],
+    walletIncludedProducts: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product'
+    }],
+    walletIncludedBundles: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ServiceBundle'
     }],
     termsAndConditions: {
         type: String,

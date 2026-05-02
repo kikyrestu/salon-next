@@ -84,7 +84,7 @@ const normalizeSplitAssignments = (assignments: any[] = []) => {
 
 export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Invoice, Customer, Product, Settings, CashBalance, CashLog } = await getTenantModels(tenantSlug);
+    const { Invoice, Customer, Product, Settings, CashBalance, CashLog, WalletTransaction } = await getTenantModels(tenantSlug);
 
   try {
     
@@ -305,7 +305,6 @@ export async function POST(request: NextRequest, props: any) {
                 await cust.save();
 
                 const session: any = await auth();
-                const WalletTransaction = (await import('@/models/WalletTransaction')).default;
 
                 // Create WalletTransaction
                 await WalletTransaction.create({

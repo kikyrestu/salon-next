@@ -23,7 +23,7 @@ export default async function DashboardPage() {
 
     const { Product, Invoice, Appointment, Settings } = await getTenantModels(tenantSlug);
 
-    const storeSettings = await Settings.findOne() || { currency: 'USD' };
+    const storeSettings = await Settings.findOne() || { currency: 'IDR' };
     const currencySymbol = getCurrencySymbol(storeSettings.currency);
 
     // Date Ranges

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Store, Mail, Phone, MapPin, DollarSign, Percent, Image as ImageIcon, Globe, FileText, Clock, CreditCard, MessageSquare, Send, Bell, Sparkles, Trash2, RefreshCw, Gift } from "lucide-react";
+import { Save, Store, Mail, Phone, MapPin, DollarSign, Percent, Image as ImageIcon, Globe, FileText, Clock, CreditCard, MessageSquare, Send, Bell, Sparkles, Trash2, RefreshCw, Gift, Crown } from "lucide-react";
 import FormInput, { FormSelect, FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
 import { getAllCurrencies } from "@/lib/currency";
@@ -23,8 +23,22 @@ interface Settings {
     businessHours: string;
     receiptFooter: string;
     showStaffOnReceipt: boolean;
+    showCommissionInPOS: boolean;
     walletBonusTiers: { minAmount: number; bonusPercent: number }[];
+    walletIncludedServices: string[];
+    walletIncludedProducts: string[];
+    walletIncludedBundles: string[];
     termsAndConditions: string;
+
+    // Premium Membership
+    membershipPrice: number;
+    membershipDurationDays: number;
+    birthdayVoucherId: string;
+    memberDiscountType: "percentage" | "nominal";
+    memberDiscountValue: number;
+    memberIncludedServices: string[];
+    memberIncludedProducts: string[];
+    memberIncludedBundles: string[];
 
     // Loyalty & Referral
     loyaltyPointPerSpend: number;
@@ -81,15 +95,27 @@ export default function SettingsPage() {
         email: "",
         website: "",
         taxId: "",
-        currency: "USD",
-        timezone: "UTC",
+        currency: "IDR",
+        timezone: "Asia/Jakarta",
         taxRate: 0,
         logoUrl: "",
         businessHours: "Mon-Fri: 9:00 AM - 6:00 PM",
         receiptFooter: "Thank you for your business!",
         showStaffOnReceipt: true,
+        showCommissionInPOS: false,
         walletBonusTiers: [],
+        walletIncludedServices: [],
+        walletIncludedProducts: [],
+        walletIncludedBundles: [],
         termsAndConditions: "",
+        membershipPrice: 0,
+        membershipDurationDays: 365,
+        birthdayVoucherId: "",
+        memberDiscountType: "percentage",
+        memberDiscountValue: 0,
+        memberIncludedServices: [],
+        memberIncludedProducts: [],
+        memberIncludedBundles: [],
         loyaltyPointPerSpend: 0,
         loyaltyPointValue: 0,
         referralRewardPoints: 0,
@@ -136,6 +162,11 @@ export default function SettingsPage() {
     const [greetingLogTotal, setGreetingLogTotal] = useState(0);
     const [loadingGreetingLogs, setLoadingGreetingLogs] = useState(false);
 
+    // Options for Wallet Included Items
+    const [servicesOptions, setServicesOptions] = useState<{_id: string; name: string; category?: any}[]>([]);
+    const [productsOptions, setProductsOptions] = useState<{_id: string; name: string}[]>([]);
+    const [bundlesOptions, setBundlesOptions] = useState<{_id: string; name: string}[]>([]);
+    const [vouchersOptions, setVouchersOptions] = useState<{_id: string; code: string; description: string}[]>([]);
 
     const currencies = getAllCurrencies();
     const timezones = getAllTimezones();
@@ -143,7 +174,26 @@ export default function SettingsPage() {
     useEffect(() => {
         fetchSettings();
         fetchGreetingLogs();
+        fetchOptions();
     }, []);
+
+    const fetchOptions = async () => {
+        try {
+            const [resS, resP, resB, resV] = await Promise.all([
+                fetch('/api/services'),
+                fetch('/api/products'),
+                fetch('/api/service-bundles'),
+                fetch('/api/vouchers?limit=999')
+            ]);
+            const [dataS, dataP, dataB, dataV] = await Promise.all([resS.json(), resP.json(), resB.json(), resV.json()]);
+            if (dataS.success) setServicesOptions(dataS.data);
+            if (dataP.success) setProductsOptions(dataP.data);
+            if (dataB.success) setBundlesOptions(dataB.data);
+            if (dataV.success) setVouchersOptions((dataV.data || []).filter((v: any) => v.isActive));
+        } catch (error) {
+            console.error('Error fetching options:', error);
+        }
+    };
 
     const fetchGreetingLogs = async () => {
         setLoadingGreetingLogs(true);
@@ -174,20 +224,32 @@ export default function SettingsPage() {
                     email: data.data.email || "",
                     website: data.data.website || "",
                     taxId: data.data.taxId || "",
-                    currency: data.data.currency || "USD",
-                    timezone: data.data.timezone || "UTC",
+                    currency: data.data.currency || "IDR",
+                    timezone: data.data.timezone || "Asia/Jakarta",
                     taxRate: data.data.taxRate || 0,
                     logoUrl: data.data.logoUrl || "",
                     businessHours: data.data.businessHours || "Mon-Fri: 9:00 AM - 6:00 PM",
                     receiptFooter: data.data.receiptFooter || "Thank you for your business!",
                     showStaffOnReceipt: data.data.showStaffOnReceipt !== false,
+                    showCommissionInPOS: data.data.showCommissionInPOS || false,
                     walletBonusTiers: data.data.walletBonusTiers || [],
+                    walletIncludedServices: data.data.walletIncludedServices || [],
+                    walletIncludedProducts: data.data.walletIncludedProducts || [],
+                    walletIncludedBundles: data.data.walletIncludedBundles || [],
                     termsAndConditions: data.data.termsAndConditions || "",
                     loyaltyPointPerSpend: data.data.loyaltyPointPerSpend || 0,
                     loyaltyPointValue: data.data.loyaltyPointValue || 0,
                     referralRewardPoints: data.data.referralRewardPoints || 0,
                     referralDiscountType: data.data.referralDiscountType || "nominal",
                     referralDiscountValue: data.data.referralDiscountValue || 0,
+                    membershipPrice: data.data.membershipPrice || 0,
+                    membershipDurationDays: data.data.membershipDurationDays || 365,
+                    birthdayVoucherId: data.data.birthdayVoucherId || "",
+                    memberDiscountType: data.data.memberDiscountType || "percentage",
+                    memberDiscountValue: data.data.memberDiscountValue || 0,
+                    memberIncludedServices: data.data.memberIncludedServices || [],
+                    memberIncludedProducts: data.data.memberIncludedProducts || [],
+                    memberIncludedBundles: data.data.memberIncludedBundles || [],
 
                     // WhatsApp Settings
                     fonnteToken: data.data.fonnteToken || "",
@@ -496,6 +558,166 @@ export default function SettingsPage() {
                                 <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                             </label>
                         </div>
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <div>
+                                <p className="text-sm font-bold text-gray-900">Tampilkan Komisi di POS</p>
+                                <p className="text-xs text-gray-500 mt-0.5">Menampilkan informasi perhitungan komisi staff di halaman Kasir</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.showCommissionInPOS}
+                                    onChange={(e) => setSettings({ ...settings, showCommissionInPOS: e.target.checked })}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Premium Membership Settings */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <Crown className="w-5 h-5 text-amber-600" />
+                        Premium Membership Settings
+                    </h2>
+                    <p className="text-xs text-gray-500 mb-4">
+                        Atur harga, durasi, dan diskon otomatis untuk Premium Membership.
+                    </p>
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <FormInput
+                                label="Harga Membership (Rp)"
+                                type="number"
+                                value={settings.membershipPrice.toString()}
+                                onChange={(e) => setSettings({ ...settings, membershipPrice: parseFloat(e.target.value) || 0 })}
+                                min="0"
+                                placeholder="500000"
+                            />
+                            <FormInput
+                                label="Masa Berlaku (Hari)"
+                                type="number"
+                                value={settings.membershipDurationDays.toString()}
+                                onChange={(e) => setSettings({ ...settings, membershipDurationDays: parseInt(e.target.value) || 365 })}
+                                min="1"
+                                placeholder="365"
+                            />
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Voucher Ulang Tahun (Opsional)</label>
+                                <select
+                                    value={settings.birthdayVoucherId}
+                                    onChange={(e) => setSettings({ ...settings, birthdayVoucherId: e.target.value })}
+                                    className="w-full px-4 py-2 border-2 border-gray-400 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-sm"
+                                >
+                                    <option value="">— Tidak ada —</option>
+                                    {vouchersOptions.map((v) => (
+                                        <option key={v._id} value={v._id}>
+                                            {v.code} {v.description ? `- ${v.description}` : ""}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
+                            <h3 className="text-sm font-bold text-amber-900">💰 Diskon Default Member</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <FormSelect
+                                    label="Tipe Diskon"
+                                    value={settings.memberDiscountType}
+                                    onChange={(e: any) => setSettings({ ...settings, memberDiscountType: e.target.value })}
+                                    options={[
+                                        { value: "percentage", label: "Persentase (%)" },
+                                        { value: "nominal", label: "Nominal (Rp)" },
+                                    ]}
+                                />
+                                <FormInput
+                                    label={settings.memberDiscountType === "percentage" ? "Nilai Diskon (%)" : "Nilai Diskon (Rp)"}
+                                    type="number"
+                                    value={settings.memberDiscountValue.toString()}
+                                    onChange={(e) => setSettings({ ...settings, memberDiscountValue: parseFloat(e.target.value) || 0 })}
+                                    min="0"
+                                    max={settings.memberDiscountType === "percentage" ? "100" : undefined}
+                                    placeholder={settings.memberDiscountType === "percentage" ? "10" : "20000"}
+                                />
+                            </div>
+                            <p className="text-[11px] text-amber-700">
+                                Diskon ini berlaku untuk semua item yang dicentang di bawah. Item dengan "Harga Member" khusus di master data akan menggunakan harga override-nya.
+                            </p>
+                        </div>
+
+                        <div>
+                            <h3 className="text-md font-bold text-gray-900 mb-2 mt-4">Item Benefit Member</h3>
+                            <p className="text-xs text-gray-500 mb-4">
+                                Pilih item mana saja yang akan mendapat diskon saat member checkout di Kasir.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 className="font-semibold text-sm mb-3">Layanan (Services)</h4>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                        {servicesOptions.map(svc => (
+                                            <label key={svc._id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 p-1 rounded">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={settings.memberIncludedServices.includes(svc._id)}
+                                                    onChange={(e) => {
+                                                        const newArr = e.target.checked 
+                                                            ? [...settings.memberIncludedServices, svc._id]
+                                                            : settings.memberIncludedServices.filter(id => id !== svc._id);
+                                                        setSettings({ ...settings, memberIncludedServices: newArr });
+                                                    }}
+                                                    className="rounded text-amber-600 focus:ring-amber-500 accent-amber-600"
+                                                />
+                                                <span className="text-gray-700">{svc.name}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 className="font-semibold text-sm mb-3">Produk (Products)</h4>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                        {productsOptions.map(prod => (
+                                            <label key={prod._id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 p-1 rounded">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={settings.memberIncludedProducts.includes(prod._id)}
+                                                    onChange={(e) => {
+                                                        const newArr = e.target.checked 
+                                                            ? [...settings.memberIncludedProducts, prod._id]
+                                                            : settings.memberIncludedProducts.filter(id => id !== prod._id);
+                                                        setSettings({ ...settings, memberIncludedProducts: newArr });
+                                                    }}
+                                                    className="rounded text-amber-600 focus:ring-amber-500 accent-amber-600"
+                                                />
+                                                <span className="text-gray-700">{prod.name}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <h4 className="font-semibold text-sm mb-3">Paket (Bundles)</h4>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                        {bundlesOptions.map(bndl => (
+                                            <label key={bndl._id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 p-1 rounded">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={settings.memberIncludedBundles.includes(bndl._id)}
+                                                    onChange={(e) => {
+                                                        const newArr = e.target.checked 
+                                                            ? [...settings.memberIncludedBundles, bndl._id]
+                                                            : settings.memberIncludedBundles.filter(id => id !== bndl._id);
+                                                        setSettings({ ...settings, memberIncludedBundles: newArr });
+                                                    }}
+                                                    className="rounded text-amber-600 focus:ring-amber-500 accent-amber-600"
+                                                />
+                                                <span className="text-gray-700">{bndl.name}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -568,6 +790,79 @@ export default function SettingsPage() {
                         >
                             + Tambah Tier
                         </button>
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t border-gray-200">
+                        <h3 className="text-md font-bold text-gray-900 mb-2">Syarat Penggunaan E-Wallet</h3>
+                        <p className="text-xs text-gray-500 mb-4">
+                            Pilih item apa saja yang boleh dibayar menggunakan Saldo E-Wallet. Jika dikosongkan, E-Wallet TIDAK BISA digunakan sama sekali. 
+                            Untuk membebaskan, centang semuanya.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <h4 className="font-semibold text-sm mb-3">Layanan (Services)</h4>
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                    {servicesOptions.map(svc => (
+                                        <label key={svc._id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 p-1 rounded">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={settings.walletIncludedServices.includes(svc._id)}
+                                                onChange={(e) => {
+                                                    const newArr = e.target.checked 
+                                                        ? [...settings.walletIncludedServices, svc._id]
+                                                        : settings.walletIncludedServices.filter(id => id !== svc._id);
+                                                    setSettings({ ...settings, walletIncludedServices: newArr });
+                                                }}
+                                                className="rounded text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <span className="text-gray-700">{svc.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <h4 className="font-semibold text-sm mb-3">Produk (Products)</h4>
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                    {productsOptions.map(prod => (
+                                        <label key={prod._id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 p-1 rounded">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={settings.walletIncludedProducts.includes(prod._id)}
+                                                onChange={(e) => {
+                                                    const newArr = e.target.checked 
+                                                        ? [...settings.walletIncludedProducts, prod._id]
+                                                        : settings.walletIncludedProducts.filter(id => id !== prod._id);
+                                                    setSettings({ ...settings, walletIncludedProducts: newArr });
+                                                }}
+                                                className="rounded text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <span className="text-gray-700">{prod.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <h4 className="font-semibold text-sm mb-3">Paket (Bundles)</h4>
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                    {bundlesOptions.map(bndl => (
+                                        <label key={bndl._id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 p-1 rounded">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={settings.walletIncludedBundles.includes(bndl._id)}
+                                                onChange={(e) => {
+                                                    const newArr = e.target.checked 
+                                                        ? [...settings.walletIncludedBundles, bndl._id]
+                                                        : settings.walletIncludedBundles.filter(id => id !== bndl._id);
+                                                    setSettings({ ...settings, walletIncludedBundles: newArr });
+                                                }}
+                                                className="rounded text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <span className="text-gray-700">{bndl.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
