@@ -180,8 +180,9 @@ export async function POST(request: NextRequest, props: any) {
     // BUG FIX 6: Check Wallet Balance before creating invoice
     let walletAmountUsed = 0;
     if (normalizedBody.paymentMethods && normalizedBody.paymentMethods.length > 0) {
-      const walletPayment = normalizedBody.paymentMethods.find((p: any) => p.method.toLowerCase() === 'wallet');
-      if (walletPayment) walletAmountUsed = walletPayment.amount;
+      walletAmountUsed = normalizedBody.paymentMethods
+        .filter((p: any) => p.method.toLowerCase() === 'wallet')
+        .reduce((sum: number, p: any) => sum + (parseFloat(p.amount) || 0), 0);
     } else if (normalizedBody.paymentMethod && normalizedBody.paymentMethod.toLowerCase() === 'wallet') {
       walletAmountUsed = normalizedBody.amountPaid || normalizedBody.totalAmount;
     }

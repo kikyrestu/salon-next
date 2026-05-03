@@ -1375,6 +1375,7 @@ export default function POSPage() {
   };
 
   const handleCheckout = async (nonQrisPaid?: boolean) => {
+    if (submitting) return;
     if (referralCode.trim() && !referralValidated && isFirstTimer) {
       alert("Peringatan: Anda mengisi Kode Referral tetapi belum divalidasi. Klik tombol 'Cek Kode' terlebih dahulu.");
       return;
@@ -1429,6 +1430,17 @@ export default function POSPage() {
       : 0;
 
     if (!isQrisOnly && isMarkedPaid) {
+      // Validate empty method
+      if (splitPayments.some((p) => !p.method || p.method === "Pilih Metode..." || p.method.trim() === "")) {
+        alert("Harap pilih metode pembayaran yang valid.");
+        return;
+      }
+
+      // Validate 0 amount
+      if (splitPayments.length === 1 && totalSplitPaidComputed === 0 && total > 0) {
+        alert("Harap isi nominal bayar atau klik tombol 'Isi Pas'.");
+        return;
+      }
       // Split payment: all entries must sum to total (within Rp 1 tolerance)
       if (
         splitPayments.length > 1 &&
