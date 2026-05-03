@@ -1,5 +1,6 @@
 import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
+import { checkPermission } from "@/lib/rbac";
 
 
 // GET /api/users/[id] - Get single user
@@ -8,6 +9,8 @@ export async function GET(request: NextRequest, props: any) {
     const { User } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorGET = await checkPermission(request, 'users', 'view');
+    if (permissionErrorGET) return permissionErrorGET;
         
         const { id } = await props.params;
         const user = await User.findById(id).select('-password').populate('role');
@@ -34,6 +37,8 @@ export async function PUT(request: NextRequest, props: any) {
     const { User } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorPUT = await checkPermission(request, 'users', 'edit');
+    if (permissionErrorPUT) return permissionErrorPUT;
         
         const { id } = await props.params;
         const body = await request.json();
@@ -82,6 +87,8 @@ export async function DELETE(request: NextRequest, props: any) {
     const { User } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorDELETE = await checkPermission(request, 'users', 'delete');
+    if (permissionErrorDELETE) return permissionErrorDELETE;
         
         const { id } = await props.params;
 

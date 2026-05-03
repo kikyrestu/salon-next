@@ -1,10 +1,11 @@
 import { getTenantModels } from "@/lib/tenantDb";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 
 
 
 import { parse, format, addMinutes, isBefore, isAfter } from "date-fns";
+import { checkPermission } from "@/lib/rbac";
 
 // Generate time slots between start and end time
 function generateTimeSlots(startTime: string, endTime: string, slotDuration: number = 30): string[] {
@@ -22,11 +23,13 @@ function generateTimeSlots(startTime: string, endTime: string, slotDuration: num
 }
 
 // Get available slots for a staff member on a specific date or day
-export async function GET(request: Request, props: any) {
+export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { StaffSlot, Appointment, Staff } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorGET = await checkPermission(request, 'staff-slots', 'view');
+    if (permissionErrorGET) return permissionErrorGET;
         
         
 
@@ -184,11 +187,13 @@ export async function GET(request: Request, props: any) {
 }
 
 // Create or update staff slots
-export async function POST(request: Request, props: any) {
+export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { StaffSlot, Appointment, Staff } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorPOST = await checkPermission(request, 'staff-slots', 'create');
+    if (permissionErrorPOST) return permissionErrorPOST;
         
         
 

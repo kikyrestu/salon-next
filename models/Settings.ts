@@ -54,6 +54,10 @@ const SettingsSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    showTaxAndTaxableAmountOnReceipt: {
+        type: Boolean,
+        default: true
+    },
     showCommissionInPOS: {
         type: Boolean,
         default: false

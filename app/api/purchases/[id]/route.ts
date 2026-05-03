@@ -1,6 +1,7 @@
 import { getTenantModels } from "@/lib/tenantDb";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { checkPermission } from "@/lib/rbac";
 
 
 
@@ -31,11 +32,13 @@ export async function GET(request: Request, props: any) {
     }
 }
 
-export async function DELETE(request: Request, props: any) {
+export async function DELETE(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Purchase, Product, Supplier } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorDELETE = await checkPermission(request, 'purchases', 'delete');
+    if (permissionErrorDELETE) return permissionErrorDELETE;
         const { id } = await props.params;
         
         

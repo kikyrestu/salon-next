@@ -1,5 +1,6 @@
 import { getTenantModels } from "@/lib/tenantDb";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { checkPermission } from "@/lib/rbac";
 
 
 const normalizeServicePayload = (payload: any) => {
@@ -34,11 +35,13 @@ const normalizeServicePayload = (payload: any) => {
     return body;
 };
 
-export async function PUT(request: Request, props: any) {
+export async function PUT(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Service } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorPUT = await checkPermission(request, 'services', 'edit');
+    if (permissionErrorPUT) return permissionErrorPUT;
         
         const { id } = await props.params;
         const rawBody = await request.json();
@@ -56,11 +59,13 @@ export async function PUT(request: Request, props: any) {
     }
 }
 
-export async function DELETE(request: Request, props: any) {
+export async function DELETE(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Service } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorDELETE = await checkPermission(request, 'services', 'delete');
+    if (permissionErrorDELETE) return permissionErrorDELETE;
         
         const { id } = await props.params;
         const service = await Service.findByIdAndUpdate(id, { status: "inactive" }, { new: true });

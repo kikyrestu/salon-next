@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Search, Plus, Trash2, Edit, Eye, FileText, Filter, DollarSign, ChevronLeft, ChevronRight, MoreVertical } from "lucide-react";
+import { useSession } from "next-auth/react";
 import TenantLink from '@/components/TenantLink';
 import Modal from "@/components/dashboard/Modal";
 import FormInput, { FormButton } from "@/components/dashboard/FormInput";
@@ -62,6 +63,12 @@ export default function InvoicesPage() {
         limit: 10,
         pages: 0
     });
+
+    const { data: session } = useSession();
+    const userRole = (session as any)?.user?.role;
+    const isKasir = typeof userRole === 'string'
+        ? userRole.toLowerCase() === 'kasir'
+        : userRole?.name?.toLowerCase() === 'kasir';
 
     // Edit Modal State
     const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
@@ -266,7 +273,7 @@ export default function InvoicesPage() {
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Paid</th>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Due</th>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Staff (Comm)</th>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{isKasir ? 'Staff' : 'Staff (Comm)'}</th>
                                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -334,14 +341,14 @@ export default function InvoicesPage() {
                                                     {inv.staffAssignments.map((assignment: any, idx: number) => (
                                                         <div key={idx} className="flex flex-col">
                                                             <span className="text-xs font-medium text-gray-900 leading-tight">{assignment.staff?.name || "Staff"}</span>
-                                                            <span className="text-[10px] text-green-600 font-bold leading-tight">{settings.symbol}{(assignment.commission || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                                            {!isKasir && <span className="text-[10px] text-green-600 font-bold leading-tight">{settings.symbol}{(assignment.commission || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>}
                                                         </div>
                                                     ))}
                                                 </div>
                                             ) : (
                                                 <>
                                                     <div className="text-sm font-medium text-gray-900">{inv.staff?.name || "N/A"}</div>
-                                                    <div className="text-xs text-green-600 font-bold">{settings.symbol}{(inv.commission || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                                                    {!isKasir && <div className="text-xs text-green-600 font-bold">{settings.symbol}{(inv.commission || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>}
                                                 </>
                                             )}
                                         </td>

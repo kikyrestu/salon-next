@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "migrate": "node scripts/run-migration.js",
-    "migrate:list": "node scripts/run-migration.js --list"
+    "migrate:list": "node scripts/run-migration.js --list",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@types/node-cron": "^3.0.11",
@@ -33,18 +36,26 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^20",
     "@types/nodemailer": "^6.4.14",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-istanbul": "^4.1.5",
     "baseline-browser-mapping": "^2.10.0",
     "dotenv": "^17.4.2",
     "eslint": "~8.57.0",
     "eslint-config-next": "^15",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vite": "^8.0.10",
+    "vitest": "^4.1.5"
   },
   "overrides": {
     "minimatch": "^10.2.2",

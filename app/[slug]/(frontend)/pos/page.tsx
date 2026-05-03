@@ -1369,6 +1369,7 @@ export default function POSPage() {
       lineItemSplits,
       redeemItems,
       referralDiscount,
+      effectiveDiscount,
       maxWalletPaymentAllowed
     };
   };
@@ -1767,6 +1768,7 @@ export default function POSPage() {
         lineItemSplits,
         redeemItems,
         referralDiscount,
+        effectiveDiscount,
       } = calculateTotal();
 
       const isQrisPayment = isQrisOnly;
@@ -1919,7 +1921,7 @@ export default function POSPage() {
         subtotal: payableSubtotal,
         tax,
         discount:
-          discount +
+          effectiveDiscount +
           (voucherApplied?.discountAmount || 0) +
           referralDiscount +
           Math.min(loyaltyPointsToRedeem * (settings.loyaltyPointValue || 1), payableSubtotal),
@@ -1946,6 +1948,7 @@ export default function POSPage() {
         })),
         status: status,
         referralCode: referralCode.trim() || undefined,
+        voucherId: voucherApplied?.voucherId || undefined,
         notes:
           [
             voucherApplied
@@ -1969,20 +1972,7 @@ export default function POSPage() {
       });
       const data = await res.json();
       if (data.success) {
-        // Mark voucher as used
-        if (voucherApplied && data.data?._id) {
-          try {
-            await fetch(`/api/vouchers/${voucherApplied.voucherId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                usedCount: 1, // increment handled server-side ideally; here just a flag
-              }),
-            });
-          } catch (err) {
-            console.error("Failed to mark voucher as used", err);
-          }
-        }
+        // Voucher usage is now handled atomically in POST /api/invoices backend.
 
         // Remove manual loyalty point deduction logic (handled securely in POST /api/invoices)
         // Deduct loyalty points logic has been moved to backend POST handler.
@@ -2067,29 +2057,7 @@ export default function POSPage() {
             // Split payment: create one deposit per method
             for (const entry of depositEntries) {
               const entryAmount = parseFloat(String(entry.amount || "0")) || 0;
-
-              // If payment method is Wallet, deduct from customer wallet
-              if (entry.method === 'Wallet' && customerId) {
-                try {
-                  const walletRes = await fetch('/api/wallet', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      customerId,
-                      amount: entryAmount,
-                      type: 'payment',
-                      description: `Bayar invoice ${data.data.invoiceNumber}`,
-                      invoiceId: data.data._id,
-                    }),
-                  });
-                  const walletData = await walletRes.json();
-                  if (!walletData.success) {
-                    alert(`Gagal deduct wallet: ${walletData.error}`);
-                  }
-                } catch (err) {
-                  console.error('Wallet deduction failed:', err);
-                }
-              }
+              // Wallet deduction is handled centrally in the backend API (app/api/invoices/route.ts)
 
               await fetch("/api/deposits", {
                 method: "POST",
@@ -2212,7 +2180,8 @@ export default function POSPage() {
     tips,
     commission,
     assignments,
-    maxWalletPaymentAllowed
+    maxWalletPaymentAllowed,
+    effectiveDiscount,
   } = calculateTotal();
   const hasInvalidSplitInCart = cart.some((item) => {
     if (item.type !== "Service") return false;
@@ -2705,7 +2674,7 @@ export default function POSPage() {
                       </button>
                     </div>
                   </div>
-                  {(item.type === "Service" || item.type === "Product") && (() => {
+                  {(item.type === "Service" || item.type === "Product" || item.type === "Package") && (() => {
                     const key = getCartItemKey(item._id, item.type);
                     const isExpanded = expandedStaffKey === key;
                     const assignedStaff = serviceStaffAssignments[key] || [];
@@ -2979,8 +2948,8 @@ export default function POSPage() {
           </div>
 
           {/* Summary - Sticky at bottom */}
-          <div className="flex-shrink-0 p-2 bg-gray-50 border-t border-gray-200 overflow-hidden pb-20 md:pb-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            <div className="max-h-[160px] md:max-h-[200px] lg:max-h-[260px] overflow-y-auto pr-1">
+          <div className="flex-shrink-0 p-2 bg-gray-50 border-t border-gray-200 pb-20 md:pb-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div className="max-h-[200px] md:max-h-[280px] lg:max-h-[340px] overflow-y-auto pr-1">
               <div className="space-y-0.5 mb-2 text-[10px] lg:text-xs">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>

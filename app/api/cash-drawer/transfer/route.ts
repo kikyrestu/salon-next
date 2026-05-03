@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, props: any) {
         
         
 
-        const permissionError = await checkPermission(request, 'reports', 'edit'); 
+        const permissionError = await checkPermission(request, 'pos', 'create'); 
         if (permissionError) return permissionError;
 
         const session: any = await auth();

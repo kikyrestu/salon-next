@@ -149,12 +149,32 @@ export async function DELETE(request: NextRequest, props: any) {
         
         const { id } = await props.params;
 
-        const linkedInvoices = await Invoice.find({ appointment: id }).select('_id');
+        const linkedInvoices = await Invoice.find({ appointment: id });
+        
+        // Check for any paid invoices to prevent deleting appointments with paid records
+        const hasPaidInvoices = linkedInvoices.some((inv: any) => inv.status === 'paid' || inv.status === 'partially_paid');
+        if (hasPaidInvoices) {
+            return NextResponse.json(
+                { success: false, error: "Jadwal tidak dapat dihapus karena sudah memiliki nota pembayaran lunas. Harap Void nota terlebih dahulu." },
+                { status: 400 }
+            );
+        }
+
         const invoiceIds = linkedInvoices.map((inv: any) => inv._id);
 
         if (invoiceIds.length > 0) {
             await Deposit.deleteMany({ invoice: { $in: invoiceIds } });
-            await Invoice.deleteMany({ _id: { $in: invoiceIds } });
+            // Soft-delete (void) pending invoices instead of hard-delete to maintain audit trail
+            await Invoice.updateMany(
+                { _id: { $in: invoiceIds } },
+                { 
+                    $set: { 
+                        status: 'voided',
+                        voidReason: 'Appointment dihapus',
+                        voidedAt: new Date()
+                    } 
+                }
+            );
         }
 
         await Appointment.findByIdAndDelete(id);

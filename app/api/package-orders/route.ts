@@ -50,7 +50,7 @@ export async function POST(request: NextRequest, props: any) {
     const { PackageOrder, ServicePackage, Customer } = await getTenantModels(tenantSlug);
 
   try {
-    const permissionError = await checkPermission(request, 'invoices', 'create');
+    const permissionError = await checkPermission(request, 'pos', 'create');
     if (permissionError) return permissionError;
 
     
@@ -97,6 +97,7 @@ export async function POST(request: NextRequest, props: any) {
           serviceName: item.serviceName,
           quota: Number(item.quota || 0),
         })),
+        validityDays: servicePackage.validityDays,
       },
       amount: Number(servicePackage.price || 0),
       status: 'pending',

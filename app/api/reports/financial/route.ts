@@ -1,18 +1,21 @@
 import { getTenantModels } from "@/lib/tenantDb";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 
 
 
 
 import { getMonthDateRangeInTimezone, getUtcRangeForDateRange } from "@/lib/dateUtils";
+import { checkPermission } from "@/lib/rbac";
 
-export async function GET(request: Request, props: any) {
+export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Purchase, Invoice, Expense, Settings } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorGET = await checkPermission(request, 'reports', 'view');
+    if (permissionErrorGET) return permissionErrorGET;
         
         
 

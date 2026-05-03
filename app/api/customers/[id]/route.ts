@@ -2,6 +2,7 @@ import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 
 import { normalizeIndonesianPhone } from '@/lib/phone';
+import { checkPermission } from "@/lib/rbac";
 
 // GET /api/customers/[id] - Get single customer
 export async function GET(request: NextRequest, props: any) {
@@ -36,6 +37,8 @@ export async function PUT(request: NextRequest, props: any) {
     const { Customer } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorPUT = await checkPermission(request, 'customers', 'edit');
+    if (permissionErrorPUT) return permissionErrorPUT;
         
         const { id } = await props.params;
         const body = await request.json();
@@ -68,9 +71,16 @@ export async function PUT(request: NextRequest, props: any) {
             }
         }
 
+        // Security: Prevent mass assignment of financial fields
+        const safeBody = { ...body };
+        delete safeBody.walletBalance;
+        delete safeBody.loyaltyPoints;
+        delete safeBody.totalPurchases;
+        delete safeBody.totalVisits;
+
         const customer = await Customer.findByIdAndUpdate(
             id,
-            body,
+            safeBody,
             { new: true, runValidators: true }
         );
 
@@ -96,6 +106,8 @@ export async function DELETE(request: NextRequest, props: any) {
     const { Customer } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorDELETE = await checkPermission(request, 'customers', 'delete');
+    if (permissionErrorDELETE) return permissionErrorDELETE;
         
         const { id } = await props.params;
 

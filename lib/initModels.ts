@@ -38,6 +38,7 @@ import CashLog from "@/models/CashLog";
 import WalletTransaction from "@/models/WalletTransaction";
 import WaCampaignQueue from "@/models/WaCampaignQueue";
 import WaAutomation from "@/models/WaAutomation";
+import LoyaltyTransaction from "@/models/LoyaltyTransaction";
 
 // Export all models for convenience
 export {
@@ -78,6 +79,7 @@ export {
   WalletTransaction,
   WaCampaignQueue,
   WaAutomation,
+  LoyaltyTransaction,
 };
 
 // This function can be called to ensure models are loaded
@@ -121,5 +123,6 @@ export function initModels() {
     WalletTransaction,
     WaCampaignQueue,
     WaAutomation,
+    LoyaltyTransaction,
   };
 }

@@ -1,12 +1,15 @@
 import { getTenantModels } from "@/lib/tenantDb";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { checkPermission } from "@/lib/rbac";
 
 
-export async function PUT(request: Request, props: any) {
+export async function PUT(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Expense } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorPUT = await checkPermission(request, 'expenses', 'edit');
+    if (permissionErrorPUT) return permissionErrorPUT;
         
         const { id } = await props.params;
         const body = await request.json();
@@ -17,11 +20,13 @@ export async function PUT(request: Request, props: any) {
     }
 }
 
-export async function DELETE(request: Request, props: any) {
+export async function DELETE(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Expense } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorDELETE = await checkPermission(request, 'expenses', 'delete');
+    if (permissionErrorDELETE) return permissionErrorDELETE;
         
         const { id } = await props.params;
         await Expense.findByIdAndDelete(id);

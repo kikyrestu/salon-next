@@ -84,7 +84,7 @@ const normalizeSplitAssignments = (assignments: any[] = []) => {
 
 export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Invoice, Customer, Product, Settings, CashBalance, CashLog, WalletTransaction } = await getTenantModels(tenantSlug);
+    const { Invoice, Customer, Product, Settings, CashBalance, CashLog, WalletTransaction, LoyaltyTransaction, Voucher } = await getTenantModels(tenantSlug);
 
   try {
     
@@ -97,8 +97,11 @@ export async function POST(request: NextRequest, props: any) {
     );
     if (permissionError) return permissionError;
 
-    
     const body = await request.json();
+
+    if (toNum(body.totalAmount) < 0 || toNum(body.amountPaid) < 0 || toNum(body.discount) < 0 || toNum(body.tax) < 0 || toNum(body.loyaltyPointsUsed) < 0) {
+      return NextResponse.json({ success: false, error: "Nilai nominal tidak boleh negatif." }, { status: 400 });
+    }
 
     const normalizedBody = {
       ...body,
@@ -117,10 +120,14 @@ export async function POST(request: NextRequest, props: any) {
       // Normalize split payment methods
       ...(Array.isArray(body.paymentMethods) && body.paymentMethods.length > 0
         ? {
-            paymentMethods: body.paymentMethods.map((p: any) => ({
-              method: String(p.method || "Cash"),
-              amount: toNum(p.amount),
-            })),
+            paymentMethods: body.paymentMethods.map((p: any) => {
+              const pAmount = toNum(p.amount);
+              if (pAmount < 0) throw new Error("Nominal metode pembayaran tidak boleh negatif");
+              return {
+                method: String(p.method || "Cash"),
+                amount: pAmount,
+              };
+            }),
             // Primary paymentMethod = first entry (for backward compat with reports)
             paymentMethod: String(
               body.paymentMethods[0]?.method || body.paymentMethod || "Cash",
@@ -170,10 +177,121 @@ export async function POST(request: NextRequest, props: any) {
 
     const invoiceNumber = `INV-${new Date().getFullYear()}-${nextNum.toString().padStart(5, "0")}`;
 
+    // BUG FIX 6: Check Wallet Balance before creating invoice
+    let walletAmountUsed = 0;
+    if (normalizedBody.paymentMethods && normalizedBody.paymentMethods.length > 0) {
+      const walletPayment = normalizedBody.paymentMethods.find((p: any) => p.method.toLowerCase() === 'wallet');
+      if (walletPayment) walletAmountUsed = walletPayment.amount;
+    } else if (normalizedBody.paymentMethod && normalizedBody.paymentMethod.toLowerCase() === 'wallet') {
+      walletAmountUsed = normalizedBody.amountPaid || normalizedBody.totalAmount;
+    }
+
+    const pointsUsed = toNum(normalizedBody.loyaltyPointsUsed);
+
+    if (walletAmountUsed > 0 || pointsUsed > 0) {
+      if (!normalizedBody.customer) {
+        return NextResponse.json({ success: false, error: "Transaksi dengan e-wallet atau poin membutuhkan data customer terdaftar." }, { status: 400 });
+      }
+      const customerDoc = await Customer.findById(normalizedBody.customer);
+      if (!customerDoc) {
+        return NextResponse.json({ success: false, error: "Customer tidak ditemukan." }, { status: 400 });
+      }
+      if (walletAmountUsed > 0 && (customerDoc.walletBalance || 0) < walletAmountUsed) {
+        return NextResponse.json({ success: false, error: `Saldo e-wallet tidak mencukupi. Saldo saat ini: Rp ${(customerDoc.walletBalance || 0).toLocaleString('id-ID')}` }, { status: 400 });
+      }
+      if (pointsUsed > 0 && (customerDoc.loyaltyPoints || 0) < pointsUsed) {
+        return NextResponse.json({ success: false, error: `Poin loyalty tidak mencukupi. Poin saat ini: ${(customerDoc.loyaltyPoints || 0).toLocaleString('id-ID')}` }, { status: 400 });
+      }
+    }
+
+    // --- ATOMIC VOUCHER REDEMPTION ---
+    let voucherRedeemed: any = null;
+    if (normalizedBody.voucherId) {
+      const voucherQuery: any = {
+        _id: normalizedBody.voucherId,
+        isActive: true,
+      };
+      // Only apply usage limit check if usageLimit > 0 (0 means unlimited)
+      const voucherUpdate: any = {
+        $inc: { usedCount: 1 },
+      };
+      if (normalizedBody.customer) {
+        voucherUpdate.$push = { usedBy: normalizedBody.customer };
+      }
+      
+      // First, find the voucher to check usageLimit dynamically
+      const voucherDoc = await Voucher.findById(normalizedBody.voucherId);
+      if (!voucherDoc || !voucherDoc.isActive) {
+        return NextResponse.json({ success: false, error: "Voucher tidak ditemukan atau tidak aktif." }, { status: 400 });
+      }
+      if (voucherDoc.expiresAt && new Date(voucherDoc.expiresAt) < new Date()) {
+        return NextResponse.json({ success: false, error: "Voucher sudah kadaluarsa." }, { status: 400 });
+      }
+      if (voucherDoc.usageLimit > 0) {
+        voucherQuery.usedCount = { $lt: voucherDoc.usageLimit };
+      }
+      if (normalizedBody.customer && voucherDoc.usedBy?.some((id: any) => String(id) === String(normalizedBody.customer))) {
+        return NextResponse.json({ success: false, error: "Voucher sudah pernah digunakan oleh customer ini." }, { status: 400 });
+      }
+
+      voucherRedeemed = await Voucher.findOneAndUpdate(voucherQuery, voucherUpdate, { new: true });
+      if (!voucherRedeemed) {
+        return NextResponse.json({ success: false, error: "Voucher sudah mencapai batas penggunaan." }, { status: 400 });
+      }
+    }
+    // --- END ATOMIC VOUCHER REDEMPTION ---
+
     const invoice = (await Invoice.create({
       ...normalizedBody,
       invoiceNumber,
     })) as any;
+
+    if (walletAmountUsed > 0 || pointsUsed > 0) {
+      const query: any = { _id: normalizedBody.customer };
+      if (walletAmountUsed > 0) query.walletBalance = { $gte: walletAmountUsed };
+      if (pointsUsed > 0) query.loyaltyPoints = { $gte: pointsUsed };
+
+      const updates: any = { $inc: {} };
+      if (walletAmountUsed > 0) updates.$inc.walletBalance = -walletAmountUsed;
+      if (pointsUsed > 0) updates.$inc.loyaltyPoints = -pointsUsed;
+
+      const updatedCustomer = await Customer.findOneAndUpdate(
+        query,
+        updates,
+        { new: true }
+      );
+
+      if (!updatedCustomer) {
+        // Race condition hit: someone else drained the balance in the last few milliseconds
+        await Invoice.findByIdAndDelete(invoice._id);
+        return NextResponse.json({ success: false, error: "Saldo e-wallet atau poin tidak mencukupi saat memproses tagihan." }, { status: 400 });
+      }
+
+      const session: any = await auth();
+
+      if (walletAmountUsed > 0) {
+        await WalletTransaction.create({
+          customer: updatedCustomer._id,
+          type: 'payment',
+          amount: walletAmountUsed,
+          balanceAfter: updatedCustomer.walletBalance,
+          description: `Pembayaran Invoice ${invoiceNumber}`,
+          invoice: invoice._id,
+          performedBy: session?.user?.id,
+        });
+      }
+
+      if (pointsUsed > 0) {
+        await LoyaltyTransaction.create({
+          customer: updatedCustomer._id,
+          invoice: invoice._id,
+          points: pointsUsed,
+          type: 'redeemed',
+          description: `Tukar poin untuk Tagihan ${invoiceNumber}`,
+          balanceAfter: updatedCustomer.loyaltyPoints
+        });
+      }
+    }
 
     // --- CASH DRAWER INTEGRATION ---
     if (invoice.status === "paid" || invoice.status === "partially_paid") {
@@ -190,12 +308,12 @@ export async function POST(request: NextRequest, props: any) {
           const session: any = await auth();
           const userId = session?.user?.id;
           
-          let balance = await CashBalance.findOne();
-          if (!balance) balance = await CashBalance.create({ kasirBalance: 0, brankasBalance: 0, bankBalance: 0 });
+          let balance = await CashBalance.findOneAndUpdate(
+              {},
+              { $inc: { kasirBalance: cashAmount }, $set: { lastUpdatedAt: new Date() } },
+              { new: true, upsert: true }
+          );
           
-          balance.kasirBalance += cashAmount;
-          balance.lastUpdatedAt = new Date();
-          await balance.save();
           
           await CashLog.create({
               type: 'sale',
@@ -249,7 +367,8 @@ export async function POST(request: NextRequest, props: any) {
                 `Batas minimum: ${updatedProduct.alertQuantity}\n\n` +
                 `Segera lakukan pemesanan stok.`;
 
-              await sendWhatsApp(adminPhone, message);
+              const fonnteToken = settings?.fonnteToken ? String(settings.fonnteToken).trim() : undefined;
+              await sendWhatsApp(adminPhone, message, fonnteToken);
             }
           } catch (waError) {
             console.error(
@@ -342,22 +461,32 @@ export async function POST(request: NextRequest, props: any) {
         loyaltyUpdates.$inc.loyaltyPoints = pointsToGain;
       }
       
-      // Deduct used loyalty points if provided
+      // Deduct used loyalty points if provided (Already done atomically above)
       const pointsUsed = toNum(normalizedBody.loyaltyPointsUsed);
-      if (pointsUsed > 0) {
-        loyaltyUpdates.$inc.loyaltyPoints = loyaltyUpdates.$inc.loyaltyPoints
-          ? loyaltyUpdates.$inc.loyaltyPoints - pointsUsed
-          : -pointsUsed;
-      }
 
       if (Object.keys(loyaltyUpdates.$inc).length > 0) {
-        await Customer.findByIdAndUpdate(invoice.customer, loyaltyUpdates);
+        const updatedCust = await Customer.findByIdAndUpdate(invoice.customer, loyaltyUpdates, { new: true });
         
-        // Update the invoice to reflect earned/used points
-        await Invoice.findByIdAndUpdate(invoice._id, {
-          loyaltyPointsEarned: pointsToGain,
-          loyaltyPointsUsed: pointsUsed,
-        });
+        if (updatedCust) {
+          let currentBalance = updatedCust.loyaltyPoints || 0;
+          if (pointsToGain > 0) {
+            await LoyaltyTransaction.create({
+              customer: updatedCust._id,
+              invoice: invoice._id,
+              points: pointsToGain,
+              type: 'earned',
+              description: `Poin dari transaksi ${invoiceNumber}`,
+              balanceAfter: currentBalance
+            });
+          }
+        }
+        
+        // Update the invoice to reflect earned points (used points already saved in Invoice.create)
+        if (pointsToGain > 0) {
+          await Invoice.findByIdAndUpdate(invoice._id, {
+            loyaltyPointsEarned: pointsToGain,
+          });
+        }
       }
     }
 
@@ -383,9 +512,19 @@ export async function POST(request: NextRequest, props: any) {
             const systemSettings = await Settings.findOne();
             const rewardPoints = systemSettings?.referralRewardPoints || 0;
             if (rewardPoints > 0) {
-              await Customer.findByIdAndUpdate(referrer._id, {
+              const updatedReferrer = await Customer.findByIdAndUpdate(referrer._id, {
                 $inc: { loyaltyPoints: rewardPoints },
-              });
+              }, { new: true });
+
+              if (updatedReferrer) {
+                await LoyaltyTransaction.create({
+                  customer: updatedReferrer._id,
+                  points: rewardPoints,
+                  type: 'earned',
+                  description: `Bonus referral dari transaksi customer ${currentCustomer?.name || 'baru'} (${invoiceNumber})`,
+                  balanceAfter: updatedReferrer.loyaltyPoints || 0
+                });
+              }
             }
           } else {
             console.log("[Referral] Referrer is not VIP, skipped reward.");

@@ -62,11 +62,7 @@ export async function POST(request: NextRequest, props: any) {
     const membershipExpiry = new Date();
     membershipExpiry.setDate(membershipExpiry.getDate() + durationDays);
 
-    // Update customer to premium
-    customer.membershipTier = "premium";
-    customer.membershipJoinDate = new Date();
-    customer.membershipExpiry = membershipExpiry;
-    await customer.save();
+    // Customer update moved to after Invoice creation
 
     // Generate Invoice Number (same logic as /api/invoices POST)
     const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });
@@ -118,16 +114,29 @@ export async function POST(request: NextRequest, props: any) {
       notes: `Pembelian Premium Membership - berlaku sampai ${membershipExpiry.toLocaleDateString("id-ID")}`,
     });
 
+    // Update customer to premium AFTER invoice is successfully created
+    const updatedCustomer = await Customer.findOneAndUpdate(
+      { _id: customerId },
+      {
+        $set: {
+          membershipTier: "premium",
+          membershipJoinDate: new Date(),
+          membershipExpiry: membershipExpiry,
+        }
+      },
+      { new: true }
+    );
+
     return NextResponse.json({
       success: true,
       data: {
         invoiceId: invoice._id,
         invoiceNumber,
         customer: {
-          _id: customer._id,
-          name: customer.name,
-          membershipTier: customer.membershipTier,
-          membershipExpiry: customer.membershipExpiry,
+          _id: updatedCustomer?._id || customer._id,
+          name: updatedCustomer?.name || customer.name,
+          membershipTier: updatedCustomer?.membershipTier || customer.membershipTier,
+          membershipExpiry: updatedCustomer?.membershipExpiry || customer.membershipExpiry,
         },
       },
     });

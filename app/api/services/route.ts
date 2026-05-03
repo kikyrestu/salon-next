@@ -1,6 +1,7 @@
 import { getTenantModels } from "@/lib/tenantDb";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { checkPermission } from "@/lib/rbac";
 
  // Ensure it's registered
 
@@ -37,11 +38,13 @@ const normalizeServicePayload = (payload: any) => {
     return body;
 };
 
-export async function GET(request: Request, props: any) {
+export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Service, ServiceCategory } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorGET = await checkPermission(request, 'services', 'view');
+    if (permissionErrorGET) return permissionErrorGET;
         
         
 
@@ -80,11 +83,13 @@ export async function GET(request: Request, props: any) {
     }
 }
 
-export async function POST(request: Request, props: any) {
+export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Service, ServiceCategory } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorPOST = await checkPermission(request, 'services', 'create');
+    if (permissionErrorPOST) return permissionErrorPOST;
         
         const rawBody = await request.json();
         const body = normalizeServicePayload(rawBody);

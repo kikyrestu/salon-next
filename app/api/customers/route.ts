@@ -237,6 +237,18 @@ export async function POST(request: NextRequest, props: any) {
       validation.sanitizedData.phone = normalizeIndonesianPhone(
         validation.sanitizedData.phone,
       );
+
+      // Check for duplicate phone
+      const existingCustomer = await Customer.findOne({
+        phone: validation.sanitizedData.phone
+      }).lean();
+
+      if (existingCustomer) {
+        return NextResponse.json(
+          { success: false, error: "Nomor telepon sudah terdaftar untuk customer lain." },
+          { status: 400 }
+        );
+      }
     }
 
     const session = (await auth()) as SessionLike | null;

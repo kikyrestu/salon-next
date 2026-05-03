@@ -1,5 +1,6 @@
 import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
+import { checkPermission } from "@/lib/rbac";
 
 
 
@@ -40,6 +41,8 @@ export async function PUT(request: NextRequest, props: any) {
     const { ServiceBundle } = await getTenantModels(tenantSlug);
 
   try {
+    const permissionErrorPUT = await checkPermission(request, 'service-bundles', 'edit');
+    if (permissionErrorPUT) return permissionErrorPUT;
     
     
 
@@ -131,6 +134,8 @@ export async function DELETE(_request: NextRequest, props: any) {
     const { ServiceBundle } = await getTenantModels(tenantSlug);
 
   try {
+    const permissionErrorDELETE = await checkPermission(_request, 'service-bundles', 'delete');
+    if (permissionErrorDELETE) return permissionErrorDELETE;
     
     
 

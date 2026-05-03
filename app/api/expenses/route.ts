@@ -80,6 +80,13 @@ export async function POST(request: Request, props: any) {
     try {
         
         const body = await request.json();
+
+        // Validation
+        const amountNum = Number(body.amount);
+        if (isNaN(amountNum) || amountNum <= 0) {
+            return NextResponse.json({ success: false, error: "Nominal pengeluaran harus lebih dari 0." }, { status: 400 });
+        }
+
         const expense: any = await Expense.create(body);
         
         // --- CASH DRAWER INTEGRATION ---
@@ -87,16 +94,15 @@ export async function POST(request: Request, props: any) {
             const session: any = await auth();
             const userId = session?.user?.id || expense.recordedBy;
             
-            let balance = await CashBalance.findOne();
-            if (!balance) balance = await CashBalance.create({ kasirBalance: 0, brankasBalance: 0, bankBalance: 0 });
-            
-            balance.kasirBalance -= expense.amount;
-            balance.lastUpdatedAt = new Date();
-            await balance.save();
+            let balance = await CashBalance.findOneAndUpdate(
+                {},
+                { $inc: { kasirBalance: -amountNum }, $set: { lastUpdatedAt: new Date() } },
+                { new: true, upsert: true }
+            );
             
             await CashLog.create({
                 type: 'expense',
-                amount: expense.amount,
+                amount: amountNum,
                 sourceLocation: 'kasir',
                 destinationLocation: 'expense',
                 performedBy: userId,

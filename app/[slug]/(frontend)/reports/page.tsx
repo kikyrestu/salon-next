@@ -107,7 +107,7 @@ export default function ReportsPage() {
         { id: 'customers', label: 'Top Spenders', icon: Users },
         { id: 'inventory', label: 'Inventory Level', icon: Package },
         { id: 'daily', label: 'Daily Closing', icon: Clock },
-        { id: 'staff', label: 'Staff Performance', icon: Users },
+        ...(isKasir ? [] : [{ id: 'staff' as ReportType, label: 'Staff Performance', icon: Users }]),
         { id: 'expenses', label: 'Expense Tracking', icon: ShoppingBag },
         { id: 'profit', label: 'Profit & Loss', icon: TrendingUp },
         { id: 'activity-log', label: 'System Audit', icon: Shield },
@@ -339,7 +339,15 @@ export default function ReportsPage() {
                 'Invoice #': inv.invoiceNumber,
                 'Date': formatSafeDate(inv.date),
                 'Customer': inv.customer?.name || 'Walk-in',
-                'Staff': inv.staff?.name || 'N/A',
+                'Staff': (() => {
+                    const names = new Set<string>();
+                    if (inv.staff?.name) names.add(inv.staff.name);
+                    if (inv.staffAssignments) inv.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
+                    if (inv.items) inv.items.forEach((item: any) => {
+                        if (item.staffAssignments) item.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
+                    });
+                    return names.size > 0 ? Array.from(names).join(', ') : 'N/A';
+                })(),
                 'Total Amount': inv.totalAmount,
                 'Discount': inv.discount || 0,
                 'Amount Paid': inv.amountPaid,
@@ -534,7 +542,15 @@ export default function ReportsPage() {
                                 inv: <button onClick={() => openInvoicePreview(inv._id)} className="text-blue-700 hover:text-blue-900 underline underline-offset-2 font-bold cursor-pointer">{inv.invoiceNumber}</button>,
                                 date: formatSafeDate(inv.date),
                                 customer: inv.customer?.name || 'Walk-in',
-                                staff: inv.staff?.name || 'N/A',
+                                staff: (() => {
+                                    const names = new Set<string>();
+                                    if (inv.staff?.name) names.add(inv.staff.name);
+                                    if (inv.staffAssignments) inv.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
+                                    if (inv.items) inv.items.forEach((item: any) => {
+                                        if (item.staffAssignments) item.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
+                                    });
+                                    return names.size > 0 ? Array.from(names).join(', ') : 'N/A';
+                                })(),
                                 total: formatCurrency(inv.totalAmount),
                                 discount: formatCurrency(inv.discount || 0),
                                 paid: formatCurrency(inv.amountPaid),

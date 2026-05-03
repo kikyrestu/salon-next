@@ -1,5 +1,6 @@
 import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
+import { checkPermission } from "@/lib/rbac";
 
 
 export async function GET(_request: NextRequest, props: any) {
@@ -7,7 +8,9 @@ export async function GET(_request: NextRequest, props: any) {
     const { Voucher } = await getTenantModels(tenantSlug);
 
   try {
-    
+    const permissionError = await checkPermission(_request, 'vouchers', 'view');
+    if (permissionError) return permissionError;
+
     const { id } = await props.params;
 
     const voucher = await Voucher.findById(id);
@@ -33,7 +36,9 @@ export async function PUT(request: NextRequest, props: any) {
     const { Voucher } = await getTenantModels(tenantSlug);
 
   try {
-    
+    const permissionError = await checkPermission(request, 'vouchers', 'edit');
+    if (permissionError) return permissionError;
+
     const { id } = await props.params;
     const body = await request.json();
 
@@ -139,7 +144,9 @@ export async function DELETE(_request: NextRequest, props: any) {
     const { Voucher } = await getTenantModels(tenantSlug);
 
   try {
-    
+    const permissionError = await checkPermission(_request, 'vouchers', 'delete');
+    if (permissionError) return permissionError;
+
     const { id } = await props.params;
 
     // Soft delete — just deactivate

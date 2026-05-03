@@ -2,7 +2,6 @@ import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 import { checkPermission } from '@/lib/rbac';
 
-
 interface PackageInputItem {
   service: string;
   quota: number;
@@ -18,6 +17,7 @@ interface PackageUpdateBody {
   isActive?: boolean;
   commissionType?: 'percentage' | 'fixed';
   commissionValue?: number;
+  validityDays?: number;
   items?: PackageInputItem[];
 }
 
@@ -44,15 +44,13 @@ function validateItems(items: PackageInputItem[]): string | null {
 }
 
 export async function GET(request: NextRequest, props: any) {
-    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { ServicePackage, Service } = await getTenantModels(tenantSlug);
+  const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+  const { ServicePackage } = await getTenantModels(tenantSlug);
 
   try {
     const permissionError = await checkPermission(request, 'services', 'view');
     if (permissionError) return permissionError;
 
-    
-    
     const { id } = await props.params;
 
     const item = await ServicePackage.findById(id).populate('items.service', 'name price');
@@ -66,15 +64,12 @@ export async function GET(request: NextRequest, props: any) {
 }
 
 export async function PUT(request: NextRequest, props: any) {
-    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { ServicePackage, Service } = await getTenantModels(tenantSlug);
+  const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+  const { ServicePackage, Service } = await getTenantModels(tenantSlug);
 
   try {
     const permissionError = await checkPermission(request, 'services', 'edit');
     if (permissionError) return permissionError;
-
-    
-    
 
     const { id } = await props.params;
     const body = (await request.json()) as PackageUpdateBody;
@@ -89,6 +84,7 @@ export async function PUT(request: NextRequest, props: any) {
     if (body.image !== undefined) updatePayload.image = body.image ? String(body.image).trim() : undefined;
     if (body.commissionType !== undefined) updatePayload.commissionType = body.commissionType;
     if (body.commissionValue !== undefined) updatePayload.commissionValue = Number(body.commissionValue || 0);
+    if (body.validityDays !== undefined) updatePayload.validityDays = Number(body.validityDays || 0);
 
     if (body.items !== undefined) {
       const itemValidationError = validateItems(body.items);
@@ -127,15 +123,12 @@ export async function PUT(request: NextRequest, props: any) {
 }
 
 export async function DELETE(request: NextRequest, props: any) {
-    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { ServicePackage, Service } = await getTenantModels(tenantSlug);
-
+  const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+  const { ServicePackage } = await getTenantModels(tenantSlug);
   try {
     const permissionError = await checkPermission(request, 'services', 'delete');
     if (permissionError) return permissionError;
 
-    
-    
     const { id } = await props.params;
 
     const updated = await ServicePackage.findByIdAndUpdate(id, { isActive: false }, { new: true });

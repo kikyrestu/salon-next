@@ -111,16 +111,29 @@ export async function POST(request: NextRequest, props: any) {
             return NextResponse.json({ success: true, skipped: true, reason: 'non-chat payload' });
         }
 
-        const existingGreeting = await WaGreetingLog.findOne({ phoneNormalized: normalizedPhone }).lean();
+        // Atomic Upsert Lock to prevent Spam Race Conditions
+        const existingGreeting = await WaGreetingLog.findOneAndUpdate(
+            { phoneNormalized: normalizedPhone },
+            { 
+                $setOnInsert: { 
+                    phoneRaw: rawPhone,
+                    firstMessageAt: new Date()
+                }
+            },
+            { upsert: true, new: false } // Returns null if it was newly inserted
+        );
+
         if (existingGreeting) {
             return NextResponse.json({ success: true, skipped: true, reason: 'already greeted' });
         }
 
+        // Only execution branch for the absolute first message
         const greetingMessageTemplate = await getGreetingMessage(models);
         const greetingMessage = renderTemplate(greetingMessageTemplate, {
             nama_customer: customerName,
             nama_service: process.env.SALON_NAME || 'salon kami',
         });
+        
         const sendResult = await sendWhatsApp(normalizedPhone, greetingMessage);
 
         if (!sendResult.success) {
@@ -133,12 +146,11 @@ export async function POST(request: NextRequest, props: any) {
             );
         }
 
-        await WaGreetingLog.create({
-            phoneRaw: rawPhone,
-            phoneNormalized: normalizedPhone,
-            firstMessageAt: new Date(),
-            greetingSentAt: new Date(),
-        });
+        // Update the lock to indicate message sent
+        await WaGreetingLog.updateOne(
+            { phoneNormalized: normalizedPhone },
+            { $set: { greetingSentAt: new Date() } }
+        );
 
         return NextResponse.json({ success: true, greeted: true, phone: normalizedPhone });
     } catch (error: any) {

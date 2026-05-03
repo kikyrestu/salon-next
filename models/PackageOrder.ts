@@ -15,6 +15,7 @@ export interface IPackageOrder extends Document {
       serviceName: string;
       quota: number;
     }[];
+    validityDays?: number;
   };
   amount: number;
   status: PackageOrderStatus;
@@ -38,6 +39,7 @@ const packageOrderSchema = new Schema<IPackageOrder>(
           quota: { type: Number, required: true, min: 1 },
         },
       ],
+      validityDays: { type: Number },
     },
     amount: { type: Number, required: true, min: 0 },
     status: {

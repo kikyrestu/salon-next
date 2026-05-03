@@ -1,5 +1,6 @@
 import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
+import { checkPermission } from "@/lib/rbac";
 
 
 // GET /api/suppliers/[id] - Get single supplier
@@ -8,6 +9,8 @@ export async function GET(request: NextRequest, props: any) {
     const { Supplier } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorGET = await checkPermission(request, 'suppliers', 'view');
+    if (permissionErrorGET) return permissionErrorGET;
         
         const { id } = await props.params;
 
@@ -35,6 +38,8 @@ export async function PUT(request: NextRequest, props: any) {
     const { Supplier } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorPUT = await checkPermission(request, 'suppliers', 'edit');
+    if (permissionErrorPUT) return permissionErrorPUT;
         
         const { id } = await props.params;
 
@@ -67,6 +72,8 @@ export async function DELETE(request: NextRequest, props: any) {
     const { Supplier } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorDELETE = await checkPermission(request, 'suppliers', 'delete');
+    if (permissionErrorDELETE) return permissionErrorDELETE;
         
         const { id } = await props.params;
 

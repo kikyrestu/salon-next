@@ -141,7 +141,7 @@ export default function Sidebar({
       Packages: "packages",
       Bundles: "bundles",
       Products: "products",
-      Membership: "settings",
+      Membership: "membership",
       Vouchers: "vouchers",
       Purchases: "purchases",
       "Usage Logs": "usageLogs",

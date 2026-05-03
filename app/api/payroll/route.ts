@@ -1,14 +1,17 @@
 import { getTenantModels } from "@/lib/tenantDb";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { startOfMonth, endOfMonth } from "date-fns";
+import { checkPermission } from "@/lib/rbac";
 
 // GET /api/payroll - List all payroll records
-export async function GET(request: Request, props: any) {
+export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Payroll, Staff, Appointment, Service, Invoice } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorGET = await checkPermission(request, 'payroll', 'view');
+    if (permissionErrorGET) return permissionErrorGET;
         
 
         const { searchParams } = new URL(request.url);
@@ -82,11 +85,13 @@ export async function GET(request: Request, props: any) {
 }
 
 // POST /api/payroll - Generate payroll for a staff member
-export async function POST(request: Request, props: any) {
+export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Payroll, Staff, Appointment, Service, Invoice } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorPOST = await checkPermission(request, 'payroll', 'create');
+    if (permissionErrorPOST) return permissionErrorPOST;
         
         const body = await request.json();
         const { staffId, month, year } = body;

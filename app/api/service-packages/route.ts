@@ -2,7 +2,6 @@ import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 import { checkPermission } from '@/lib/rbac';
 
-
 interface PackageInputItem {
   service: string;
   quota: number;
@@ -19,6 +18,7 @@ interface PackageBody {
   isActive?: boolean;
   commissionType?: 'percentage' | 'fixed';
   commissionValue?: number;
+  validityDays?: number;
 }
 
 function sanitizeCode(code: string): string {
@@ -44,15 +44,12 @@ function validateItems(items: PackageInputItem[]): string | null {
 }
 
 export async function GET(request: NextRequest, props: any) {
-    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { ServicePackage, Service } = await getTenantModels(tenantSlug);
+  const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+  const { ServicePackage } = await getTenantModels(tenantSlug);
 
   try {
     const permissionError = await checkPermission(request, 'services', 'view');
     if (permissionError) return permissionError;
-
-    
-    
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
@@ -80,29 +77,23 @@ export async function GET(request: NextRequest, props: any) {
 }
 
 export async function POST(request: NextRequest, props: any) {
-    const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { ServicePackage, Service } = await getTenantModels(tenantSlug);
+  const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
+  const { ServicePackage, Service } = await getTenantModels(tenantSlug);
 
   try {
     const permissionError = await checkPermission(request, 'services', 'create');
     if (permissionError) return permissionError;
 
-    
-    
-
     const body = (await request.json()) as PackageBody;
-    const { name, code, description, price, image, items } = body;
 
-    if (!name || !code) {
-      return NextResponse.json({ success: false, error: 'name and code are required' }, { status: 400 });
-    }
+    if (!body.name?.trim()) return NextResponse.json({ success: false, error: 'Package name is required' }, { status: 400 });
+    if (!body.code?.trim()) return NextResponse.json({ success: false, error: 'Package code is required' }, { status: 400 });
+    if (body.price === undefined || Number(body.price) < 0) return NextResponse.json({ success: false, error: 'Valid price is required' }, { status: 400 });
 
-    const itemValidationError = validateItems(items);
-    if (itemValidationError) {
-      return NextResponse.json({ success: false, error: itemValidationError }, { status: 400 });
-    }
+    const itemValidationError = validateItems(body.items);
+    if (itemValidationError) return NextResponse.json({ success: false, error: itemValidationError }, { status: 400 });
 
-    const serviceIds = items.map((item) => item.service);
+    const serviceIds = body.items.map((item) => item.service);
     const services = await Service.find({ _id: { $in: serviceIds } }).select('_id name');
 
     if (services.length !== serviceIds.length) {
@@ -110,25 +101,28 @@ export async function POST(request: NextRequest, props: any) {
     }
 
     const serviceNameMap = new Map<string, string>(services.map((svc) => [String(svc._id), String(svc.name)]));
-    const normalizedCode = sanitizeCode(code);
+    const processedItems = body.items.map((item) => ({
+      service: item.service,
+      serviceName: serviceNameMap.get(String(item.service)) || item.serviceName || 'Service',
+      quota: Number(item.quota),
+    }));
 
-    const created = await ServicePackage.create({
-      name: String(name).trim(),
-      code: normalizedCode,
-      description: description ? String(description).trim() : undefined,
-      price: Number(price || 0),
-      image: image ? String(image).trim() : undefined,
-      items: items.map((item) => ({
-        service: item.service,
-        serviceName: serviceNameMap.get(String(item.service)) || item.serviceName || 'Service',
-        quota: Number(item.quota),
-      })),
+    const packageCode = sanitizeCode(body.code);
+
+    const newPackage = await ServicePackage.create({
+      name: body.name.trim(),
+      code: packageCode,
+      description: body.description?.trim() || '',
+      price: Number(body.price),
+      image: body.image?.trim() || undefined,
       isActive: body.isActive !== false,
-      commissionType: body.commissionType || 'fixed',
+      commissionType: body.commissionType || 'percentage',
       commissionValue: Number(body.commissionValue || 0),
+      validityDays: Number(body.validityDays || 0),
+      items: processedItems,
     });
 
-    return NextResponse.json({ success: true, data: created });
+    return NextResponse.json({ success: true, data: newPackage }, { status: 201 });
   } catch (error: unknown) {
     const typedError = error as { code?: number };
     if (typedError.code === 11000) {

@@ -1,8 +1,11 @@
 import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
+import { checkPermission } from "@/lib/rbac";
 
 export async function GET(request: NextRequest) {
   try {
+    const permissionErrorGET = await checkPermission(request, 'service-bundles', 'view');
+    if (permissionErrorGET) return permissionErrorGET;
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { ServiceBundle } = await getTenantModels(tenantSlug);
 
@@ -25,6 +28,8 @@ export async function POST(request: NextRequest, props: any) {
     const { ServiceBundle } = await getTenantModels(tenantSlug);
 
   try {
+    const permissionErrorPOST = await checkPermission(request, 'service-bundles', 'create');
+    if (permissionErrorPOST) return permissionErrorPOST;
     const body = await request.json();
 
     const { name, description, price, image, services } = body;

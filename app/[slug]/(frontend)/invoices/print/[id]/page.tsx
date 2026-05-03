@@ -164,14 +164,18 @@ export default function PrintInvoicePage() {
                             <span className="font-bold">-{currencySymbol}{invoice.discount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                         </div>
                     )}
-                    <div className="flex justify-between items-center text-gray-800 border-t border-gray-100 pt-2">
-                        <span className="font-medium text-[12px] uppercase tracking-tight">Taxable Amount</span>
-                        <span className="font-bold">{currencySymbol}{(invoice.subtotal - invoice.discount).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-gray-700">
-                        <span className="font-medium">GST / Tax ({(invoice.subtotal - invoice.discount) > 0 ? ((invoice.tax / (invoice.subtotal - invoice.discount)) * 100).toFixed(0) : 0}%)</span>
-                        <span className="font-bold">{currencySymbol}{invoice.tax.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                    </div>
+                    {settings?.showTaxAndTaxableAmountOnReceipt !== false && (
+                        <>
+                            <div className="flex justify-between items-center text-gray-800 border-t border-gray-100 pt-2">
+                                <span className="font-medium text-[12px] uppercase tracking-tight">Taxable Amount</span>
+                                <span className="font-bold">{currencySymbol}{(invoice.subtotal - invoice.discount).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-gray-700">
+                                <span className="font-medium">GST / Tax ({(invoice.subtotal - invoice.discount) > 0 ? ((invoice.tax / (invoice.subtotal - invoice.discount)) * 100).toFixed(0) : 0}%)</span>
+                                <span className="font-bold">{currencySymbol}{invoice.tax.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                            </div>
+                        </>
+                    )}
                     {invoice.tips > 0 && (
                         <div className="flex justify-between text-indigo-600 font-bold border-t border-indigo-100 pt-1">
                             <span>Tips</span>

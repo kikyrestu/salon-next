@@ -1,14 +1,17 @@
 import { getTenantModels } from "@/lib/tenantDb";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { checkPermission } from "@/lib/rbac";
 
 
 
 // Delete a specific slot by ID
-export async function DELETE(request: Request, props: any) {
+export async function DELETE(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { StaffSlot } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorDELETE = await checkPermission(request, 'staff-slots', 'delete');
+    if (permissionErrorDELETE) return permissionErrorDELETE;
         
         
         

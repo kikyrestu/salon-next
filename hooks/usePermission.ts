@@ -48,16 +48,7 @@ export function usePermission() {
         if (isSuperAdmin) return true;
         const permission = getPermission(resource);
         if (!permission) return false;
-
-        // Backward compatibility for older/partially seeded role docs.
-        // Some roles may keep `edit: false` while `create`/`delete` are true.
-        if (typeof permission.edit === 'boolean') {
-            if (permission.edit) return true;
-            if (permission.create || permission.delete) return true;
-            return false;
-        }
-
-        return !!permission.create || !!permission.delete;
+        return !!permission.edit;
     };
 
     const canDelete = (resource: string): boolean => {

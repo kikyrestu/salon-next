@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { User, Menu, ChevronLeft, ChevronRight, LogOut, Settings, Clock } from "lucide-react";
 import TenantLink from '@/components/TenantLink';
 import { signOut } from "next-auth/react";
+import { usePermission } from "@/hooks/usePermission";
 
 interface HeaderProps {
     toggleSidebar: () => void;
@@ -25,6 +26,7 @@ export default function Header({ toggleSidebar, toggleCollapse, isSidebarCollaps
     const [waGreetingEnabled, setWaGreetingEnabled] = useState(false);
     const [waGreetingName, setWaGreetingName] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const { canView } = usePermission();
 
     const fetchGreetingStatus = async () => {
         try {
@@ -187,10 +189,12 @@ export default function Header({ toggleSidebar, toggleCollapse, isSidebarCollaps
                                     <User className="w-4 h-4 mr-2" />
                                     Profile
                                 </TenantLink>
-                                <TenantLink href="/settings" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    <Settings className="w-4 h-4 mr-2" />
-                                    Settings
-                                </TenantLink>
+                                {canView('settings') && (
+                                    <TenantLink href="/settings" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <Settings className="w-4 h-4 mr-2" />
+                                        Settings
+                                    </TenantLink>
+                                )}
 
                                 <button
                                     onClick={() => signOut({ callbackUrl: `/${slug}/login` })}

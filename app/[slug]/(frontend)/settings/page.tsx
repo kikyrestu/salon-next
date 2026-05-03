@@ -23,6 +23,7 @@ interface Settings {
     businessHours: string;
     receiptFooter: string;
     showStaffOnReceipt: boolean;
+    showTaxAndTaxableAmountOnReceipt: boolean;
     showCommissionInPOS: boolean;
     walletBonusTiers: { minAmount: number; bonusPercent: number }[];
     walletIncludedServices: string[];
@@ -102,6 +103,7 @@ export default function SettingsPage() {
         businessHours: "Mon-Fri: 9:00 AM - 6:00 PM",
         receiptFooter: "Thank you for your business!",
         showStaffOnReceipt: true,
+        showTaxAndTaxableAmountOnReceipt: true,
         showCommissionInPOS: false,
         walletBonusTiers: [],
         walletIncludedServices: [],
@@ -180,9 +182,9 @@ export default function SettingsPage() {
     const fetchOptions = async () => {
         try {
             const [resS, resP, resB, resV] = await Promise.all([
-                fetch('/api/services'),
-                fetch('/api/products'),
-                fetch('/api/service-bundles'),
+                fetch('/api/services?limit=1000'),
+                fetch('/api/products?limit=1000'),
+                fetch('/api/service-bundles?limit=1000'),
                 fetch('/api/vouchers?limit=999')
             ]);
             const [dataS, dataP, dataB, dataV] = await Promise.all([resS.json(), resP.json(), resB.json(), resV.json()]);
@@ -231,6 +233,7 @@ export default function SettingsPage() {
                     businessHours: data.data.businessHours || "Mon-Fri: 9:00 AM - 6:00 PM",
                     receiptFooter: data.data.receiptFooter || "Thank you for your business!",
                     showStaffOnReceipt: data.data.showStaffOnReceipt !== false,
+                    showTaxAndTaxableAmountOnReceipt: data.data.showTaxAndTaxableAmountOnReceipt !== false,
                     showCommissionInPOS: data.data.showCommissionInPOS || false,
                     walletBonusTiers: data.data.walletBonusTiers || [],
                     walletIncludedServices: data.data.walletIncludedServices || [],
@@ -560,6 +563,21 @@ export default function SettingsPage() {
                         </div>
                         <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
                             <div>
+                                <p className="text-sm font-bold text-gray-900">Tampilkan Taxable Amount & GST di Nota</p>
+                                <p className="text-xs text-gray-500 mt-0.5">Menampilkan baris rincian perhitungan pajak pada struk cetak</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.showTaxAndTaxableAmountOnReceipt}
+                                    onChange={(e) => setSettings({ ...settings, showTaxAndTaxableAmountOnReceipt: e.target.checked })}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                            </label>
+                        </div>
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <div>
                                 <p className="text-sm font-bold text-gray-900">Tampilkan Komisi di POS</p>
                                 <p className="text-xs text-gray-500 mt-0.5">Menampilkan informasi perhitungan komisi staff di halaman Kasir</p>
                             </div>
@@ -800,7 +818,13 @@ export default function SettingsPage() {
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-sm mb-3">Layanan (Services)</h4>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="font-semibold text-sm">Layanan (Services)</h4>
+                                    <div className="flex gap-2">
+                                        <button type="button" onClick={() => setSettings({...settings, walletIncludedServices: servicesOptions.map(s => s._id)})} className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded hover:bg-blue-200">Pilih Semua</button>
+                                        <button type="button" onClick={() => setSettings({...settings, walletIncludedServices: []})} className="text-[10px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded hover:bg-gray-300">Hapus</button>
+                                    </div>
+                                </div>
                                 <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                                     {servicesOptions.map(svc => (
                                         <label key={svc._id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 p-1 rounded">
@@ -821,7 +845,13 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-sm mb-3">Produk (Products)</h4>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="font-semibold text-sm">Produk (Products)</h4>
+                                    <div className="flex gap-2">
+                                        <button type="button" onClick={() => setSettings({...settings, walletIncludedProducts: productsOptions.map(p => p._id)})} className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded hover:bg-blue-200">Pilih Semua</button>
+                                        <button type="button" onClick={() => setSettings({...settings, walletIncludedProducts: []})} className="text-[10px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded hover:bg-gray-300">Hapus</button>
+                                    </div>
+                                </div>
                                 <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                                     {productsOptions.map(prod => (
                                         <label key={prod._id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 p-1 rounded">
@@ -842,7 +872,13 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-sm mb-3">Paket (Bundles)</h4>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="font-semibold text-sm">Paket (Bundles)</h4>
+                                    <div className="flex gap-2">
+                                        <button type="button" onClick={() => setSettings({...settings, walletIncludedBundles: bundlesOptions.map(b => b._id)})} className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded hover:bg-blue-200">Pilih Semua</button>
+                                        <button type="button" onClick={() => setSettings({...settings, walletIncludedBundles: []})} className="text-[10px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded hover:bg-gray-300">Hapus</button>
+                                    </div>
+                                </div>
                                 <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                                     {bundlesOptions.map(bndl => (
                                         <label key={bndl._id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 p-1 rounded">

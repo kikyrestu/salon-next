@@ -1,15 +1,17 @@
 import { getTenantModels } from "@/lib/tenantDb";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { checkPermission } from "@/lib/rbac";
 
 
 
-export async function GET(request: Request, props: any) {
+export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Staff } = await getTenantModels(tenantSlug);
 
     try {
-        
+        const permissionError = await checkPermission(request, 'staff', 'view');
+        if (permissionError) return permissionError;
         
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search");
@@ -42,11 +44,13 @@ export async function GET(request: Request, props: any) {
     }
 }
 
-export async function POST(request: Request, props: any) {
+export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Staff } = await getTenantModels(tenantSlug);
 
     try {
+        const permissionError = await checkPermission(request, 'staff', 'create');
+        if (permissionError) return permissionError;
         
         const body = await request.json();
         const staff = await Staff.create(body);

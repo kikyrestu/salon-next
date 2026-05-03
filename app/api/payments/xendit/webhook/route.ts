@@ -177,12 +177,19 @@ export async function POST(request: NextRequest, props: any) {
           let customerPackageId = order.activatedCustomerPackage;
 
           if (!customerPackageId) {
+            let expiresAt: Date | undefined;
+            if (order.packageSnapshot?.validityDays) {
+              expiresAt = new Date();
+              expiresAt.setDate(expiresAt.getDate() + order.packageSnapshot.validityDays);
+            }
+
             const customerPackage = await CustomerPackage.create({
               customer: order.customer,
               package: order.package,
               packageName: order.packageSnapshot?.name || 'Package',
               order: order._id,
               activatedAt: new Date(),
+              expiresAt,
               status: 'active',
               serviceQuotas: (order.packageSnapshot?.items || []).map((item: { service: mongoose.Types.ObjectId; serviceName: string; quota: number }) => ({
                 service: item.service,

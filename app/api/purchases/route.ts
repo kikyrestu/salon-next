@@ -1,16 +1,19 @@
 import { getTenantModels } from "@/lib/tenantDb";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { checkPermission } from "@/lib/rbac";
 
 
 
 
 
-export async function POST(request: Request, props: any) {
+export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Purchase, Product, Supplier } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorPOST = await checkPermission(request, 'purchases', 'create');
+    if (permissionErrorPOST) return permissionErrorPOST;
         
         
         const body = await request.json();
@@ -48,11 +51,13 @@ export async function POST(request: Request, props: any) {
     }
 }
 
-export async function GET(request: Request, props: any) {
+export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Purchase, Product, Supplier } = await getTenantModels(tenantSlug);
 
     try {
+    const permissionErrorGET = await checkPermission(request, 'purchases', 'view');
+    if (permissionErrorGET) return permissionErrorGET;
         
         
 

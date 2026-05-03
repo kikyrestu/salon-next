@@ -55,7 +55,16 @@ export async function PUT(request: NextRequest, props: any) {
             return NextResponse.json({ success: false, error: "Invoice not found" }, { status: 404 });
         }
 
-        const invoice = await Invoice.findByIdAndUpdate(id, body, { new: true });
+        // Security: Prevent mass assignment of financial fields
+        const safeBody = { ...body };
+        delete safeBody.totalAmount;
+        delete safeBody.amountPaid;
+        delete safeBody.subtotal;
+        delete safeBody.tax;
+        delete safeBody.discount;
+        delete safeBody.loyaltyPointsUsed;
+
+        const invoice = await Invoice.findByIdAndUpdate(id, safeBody, { new: true });
 
         // Loyalty Point Logic: If status changed to 'paid'
         if (body.status === 'paid' && oldInvoice.status !== 'paid' && invoice.customer) {

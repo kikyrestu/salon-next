@@ -73,28 +73,22 @@ export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Customer, WalletTransaction, Settings } = await getTenantModels(tenantSlug);
 
-    
-    
-
     const permissionError = await checkPermission(request, 'customers', 'edit');
     if (permissionError) return permissionError;
 
     const session: any = await auth();
     const body = await request.json();
-    const { customerId, amount, type, paymentMethod, description, invoiceId } = body;
+    const { customerId, type, paymentMethod, description, invoiceId } = body;
+    
+    const amountNum = Number(body.amount);
 
-    if (!customerId || !amount || amount <= 0) {
-        return NextResponse.json({ success: false, error: 'customerId dan amount wajib diisi' }, { status: 400 });
+    if (!customerId || !amountNum || isNaN(amountNum) || amountNum <= 0) {
+        return NextResponse.json({ success: false, error: 'customerId dan amount valid wajib diisi (> 0)' }, { status: 400 });
     }
 
     try {
-        const customer = await Customer.findById(customerId);
-        if (!customer) {
-            return NextResponse.json({ success: false, error: 'Customer tidak ditemukan' }, { status: 404 });
-        }
-
         const txType = type || 'topup';
-        let finalAmount = amount;
+        let finalAmount = amountNum;
         let bonusAmount = 0;
         let bonusPercent = 0;
         let desc = description || '';
@@ -107,18 +101,26 @@ export async function POST(request: NextRequest, props: any) {
                 .sort((a: any, b: any) => b.minAmount - a.minAmount); // Highest first
 
             for (const tier of tiers) {
-                if (amount >= tier.minAmount) {
+                if (amountNum >= tier.minAmount) {
                     bonusPercent = tier.bonusPercent;
-                    bonusAmount = Math.round(amount * (tier.bonusPercent / 100));
+                    bonusAmount = Math.round(amountNum * (tier.bonusPercent / 100));
                     break;
                 }
             }
 
-            finalAmount = amount + bonusAmount;
-            customer.walletBalance = (customer.walletBalance || 0) + finalAmount;
-            desc = desc || `Top-up ${paymentMethod || 'Cash'} Rp${amount.toLocaleString('id-ID')}${bonusAmount > 0 ? ` + Bonus ${bonusPercent}% (Rp${bonusAmount.toLocaleString('id-ID')})` : ''}`;
+            finalAmount = amountNum + bonusAmount;
+            desc = desc || `Top-up ${paymentMethod || 'Cash'} Rp${amountNum.toLocaleString('id-ID')}${bonusAmount > 0 ? ` + Bonus ${bonusPercent}% (Rp${bonusAmount.toLocaleString('id-ID')})` : ''}`;
 
-            await customer.save();
+            // Atomic top-up
+            const customer = await Customer.findByIdAndUpdate(
+                customerId,
+                { $inc: { walletBalance: finalAmount } },
+                { new: true }
+            );
+
+            if (!customer) {
+                return NextResponse.json({ success: false, error: 'Customer tidak ditemukan' }, { status: 404 });
+            }
 
             // Create transaction record
             const tx = await WalletTransaction.create({
@@ -133,22 +135,21 @@ export async function POST(request: NextRequest, props: any) {
                 performedBy: session?.user?.id,
             });
 
-            // Cash Drawer integration: if top-up paid in Cash, record it
+            // Cash Drawer integration: if top-up paid in Cash, record it atomically
             if ((paymentMethod || 'Cash').toLowerCase() === 'cash') {
                 try {
                     const CashBalance = (await import('@/models/CashBalance')).default;
                     const CashLog = (await import('@/models/CashLog')).default;
 
-                    let balance = await CashBalance.findOne();
-                    if (!balance) balance = await CashBalance.create({ kasirBalance: 0, brankasBalance: 0, bankBalance: 0 });
-
-                    balance.kasirBalance += amount; // Only the actual cash received (not the bonus)
-                    balance.lastUpdatedAt = new Date();
-                    await balance.save();
+                    const balance = await CashBalance.findOneAndUpdate(
+                        {},
+                        { $inc: { kasirBalance: amountNum }, $set: { lastUpdatedAt: new Date() } },
+                        { new: true, upsert: true }
+                    );
 
                     await CashLog.create({
                         type: 'sale',
-                        amount: amount,
+                        amount: amountNum,
                         sourceLocation: 'customer',
                         destinationLocation: 'kasir',
                         performedBy: session?.user?.id,
@@ -169,7 +170,7 @@ export async function POST(request: NextRequest, props: any) {
                 data: {
                     transaction: tx,
                     newBalance: customer.walletBalance,
-                    topupAmount: amount,
+                    topupAmount: amountNum,
                     bonusAmount,
                     bonusPercent,
                     totalCredited: finalAmount,
@@ -178,20 +179,23 @@ export async function POST(request: NextRequest, props: any) {
         }
 
         if (txType === 'payment') {
-            // Deduct from wallet for invoice payment
-            if ((customer.walletBalance || 0) < amount) {
-                return NextResponse.json({ success: false, error: `Saldo tidak cukup. Saldo: Rp${(customer.walletBalance || 0).toLocaleString('id-ID')}` }, { status: 400 });
-            }
-
-            customer.walletBalance = (customer.walletBalance || 0) - amount;
             desc = desc || `Pembayaran via Wallet`;
 
-            await customer.save();
+            // Atomic payment deduction
+            const customer = await Customer.findOneAndUpdate(
+                { _id: customerId, walletBalance: { $gte: amountNum } },
+                { $inc: { walletBalance: -amountNum } },
+                { new: true }
+            );
+
+            if (!customer) {
+                return NextResponse.json({ success: false, error: `Saldo tidak cukup atau Customer tidak ditemukan.` }, { status: 400 });
+            }
 
             const tx = await WalletTransaction.create({
                 customer: customerId,
                 type: 'payment',
-                amount: -amount,
+                amount: -amountNum,
                 balanceAfter: customer.walletBalance,
                 description: desc,
                 invoice: invoiceId || undefined,
@@ -203,21 +207,29 @@ export async function POST(request: NextRequest, props: any) {
                 data: {
                     transaction: tx,
                     newBalance: customer.walletBalance,
-                    deducted: amount,
+                    deducted: amountNum,
                 },
             });
         }
 
         if (txType === 'refund') {
-            customer.walletBalance = (customer.walletBalance || 0) + amount;
             desc = desc || `Refund ke Wallet`;
 
-            await customer.save();
+            // Atomic refund
+            const customer = await Customer.findByIdAndUpdate(
+                customerId,
+                { $inc: { walletBalance: amountNum } },
+                { new: true }
+            );
+
+            if (!customer) {
+                return NextResponse.json({ success: false, error: 'Customer tidak ditemukan' }, { status: 404 });
+            }
 
             const tx = await WalletTransaction.create({
                 customer: customerId,
                 type: 'refund',
-                amount: amount,
+                amount: amountNum,
                 balanceAfter: customer.walletBalance,
                 description: desc,
                 invoice: invoiceId || undefined,

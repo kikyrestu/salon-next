@@ -29,7 +29,7 @@ const RESOURCES = [
     { key: "bundles", label: "Service Bundles" },
     { key: "packages", label: "Treatment Packages" },
     { key: "membership", label: "Premium Membership" },
-    { key: "waTemplates", label: "WhatsApp Configurations" },
+    { key: "waTemplates", label: "WA Templates" },
     { key: "calendarView", label: "Calendar View" },
     { key: "aiReports", label: "AI Powered Reports", type: 'boolean' },
     { key: "activityLogs", label: "Activity / Security Audit Logs" },

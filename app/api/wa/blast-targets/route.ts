@@ -8,8 +8,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkPermission } from '@/lib/rbac';
 import { auth } from '@/auth';
 
-
-
 import { sendWhatsApp } from '@/lib/fonnte';
 
 /* ------------------------------------------------------------------ */
@@ -22,9 +20,6 @@ export async function GET(request: NextRequest, props: any) {
 
     const permError = await checkPermission(request, 'customers', 'view');
     if (permError) return permError;
-
-    
-    
 
     const { searchParams } = new URL(request.url);
     const lastVisitSince = searchParams.get('lastVisitSince');
@@ -117,13 +112,10 @@ export async function GET(request: NextRequest, props: any) {
 
 export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Customer, Invoice, WaBlastLog } = await getTenantModels(tenantSlug);
+    const { Customer, WaBlastLog, Settings } = await getTenantModels(tenantSlug);
 
     const permError = await checkPermission(request, 'customers', 'edit');
     if (permError) return permError;
-
-    
-    
 
     const body = await request.json();
     const { customerIds, message, campaignName, filters } = body;
@@ -144,6 +136,10 @@ export async function POST(request: NextRequest, props: any) {
         .select('name phone')
         .lean();
 
+    // Get tenant Fonnte token
+    const tenantSettings: any = await Settings.findOne({});
+    const fonnteToken = tenantSettings?.fonnteToken ? String(tenantSettings.fonnteToken).trim() : undefined;
+
     const recipients: any[] = [];
     let sentCount = 0;
     let failedCount = 0;
@@ -153,7 +149,7 @@ export async function POST(request: NextRequest, props: any) {
             .replace(/{{nama_customer}}/gi, (customer as any).name || 'Pelanggan');
 
         try {
-            const result = await sendWhatsApp((customer as any).phone, personalizedMsg);
+            const result = await sendWhatsApp((customer as any).phone, personalizedMsg, fonnteToken);
             if (result.success) {
                 sentCount++;
                 recipients.push({

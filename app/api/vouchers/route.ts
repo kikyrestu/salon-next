@@ -1,5 +1,6 @@
 import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from "next/server";
+import { checkPermission } from "@/lib/rbac";
 
 
 export async function GET(request: NextRequest, props: any) {
@@ -7,7 +8,8 @@ export async function GET(request: NextRequest, props: any) {
     const { Voucher } = await getTenantModels(tenantSlug);
 
   try {
-    
+    const permissionError = await checkPermission(request, 'vouchers', 'view');
+    if (permissionError) return permissionError;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -49,8 +51,6 @@ export async function POST(request: NextRequest, props: any) {
     const { Voucher } = await getTenantModels(tenantSlug);
 
   try {
-    
-
     const body = await request.json();
 
     // Handle validate action for POS redemption
@@ -141,6 +141,9 @@ export async function POST(request: NextRequest, props: any) {
     }
 
     // Create new voucher
+    const permissionError = await checkPermission(request, 'vouchers', 'create');
+    if (permissionError) return permissionError;
+
     const {
       code,
       description,
