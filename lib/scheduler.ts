@@ -74,8 +74,8 @@ export async function processPendingCampaigns(now: Date = new Date()) {
                 }
 
                 // Find targets that are still pending
-                // Limit to 15 per run to avoid Vercel timeout (15 * 3s = 45s)
-                const pendingTargets = campaign.targets.filter((t: any) => t.status === 'pending').slice(0, 15);
+                // Limit to 2 per run to avoid timeouts and keep delivery slow/safe (2 * ~30s = ~60s)
+                const pendingTargets = campaign.targets.filter((t: any) => t.status === 'pending').slice(0, 2);
 
                 if (pendingTargets.length === 0) {
                     // All targets processed, mark campaign as completed
@@ -137,8 +137,9 @@ export async function processPendingCampaigns(now: Date = new Date()) {
                         }
                     );
 
-                    // Delay to avoid Fonnte rate limit
-                    await new Promise((resolve) => setTimeout(resolve, 3000));
+                    // Randomized delay to avoid bot detection (20s - 40s)
+                    const safeDelay = Math.floor(Math.random() * (40000 - 20000 + 1)) + 20000;
+                    await new Promise((resolve) => setTimeout(resolve, safeDelay));
                 }
             }
         } catch (e) {
@@ -211,7 +212,7 @@ export async function processAutomations(now: Date = new Date()) {
 
                         for (const phone of targetPhones) {
                             await sendWhatsApp(phone, message, token);
-                            await new Promise(r => setTimeout(r, 2000));
+                            await new Promise(r => setTimeout(r, 10000));
                         }
 
                         rule.lastRunDate = now;
@@ -232,7 +233,7 @@ export async function processAutomations(now: Date = new Date()) {
 
                         for (const phone of targetPhones) {
                             await sendWhatsApp(phone, message, token);
-                            await new Promise(r => setTimeout(r, 2000));
+                            await new Promise(r => setTimeout(r, 10000));
                         }
 
                         rule.lastRunDate = now;
@@ -257,7 +258,7 @@ export async function processAutomations(now: Date = new Date()) {
                         for (const customer of customers) {
                             const msg = rule.messageTemplate.replace(/{{nama_customer}}/gi, customer.name);
                             await sendWhatsApp(customer.phone, msg, token);
-                            await new Promise(r => setTimeout(r, 2000));
+                            await new Promise(r => setTimeout(r, 10000));
                         }
 
                         rule.lastRunDate = now;
@@ -282,7 +283,7 @@ export async function processAutomations(now: Date = new Date()) {
                         for (const customer of birthdayCustomers) {
                             const msg = rule.messageTemplate.replace(/{{nama_customer}}/gi, customer.name);
                             await sendWhatsApp(customer.phone, msg, token);
-                            await new Promise(r => setTimeout(r, 2000));
+                            await new Promise(r => setTimeout(r, 10000));
                         }
 
                         rule.lastRunDate = now;

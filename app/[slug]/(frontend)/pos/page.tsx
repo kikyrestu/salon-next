@@ -1984,7 +1984,7 @@ export default function POSPage() {
           const quota = pkg?.serviceQuotas.find(q => String(q.service) === String(item._id));
           return {
             itemName: item.name,
-            packageName: pkg?.packageId?.name || "Package",
+            packageName: pkg?.package?.name || "Package",
             usedQuantity: item.quantity,
             remainingQuota: Math.max(0, (quota?.remainingQuota || 0) - item.quantity),
             expiryDate: pkg?.expiryDate

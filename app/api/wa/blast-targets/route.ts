@@ -144,6 +144,14 @@ export async function POST(request: NextRequest, props: any) {
     let sentCount = 0;
     let failedCount = 0;
 
+    // Safety check for manual sending
+    if (customers.length > 5) {
+        return NextResponse.json({ 
+            success: false, 
+            error: 'Manual blast dibatasi maksimal 5 orang demi keamanan nomor WA. Gunakan fitur "Schedule" untuk mengirim ke lebih banyak orang secara otomatis & aman.' 
+        }, { status: 400 });
+    }
+
     for (const customer of customers) {
         const personalizedMsg = message
             .replace(/{{nama_customer}}/gi, (customer as any).name || 'Pelanggan');
@@ -177,8 +185,10 @@ export async function POST(request: NextRequest, props: any) {
         }
 
         // Delay between messages to avoid rate limiting / WA suspension
-        // 3 seconds per message = ~20 messages per minute (safe for Fonnte)
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        // 30 seconds per message for safety in manual mode
+        if (sentCount + failedCount < customers.length) {
+            await new Promise((resolve) => setTimeout(resolve, 30000));
+        }
     }
 
     // Save blast log
