@@ -1987,7 +1987,7 @@ export default function POSPage() {
             packageName: pkg?.package?.name || "Package",
             usedQuantity: item.quantity,
             remainingQuota: Math.max(0, (quota?.remainingQuota || 0) - item.quantity),
-            expiryDate: pkg?.expiryDate
+            expiryDate: pkg?.expiresAt
           };
         }),
         notes:
