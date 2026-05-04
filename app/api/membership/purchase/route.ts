@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, props: any) {
     const { Customer, Settings, Invoice } = await getTenantModels(tenantSlug);
 
   try {
-    const permissionError = await checkPermission(request, "customers", "edit");
+    const permissionError = await checkPermission(request, "membership", "create");
     if (permissionError) return permissionError;
 
     

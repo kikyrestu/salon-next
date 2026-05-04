@@ -131,6 +131,7 @@ export default function WAMarketingPage() {
     sent: number;
     failed: number;
     total: number;
+    failedRecipients?: { phone: string; error: string }[];
   } | null>(null);
 
   // History & Queue
@@ -797,6 +798,25 @@ export default function WAMarketingPage() {
                     </p>
                   </div>
                 </div>
+                {/* Show failed recipient details */}
+                {blastResult.failedRecipients && blastResult.failedRecipients.length > 0 && (
+                  <div className="px-6 pb-4">
+                    <details className="group">
+                      <summary className="text-xs font-bold text-red-600 cursor-pointer hover:text-red-800 flex items-center gap-1">
+                        <XCircle className="w-3.5 h-3.5" />
+                        Lihat detail {blastResult.failedRecipients.length} pesan gagal
+                      </summary>
+                      <div className="mt-2 max-h-40 overflow-y-auto space-y-1 border border-red-100 rounded-lg p-2 bg-red-50/50">
+                        {blastResult.failedRecipients.map((r, i) => (
+                          <div key={i} className="flex items-center justify-between text-[11px] text-red-700 bg-white px-2 py-1 rounded border border-red-100">
+                            <span className="font-mono font-bold">{r.phone}</span>
+                            <span className="text-red-500 truncate ml-2 max-w-[60%] text-right">{r.error}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </div>
+                )}
               </div>
             )}
           </div>

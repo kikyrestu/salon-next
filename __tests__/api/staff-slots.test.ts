@@ -20,6 +20,14 @@ vi.mock('@/lib/tenantDb', () => ({
   }),
 }));
 
+vi.mock('@/auth', () => ({
+  auth: vi.fn().mockResolvedValue({ user: { id: 'test-user-id' } }),
+}));
+
+vi.mock('@/lib/rbac', () => ({
+  checkPermission: vi.fn().mockResolvedValue(null),
+}));
+
 describe('Staff Slots API', () => {
   beforeEach(() => {
     vi.clearAllMocks();

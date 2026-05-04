@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, props: any) {
     const { StaffSlot, Appointment, Staff } = await getTenantModels(tenantSlug);
 
     try {
-    const permissionErrorGET = await checkPermission(request, 'staff-slots', 'view');
+    const permissionErrorGET = await checkPermission(request, 'staffSlots', 'view');
     if (permissionErrorGET) return permissionErrorGET;
         
         
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest, props: any) {
     const { StaffSlot, Appointment, Staff } = await getTenantModels(tenantSlug);
 
     try {
-    const permissionErrorPOST = await checkPermission(request, 'staff-slots', 'create');
+    const permissionErrorPOST = await checkPermission(request, 'staffSlots', 'create');
     if (permissionErrorPOST) return permissionErrorPOST;
         
         

@@ -116,6 +116,23 @@ const SettingsSchema = new mongoose.Schema({
         type: String,
         default: '21:00'
     },
+    // WA Message Templates
+    waTemplateStockAlert: {
+        type: String,
+        default: '⚠️ *Notifikasi Stok Rendah — {{storeName}}*\n\nAda {{count}} produk yang stoknya hampir habis:\n\n{{productList}}\n\nSegera lakukan restok! 📦'
+    },
+    waTemplateDailyReport: {
+        type: String,
+        default: '📊 *Laporan Harian — {{storeName}}*\n📅 {{date}}\n\n💰 Total Pendapatan: Rp{{totalAmount}}\n🧾 Jumlah Transaksi: {{totalTransactions}}\n👥 Pelanggan Dilayani: {{totalCustomers}}\n\nTerima kasih! 🙏'
+    },
+    waTemplateMembershipExpiry: {
+        type: String,
+        default: 'Halo {{customerName}} 👋\n\nMembership *{{membershipTier}}* Anda di *{{storeName}}* akan berakhir dalam *{{daysLeft}} hari* ({{expiryDate}}).\n\nSegera perpanjang agar tetap menikmati benefit spesial! ✨'
+    },
+    waTemplatePackageExpiry: {
+        type: String,
+        default: 'Halo {{customerName}} 👋\n\nPaket *{{packageName}}* Anda di *{{storeName}}* akan berakhir dalam *{{daysLeft}} hari* ({{expiryDate}}).\nSisa kuota: {{remainingQuota}}\n\nSegera gunakan sebelum hangus! 💆'
+    },
     // SMS Settings (Twilio)
     smsEnabled: {
         type: Boolean,

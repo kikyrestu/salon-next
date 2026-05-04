@@ -198,5 +198,8 @@ export async function POST(request: NextRequest, props: any) {
         sent: sentCount,
         failed: failedCount,
         total: customers.length,
+        failedRecipients: recipients
+            .filter((r: any) => r.status === 'failed')
+            .map((r: any) => ({ phone: r.phone, error: r.error || 'Unknown error' })),
     });
 }

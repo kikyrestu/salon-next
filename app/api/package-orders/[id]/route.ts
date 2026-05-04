@@ -57,6 +57,7 @@ export async function PATCH(request: NextRequest, props: any) {
         packageName: order.packageSnapshot?.name || 'Package',
         order: order._id,
         activatedAt: new Date(),
+        ...(order.packageSnapshot?.validityDays ? { expiresAt: new Date(Date.now() + order.packageSnapshot.validityDays * 24 * 60 * 60 * 1000) } : {}),
         status: 'active',
         serviceQuotas: (order.packageSnapshot?.items || []).map((item: { service: import('mongoose').Types.ObjectId; serviceName: string; quota: number }) => ({
           service: item.service,

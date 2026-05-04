@@ -17,7 +17,7 @@ export default function DashboardLayout({
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile state
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Desktop state
     const pathname = usePathname();
-    const isPosPage = pathname === "/pos";
+    const isPosPage = pathname === "/pos" || pathname?.endsWith("/pos");
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
     const toggleCollapse = () => setIsSidebarCollapsed(!isSidebarCollapsed);

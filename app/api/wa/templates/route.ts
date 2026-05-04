@@ -8,7 +8,7 @@ export async function GET(request: NextRequest, props: any) {
     const { WaTemplate } = await getTenantModels(tenantSlug);
 
     try {
-        const permissionError = await checkPermission(request, 'services', 'view');
+        const permissionError = await checkPermission(request, 'waTemplates', 'view');
         if (permissionError) return permissionError;
 
         
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest, props: any) {
     const { WaTemplate } = await getTenantModels(tenantSlug);
 
     try {
-        const permissionError = await checkPermission(request, 'services', 'create');
+        const permissionError = await checkPermission(request, 'waTemplates', 'create');
         if (permissionError) return permissionError;
 
         

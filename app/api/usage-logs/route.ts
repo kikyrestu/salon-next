@@ -1,10 +1,5 @@
 import { getTenantModels } from "@/lib/tenantDb";
-
 import { NextRequest, NextResponse } from "next/server";
-
-
-
-
 import { checkPermission } from "@/lib/rbac";
 import { validateAndSanitize, validationErrorResponse } from "@/lib/validation";
 import { logActivity } from "@/lib/logger";
@@ -14,11 +9,8 @@ export async function POST(request: NextRequest, props: any) {
     const { UsageLog, Product, Staff } = await getTenantModels(tenantSlug);
 
     try {
-        
-        
-
         // Security Check
-        const permissionError = await checkPermission(request, 'usage-logs', 'create');
+        const permissionError = await checkPermission(request, 'usageLogs', 'create');
         if (permissionError) return permissionError;
 
         const body = await request.json();
@@ -67,13 +59,13 @@ export async function POST(request: NextRequest, props: any) {
     }
 }
 
-export async function GET(request: Request, props: any) {
+export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { UsageLog, Product, Staff } = await getTenantModels(tenantSlug);
 
     try {
-        
-        
+        const permissionError = await checkPermission(request, 'usageLogs', 'view');
+        if (permissionError) return permissionError;
 
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get("page") || "1");

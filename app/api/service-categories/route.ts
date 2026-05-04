@@ -9,7 +9,7 @@ export async function GET(request: NextRequest, props: any) {
     const { ServiceCategory } = await getTenantModels(tenantSlug);
 
     try {
-    const permissionErrorGET = await checkPermission(request, 'service-categories', 'view');
+    const permissionErrorGET = await checkPermission(request, 'services', 'view');
     if (permissionErrorGET) return permissionErrorGET;
         
         const categories = await ServiceCategory.find({ status: "active" }).sort({ name: 1 });
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest, props: any) {
     const { ServiceCategory } = await getTenantModels(tenantSlug);
 
     try {
-    const permissionErrorPOST = await checkPermission(request, 'service-categories', 'create');
+    const permissionErrorPOST = await checkPermission(request, 'services', 'create');
     if (permissionErrorPOST) return permissionErrorPOST;
         
         const body = await request.json();

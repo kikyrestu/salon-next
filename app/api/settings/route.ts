@@ -40,7 +40,21 @@ export async function GET(request: NextRequest, props: any) {
                     website: settings.website,
                     businessHours: settings.businessHours,
                     currency: settings.currency,
-                    timezone: settings.timezone
+                    timezone: settings.timezone,
+                    taxRate: settings.taxRate,
+                    memberDiscountType: settings.memberDiscountType,
+                    memberDiscountValue: settings.memberDiscountValue,
+                    memberIncludedServices: settings.memberIncludedServices,
+                    memberIncludedProducts: settings.memberIncludedProducts,
+                    memberIncludedBundles: settings.memberIncludedBundles,
+                    loyaltyPointValue: settings.loyaltyPointValue,
+                    referralRewardPoints: settings.referralRewardPoints,
+                    referralDiscountType: settings.referralDiscountType,
+                    referralDiscountValue: settings.referralDiscountValue,
+                    showCommissionInPOS: settings.showCommissionInPOS,
+                    walletIncludedServices: settings.walletIncludedServices,
+                    walletIncludedProducts: settings.walletIncludedProducts,
+                    walletIncludedBundles: settings.walletIncludedBundles
                 }
             });
         }

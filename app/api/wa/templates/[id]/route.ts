@@ -8,7 +8,7 @@ export async function PUT(request: NextRequest, props: any) {
     const { WaTemplate } = await getTenantModels(tenantSlug);
 
     try {
-        const permissionError = await checkPermission(request, 'services', 'edit');
+        const permissionError = await checkPermission(request, 'waTemplates', 'edit');
         if (permissionError) return permissionError;
 
         
@@ -67,7 +67,7 @@ export async function DELETE(request: NextRequest, props: any) {
     const { WaTemplate } = await getTenantModels(tenantSlug);
 
     try {
-        const permissionError = await checkPermission(request, 'services', 'delete');
+        const permissionError = await checkPermission(request, 'waTemplates', 'delete');
         if (permissionError) return permissionError;
 
         

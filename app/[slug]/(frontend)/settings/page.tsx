@@ -56,6 +56,10 @@ interface Settings {
     membershipExpiryReminderDays: number;
     packageExpiryReminderDays: number;
     dailyReportTime: string;
+    waTemplateStockAlert: string;
+    waTemplateDailyReport: string;
+    waTemplateMembershipExpiry: string;
+    waTemplatePackageExpiry: string;
 
     // SMS Settings
     smsEnabled: boolean;
@@ -131,6 +135,10 @@ export default function SettingsPage() {
         membershipExpiryReminderDays: 30,
         packageExpiryReminderDays: 30,
         dailyReportTime: "21:00",
+        waTemplateStockAlert: "",
+        waTemplateDailyReport: "",
+        waTemplateMembershipExpiry: "",
+        waTemplatePackageExpiry: "",
         // SMS Settings
         smsEnabled: false,
         twilioAccountSid: "",
@@ -262,6 +270,10 @@ export default function SettingsPage() {
                     membershipExpiryReminderDays: data.data.membershipExpiryReminderDays || 30,
                     packageExpiryReminderDays: data.data.packageExpiryReminderDays || 30,
                     dailyReportTime: data.data.dailyReportTime || "21:00",
+                    waTemplateStockAlert: data.data.waTemplateStockAlert || "",
+                    waTemplateDailyReport: data.data.waTemplateDailyReport || "",
+                    waTemplateMembershipExpiry: data.data.waTemplateMembershipExpiry || "",
+                    waTemplatePackageExpiry: data.data.waTemplatePackageExpiry || "",
                     // SMS Settings
                     smsEnabled: data.data.smsEnabled || false,
                     twilioAccountSid: data.data.twilioAccountSid || "",
@@ -1138,6 +1150,66 @@ export default function SettingsPage() {
                                 min="1"
                                 placeholder="30"
                             />
+                        </div>
+                        {/* WA Message Templates */}
+                        <div className="border-t border-gray-200 pt-4 mt-4">
+                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                📝 Template Pesan Otomatis
+                            </h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                        Template Stock Alert → Admin
+                                        <span className="text-gray-400 font-normal ml-1">Variabel: {"{{storeName}}"}, {"{{count}}"}, {"{{productList}}"}</span>
+                                    </label>
+                                    <textarea
+                                        value={settings.waTemplateStockAlert}
+                                        onChange={(e) => setSettings({ ...settings, waTemplateStockAlert: e.target.value })}
+                                        rows={4}
+                                        placeholder="⚠️ *Notifikasi Stok Rendah — {{storeName}}*..."
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                        Template Daily Report → Owner
+                                        <span className="text-gray-400 font-normal ml-1">Variabel: {"{{storeName}}"}, {"{{date}}"}, {"{{totalAmount}}"}, {"{{totalTransactions}}"}, {"{{totalCustomers}}"}</span>
+                                    </label>
+                                    <textarea
+                                        value={settings.waTemplateDailyReport}
+                                        onChange={(e) => setSettings({ ...settings, waTemplateDailyReport: e.target.value })}
+                                        rows={4}
+                                        placeholder="📊 *Laporan Harian — {{storeName}}*..."
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                        Template Membership Expiry → Customer
+                                        <span className="text-gray-400 font-normal ml-1">Variabel: {"{{customerName}}"}, {"{{membershipTier}}"}, {"{{storeName}}"}, {"{{daysLeft}}"}, {"{{expiryDate}}"}</span>
+                                    </label>
+                                    <textarea
+                                        value={settings.waTemplateMembershipExpiry}
+                                        onChange={(e) => setSettings({ ...settings, waTemplateMembershipExpiry: e.target.value })}
+                                        rows={4}
+                                        placeholder="Halo {{customerName}} 👋, Membership Anda..."
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                        Template Package Expiry → Customer
+                                        <span className="text-gray-400 font-normal ml-1">Variabel: {"{{customerName}}"}, {"{{packageName}}"}, {"{{storeName}}"}, {"{{daysLeft}}"}, {"{{expiryDate}}"}, {"{{remainingQuota}}"}</span>
+                                    </label>
+                                    <textarea
+                                        value={settings.waTemplatePackageExpiry}
+                                        onChange={(e) => setSettings({ ...settings, waTemplatePackageExpiry: e.target.value })}
+                                        rows={4}
+                                        placeholder="Halo {{customerName}} 👋, Paket {{packageName}}..."
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                                    />
+                                </div>
+                            </div>
                         </div>
                         <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                             <p className="text-xs text-green-800">

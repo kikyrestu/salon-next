@@ -55,6 +55,20 @@ export interface IInvoice extends Document {
   followUpPhoneNumber?: string;
   sourceType: "normal_sale" | "package_redeem" | "package_purchase" | "membership_purchase";
   date: Date;
+  discountBreakdown?: {
+    manual: number;
+    manualReason?: string;
+    loyalty: number;
+    referral: number;
+    voucher: number;
+  };
+  packageUsage?: {
+    itemName: string;
+    packageName: string;
+    usedQuantity: number;
+    remainingQuota: number;
+    expiryDate?: Date;
+  }[];
 }
 
 const ALLOWED_SPLIT_ERROR = 0.01;
@@ -181,6 +195,22 @@ const invoiceSchema = new Schema<IInvoice>(
       default: "normal_sale",
     },
     date: { type: Date, default: Date.now },
+    discountBreakdown: {
+      manual: { type: Number, default: 0 },
+      manualReason: { type: String },
+      loyalty: { type: Number, default: 0 },
+      referral: { type: Number, default: 0 },
+      voucher: { type: Number, default: 0 },
+    },
+    packageUsage: [
+      {
+        itemName: String,
+        packageName: String,
+        usedQuantity: Number,
+        remainingQuota: Number,
+        expiryDate: Date,
+      }
+    ],
   },
   { timestamps: true },
 );

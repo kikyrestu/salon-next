@@ -8,7 +8,7 @@ export async function PUT(request: NextRequest, props: any) {
     const { ServiceCategory } = await getTenantModels(tenantSlug);
 
     try {
-    const permissionErrorPUT = await checkPermission(request, 'service-categories', 'edit');
+    const permissionErrorPUT = await checkPermission(request, 'services', 'edit');
     if (permissionErrorPUT) return permissionErrorPUT;
         
         const { id } = await props.params;
@@ -31,7 +31,7 @@ export async function DELETE(request: NextRequest, props: any) {
     const { ServiceCategory } = await getTenantModels(tenantSlug);
 
     try {
-    const permissionErrorDELETE = await checkPermission(request, 'service-categories', 'delete');
+    const permissionErrorDELETE = await checkPermission(request, 'services', 'delete');
     if (permissionErrorDELETE) return permissionErrorDELETE;
         
         const { id } = await props.params;

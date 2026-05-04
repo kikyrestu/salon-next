@@ -152,6 +152,30 @@ export default function PrintInvoicePage() {
                     </tbody>
                 </table>
 
+                {/* Package Usage Section */}
+                {invoice.packageUsage && invoice.packageUsage.length > 0 && (
+                    <div className="border-t border-dashed border-gray-400 py-3 mt-4 space-y-2">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Package Usage Detail</p>
+                        {invoice.packageUsage.map((pkg: any, idx: number) => (
+                            <div key={idx} className="bg-gray-50 p-2 rounded text-[11px] text-gray-700">
+                                <div className="flex justify-between font-bold mb-0.5 text-[12px] text-gray-900">
+                                    <span>{pkg.itemName}</span>
+                                    <span className="text-blue-700 bg-blue-100 px-1 rounded">{pkg.usedQuantity}x Dipakai</span>
+                                </div>
+                                <div className="flex justify-between text-[10px] text-gray-500">
+                                    <span>Paket: {pkg.packageName}</span>
+                                    <span>Sisa Kuota: <strong className="text-emerald-700 font-bold bg-emerald-100 px-1 rounded">{pkg.remainingQuota}</strong></span>
+                                </div>
+                                {pkg.expiryDate && (
+                                    <div className="text-[9px] text-gray-400 mt-1">
+                                        Berlaku s/d: {new Date(pkg.expiryDate).toLocaleDateString('id-ID')}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
                 {/* Summary Section */}
                 <div className="border-t-2 border-gray-900 pt-6 space-y-3 text-sm">
                     <div className="flex justify-between items-center text-gray-600">
@@ -159,9 +183,39 @@ export default function PrintInvoicePage() {
                         <span className="font-bold">{currencySymbol}{invoice.subtotal.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                     </div>
                     {invoice.discount > 0 && (
-                        <div className="flex justify-between items-center text-red-600">
-                            <span className="font-medium">Total Discount</span>
-                            <span className="font-bold">-{currencySymbol}{invoice.discount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                        <div className="flex flex-col text-red-600">
+                            <div className="flex justify-between items-center">
+                                <span className="font-medium">Total Discount</span>
+                                <span className="font-bold">-{currencySymbol}{invoice.discount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                            </div>
+                            {invoice.discountBreakdown && (
+                                <div className="ml-2 mt-1 space-y-0.5 border-l border-red-200 pl-2">
+                                    {invoice.discountBreakdown.manual > 0 && (
+                                        <div className="flex justify-between text-[11px] text-red-500">
+                                            <span>Manual ({invoice.discountBreakdown.manualReason || 'Discount'})</span>
+                                            <span>-{currencySymbol}{invoice.discountBreakdown.manual.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                        </div>
+                                    )}
+                                    {invoice.discountBreakdown.loyalty > 0 && (
+                                        <div className="flex justify-between text-[11px] text-red-500">
+                                            <span>Loyalty Points</span>
+                                            <span>-{currencySymbol}{invoice.discountBreakdown.loyalty.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                        </div>
+                                    )}
+                                    {invoice.discountBreakdown.referral > 0 && (
+                                        <div className="flex justify-between text-[11px] text-red-500">
+                                            <span>Referral Promo</span>
+                                            <span>-{currencySymbol}{invoice.discountBreakdown.referral.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                        </div>
+                                    )}
+                                    {invoice.discountBreakdown.voucher > 0 && (
+                                        <div className="flex justify-between text-[11px] text-red-500">
+                                            <span>Voucher</span>
+                                            <span>-{currencySymbol}{invoice.discountBreakdown.voucher.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
                     {settings?.showTaxAndTaxableAmountOnReceipt !== false && (

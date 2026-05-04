@@ -187,6 +187,7 @@ export default function POSPage() {
   >({});
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState<"nominal" | "percentage">("percentage");
+  const [discountReason, setDiscountReason] = useState("");
   const [staffTips, setStaffTips] = useState<Record<string, number>>({});
   const [splitPayments, setSplitPayments] = useState<PaymentEntry[]>([
     { method: "", amount: "" },
@@ -1436,6 +1437,12 @@ export default function POSPage() {
         return;
       }
 
+      // Validate manual discount reason
+      if (effectiveDiscount > 0 && !discountReason.trim()) {
+        alert("Alasan diskon manual wajib diisi!");
+        return;
+      }
+
       // Validate 0 amount
       if (splitPayments.length === 1 && totalSplitPaidComputed === 0 && total > 0) {
         alert("Harap isi nominal bayar atau klik tombol 'Isi Pas'.");
@@ -1689,6 +1696,7 @@ export default function POSPage() {
 
           setCart([]);
           setDiscount(0);
+          setDiscountReason("");
           setStaffTips({});
           setSelectedCustomer("");
           setServiceStaffAssignments({});
@@ -1736,6 +1744,7 @@ export default function POSPage() {
 
           setCart([]);
           setDiscount(0);
+          setDiscountReason("");
           setStaffTips({});
           setSelectedCustomer("");
           setFollowUpPhoneNumber("");
@@ -1759,6 +1768,7 @@ export default function POSPage() {
 
           setCart([]);
           setDiscount(0);
+          setDiscountReason("");
           setStaffTips({});
           setSelectedCustomer("");
           setFollowUpPhoneNumber("");
@@ -1961,6 +1971,25 @@ export default function POSPage() {
         status: status,
         referralCode: referralCode.trim() || undefined,
         voucherId: voucherApplied?.voucherId || undefined,
+        discountBreakdown: {
+          manual: effectiveDiscount,
+          manualReason: discountReason.trim() || undefined,
+          loyalty: Math.min(loyaltyPointsToRedeem * (settings.loyaltyPointValue || 1), payableSubtotal),
+          referral: referralDiscount,
+          voucher: voucherApplied?.discountAmount || 0
+        },
+        packageUsage: cart.filter(item => item.type === "Service" && packageClaims[getCartItemKey(item._id, item.type)]?.enabled).map(item => {
+          const claim = packageClaims[getCartItemKey(item._id, item.type)];
+          const pkg = customerPackages.find(p => p._id === claim.customerPackageId);
+          const quota = pkg?.serviceQuotas.find(q => String(q.service) === String(item._id));
+          return {
+            itemName: item.name,
+            packageName: pkg?.packageId?.name || "Package",
+            usedQuantity: item.quantity,
+            remainingQuota: Math.max(0, (quota?.remainingQuota || 0) - item.quantity),
+            expiryDate: pkg?.expiryDate
+          };
+        }),
         notes:
           [
             voucherApplied
@@ -2039,6 +2068,7 @@ export default function POSPage() {
 
           setCart([]);
           setDiscount(0);
+          setDiscountReason("");
           setStaffTips({});
           setSelectedCustomer("");
           setFollowUpPhoneNumber("");
@@ -3083,6 +3113,18 @@ export default function POSPage() {
                     min="0"
                   />
                 </div>
+                {discount > 0 && (
+                  <div className="flex flex-col gap-1 mt-1">
+                    <label className="text-[10px] lg:text-xs font-semibold text-red-600">Alasan Diskon (Wajib)</label>
+                    <input
+                      type="text"
+                      value={discountReason}
+                      onChange={(e) => setDiscountReason(e.target.value)}
+                      placeholder="Contoh: Promo Spesial"
+                      className={`w-full text-[10px] lg:text-xs text-gray-900 border ${!discountReason.trim() ? "border-red-300 focus:ring-red-500" : "border-gray-300 focus:ring-blue-900"} rounded px-2 py-1 outline-none bg-white`}
+                    />
+                  </div>
+                )}
 
                 {/* ── Voucher Redemption ── */}
                 {!voucherApplied ? (

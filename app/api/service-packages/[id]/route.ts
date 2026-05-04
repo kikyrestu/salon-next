@@ -48,7 +48,7 @@ export async function GET(request: NextRequest, props: any) {
   const { ServicePackage } = await getTenantModels(tenantSlug);
 
   try {
-    const permissionError = await checkPermission(request, 'services', 'view');
+    const permissionError = await checkPermission(request, 'packages', 'view');
     if (permissionError) return permissionError;
 
     const { id } = await props.params;
@@ -68,7 +68,7 @@ export async function PUT(request: NextRequest, props: any) {
   const { ServicePackage, Service } = await getTenantModels(tenantSlug);
 
   try {
-    const permissionError = await checkPermission(request, 'services', 'edit');
+    const permissionError = await checkPermission(request, 'packages', 'edit');
     if (permissionError) return permissionError;
 
     const { id } = await props.params;
@@ -126,7 +126,7 @@ export async function DELETE(request: NextRequest, props: any) {
   const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
   const { ServicePackage } = await getTenantModels(tenantSlug);
   try {
-    const permissionError = await checkPermission(request, 'services', 'delete');
+    const permissionError = await checkPermission(request, 'packages', 'delete');
     if (permissionError) return permissionError;
 
     const { id } = await props.params;

@@ -48,7 +48,7 @@ export async function GET(request: NextRequest, props: any) {
   const { ServicePackage } = await getTenantModels(tenantSlug);
 
   try {
-    const permissionError = await checkPermission(request, 'services', 'view');
+    const permissionError = await checkPermission(request, 'packages', 'view');
     if (permissionError) return permissionError;
 
     const { searchParams } = new URL(request.url);
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest, props: any) {
   const { ServicePackage, Service } = await getTenantModels(tenantSlug);
 
   try {
-    const permissionError = await checkPermission(request, 'services', 'create');
+    const permissionError = await checkPermission(request, 'packages', 'create');
     if (permissionError) return permissionError;
 
     const body = (await request.json()) as PackageBody;

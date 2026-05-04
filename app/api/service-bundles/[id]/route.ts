@@ -41,7 +41,7 @@ export async function PUT(request: NextRequest, props: any) {
     const { ServiceBundle } = await getTenantModels(tenantSlug);
 
   try {
-    const permissionErrorPUT = await checkPermission(request, 'service-bundles', 'edit');
+    const permissionErrorPUT = await checkPermission(request, 'bundles', 'edit');
     if (permissionErrorPUT) return permissionErrorPUT;
     
     
@@ -134,7 +134,7 @@ export async function DELETE(_request: NextRequest, props: any) {
     const { ServiceBundle } = await getTenantModels(tenantSlug);
 
   try {
-    const permissionErrorDELETE = await checkPermission(_request, 'service-bundles', 'delete');
+    const permissionErrorDELETE = await checkPermission(_request, 'bundles', 'delete');
     if (permissionErrorDELETE) return permissionErrorDELETE;
     
     

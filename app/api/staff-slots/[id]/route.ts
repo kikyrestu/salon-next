@@ -10,7 +10,7 @@ export async function DELETE(request: NextRequest, props: any) {
     const { StaffSlot } = await getTenantModels(tenantSlug);
 
     try {
-    const permissionErrorDELETE = await checkPermission(request, 'staff-slots', 'delete');
+    const permissionErrorDELETE = await checkPermission(request, 'staffSlots', 'delete');
     if (permissionErrorDELETE) return permissionErrorDELETE;
         
         

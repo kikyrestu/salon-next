@@ -14,6 +14,14 @@ vi.mock('@/lib/tenantDb', () => ({
   }),
 }));
 
+vi.mock('@/auth', () => ({
+  auth: vi.fn().mockResolvedValue({ user: { id: 'test-user-id' } }),
+}));
+
+vi.mock('@/lib/rbac', () => ({
+  checkPermission: vi.fn().mockResolvedValue(null),
+}));
+
 describe('Service Bundles API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
