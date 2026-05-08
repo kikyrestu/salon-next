@@ -267,8 +267,8 @@ export default function CustomerDashboardPage() {
   const saveNotes = async () => {
     setSavingNotes(true);
     try {
-      const res = await fetch(`/api/customers/${customerId}`, {
-        method: "PUT",
+      const res = await fetch(`/api/customers/${customerId}/notes`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ preferenceNotes: notesForm }),
       });
@@ -581,11 +581,9 @@ export default function CustomerDashboardPage() {
                     <span className="text-sm font-bold text-purple-900">
                       {pkg.packageName}
                     </span>
-                    {pkg.expiresAt && (
-                      <span className="text-[10px] text-purple-500">
-                        Exp: {fmtDate(pkg.expiresAt)}
-                      </span>
-                    )}
+                    <span className="text-[10px] text-purple-500">
+                        Exp: {pkg.expiresAt ? fmtDate(pkg.expiresAt) : "Seumur Hidup"}
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-1.5">
                     {pkg.serviceQuotas.map((q, i) => (

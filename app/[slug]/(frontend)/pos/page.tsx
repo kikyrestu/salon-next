@@ -1962,7 +1962,7 @@ export default function POSPage() {
           tip: a.tip,
         })),
         staff: assignments[0]?.staffId || undefined, // Keep primary staff for compatibility
-        amountPaid: 0,
+        amountPaid: paid,
         paymentMethod, // primary method (first entry) for backward compat
         paymentMethods: splitPayments.map((p) => ({
           method: p.method,
@@ -3550,7 +3550,7 @@ export default function POSPage() {
                       Exp:{" "}
                       {deal.expiresAt
                         ? new Date(deal.expiresAt).toLocaleDateString("id-ID")
-                        : "-"}
+                        : "Seumur Hidup"}
                     </p>
                   </div>
                   <button

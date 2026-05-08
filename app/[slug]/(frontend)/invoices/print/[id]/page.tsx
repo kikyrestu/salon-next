@@ -295,7 +295,17 @@ export default function PrintInvoicePage() {
                 <div className="mt-10 text-center space-y-4">
                     <div className="flex flex-col items-center gap-1">
                         <p className="text-[10px] text-gray-500 uppercase tracking-widest">Payment Method</p>
-                        <p className="font-bold text-sm bg-gray-100 px-3 py-1 rounded-full uppercase">{invoice.paymentMethod || 'Cash'}</p>
+                        {invoice.paymentMethods && invoice.paymentMethods.length > 1 ? (
+                            <div className="flex flex-col items-center gap-1">
+                                {invoice.paymentMethods.map((pm: any, i: number) => (
+                                    <p key={i} className="font-bold text-sm bg-gray-100 px-3 py-1 rounded-full uppercase">
+                                        {pm.method}: {currencySymbol}{pm.amount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                                    </p>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="font-bold text-sm bg-gray-100 px-3 py-1 rounded-full uppercase">{invoice.paymentMethod || 'Cash'}</p>
+                        )}
                     </div>
 
                     <div className="pt-6 relative">
