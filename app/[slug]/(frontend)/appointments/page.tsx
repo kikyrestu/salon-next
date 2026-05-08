@@ -189,7 +189,7 @@ export default function AppointmentsPage() {
     const [staffRes, serviceRes, customerRes] = await Promise.all([
       fetch("/api/staff"),
       fetch("/api/services"),
-      fetch("/api/customers"),
+      fetch("/api/customers?limit=1000"),
     ]);
     const staffData = await staffRes.json();
     const serviceData = await serviceRes.json();
