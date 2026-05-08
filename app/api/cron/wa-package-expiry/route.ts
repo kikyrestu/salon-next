@@ -73,7 +73,7 @@ export async function GET(request: NextRequest, props: any) {
                 errors.push(`${customer.name}: ${err.message}`);
             }
 
-            await new Promise((r) => setTimeout(r, 500));
+            await new Promise((r) => setTimeout(r, 10000));
         }
 
         return NextResponse.json({
