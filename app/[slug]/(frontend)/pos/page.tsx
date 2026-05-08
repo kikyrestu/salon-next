@@ -521,7 +521,7 @@ export default function POSPage() {
         fetch("/api/products?limit=1000"),
         fetch("/api/service-packages?active=true"),
         fetch("/api/service-bundles"),
-        fetch("/api/customers?limit=1000"),
+        fetch("/api/customers?limit=0"),
         fetch("/api/staff?limit=1000"),
       ]);
 

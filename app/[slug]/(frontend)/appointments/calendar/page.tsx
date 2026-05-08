@@ -93,7 +93,7 @@ export default function CalendarPage() {
         const [staffRes, serviceRes, customerRes] = await Promise.all([
             fetch("/api/staff"),
             fetch("/api/services"),
-            fetch("/api/customers?limit=1000")
+            fetch("/api/customers?limit=0")
         ]);
         const staffData = await staffRes.json();
         const serviceData = await serviceRes.json();

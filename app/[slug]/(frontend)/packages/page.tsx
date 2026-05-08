@@ -95,7 +95,7 @@ export default function PackagesPage() {
     try {
       const [serviceRes, customerRes, packageRes, orderRes] = await Promise.all([
         fetch("/api/services?limit=1000"),
-        fetch("/api/customers?limit=1000"),
+        fetch("/api/customers?limit=0"),
         fetch("/api/service-packages"),
         fetch("/api/package-orders"),
       ]);

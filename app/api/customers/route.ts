@@ -61,8 +61,9 @@ export async function GET(request: NextRequest, props: any) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
-    const skip = (page - 1) * limit;
+    const limitParam = parseInt(searchParams.get("limit") || "50");
+    const limit = limitParam === 0 ? 0 : limitParam; // 0 = unlimited
+    const skip = limit > 0 ? (page - 1) * limit : 0;
 
     // Apply Scope
     const scope = await getViewScope("customers");
@@ -88,11 +89,11 @@ export async function GET(request: NextRequest, props: any) {
       ];
     }
 
-    const customers = await Customer.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean<CustomerListItem[]>();
+    let customerQuery = Customer.find(query).sort({ createdAt: -1 });
+    if (limit > 0) {
+      customerQuery = customerQuery.skip(skip).limit(limit);
+    }
+    const customers = await customerQuery.lean<CustomerListItem[]>();
 
     const customerIds = customers.map((customer) => customer._id);
     const packageRows =
