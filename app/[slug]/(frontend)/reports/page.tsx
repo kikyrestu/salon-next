@@ -127,7 +127,7 @@ export default function ReportsPage() {
                     fetch(`/api/invoices?startDate=${dateRange.start}&endDate=${dateRange.end}`),
                     fetch(`/api/expenses?startDate=${dateRange.start}&endDate=${dateRange.end}`),
                     fetch(`/api/appointments?start=${dateRange.start}&end=${dateRange.end}`),
-                    fetch('/api/customers'),
+                    fetch('/api/customers?limit=0'),
                     fetch('/api/products'),
                     fetch(`/api/purchases?startDate=${dateRange.start}&endDate=${dateRange.end}`)
                 ]);

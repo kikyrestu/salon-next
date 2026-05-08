@@ -183,7 +183,7 @@ export default function MembershipPage() {
   const fetchActiveMembers = async () => {
     setMembersLoading(true);
     try {
-      const res = await fetch("/api/customers?limit=999&membership=premium");
+      const res = await fetch("/api/customers?limit=0&membership=premium");
       const data = await res.json();
       if (data.success) {
         const premiums = (data.data || []).filter(

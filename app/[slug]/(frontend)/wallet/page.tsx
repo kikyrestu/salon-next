@@ -64,7 +64,7 @@ export default function WalletPage() {
     setLoading(true);
     try {
       const [custRes, walletRes] = await Promise.all([
-        fetch("/api/customers?limit=5000"),
+        fetch("/api/customers?limit=0"),
         fetch("/api/wallet"),
       ]);
       const custData = await custRes.json();
