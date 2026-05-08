@@ -144,9 +144,9 @@ export default function MembershipPage() {
   const fetchAllItems = async () => {
     try {
       const [sRes, pRes, bRes] = await Promise.all([
-        fetch("/api/services?limit=999"),
-        fetch("/api/products?limit=999"),
-        fetch("/api/service-bundles?limit=999"),
+        fetch("/api/services?limit=0"),
+        fetch("/api/products?limit=0"),
+        fetch("/api/service-bundles?limit=0"),
       ]);
       const [sData, pData, bData] = await Promise.all([sRes.json(), pRes.json(), bRes.json()]);
       if (sData.success) setAllServices((sData.data || []).map((s: any) => ({ _id: s._id, name: s.name, price: s.price, memberPrice: s.memberPrice })));
@@ -159,7 +159,7 @@ export default function MembershipPage() {
 
   const fetchVouchers = async () => {
     try {
-      const res = await fetch("/api/vouchers?limit=999");
+      const res = await fetch("/api/vouchers?limit=0");
       const data = await res.json();
       if (data.success) setVouchers((data.data || []).filter((v: Voucher) => v.isActive));
     } catch (err) {
@@ -170,7 +170,7 @@ export default function MembershipPage() {
   const fetchCustomers = async () => {
     setCustomerLoading(true);
     try {
-      const res = await fetch(`/api/customers?search=${encodeURIComponent(customerSearch)}&limit=10`);
+      const res = await fetch(`/api/customers?search=${encodeURIComponent(customerSearch)}&limit=0`);
       const data = await res.json();
       if (data.success) setCustomers(data.data || []);
     } catch (err) {
