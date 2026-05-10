@@ -52,6 +52,5 @@ next-env.d.ts
 secret_api_key xendit.csv
 xendit api key.txt
 
-# project docs & github config
+# project docs
 /docs
-.github/

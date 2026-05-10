@@ -1,0 +1,38 @@
+name: Code Audit and Testing
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  audit-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Security Audit
+      run: npm audit --audit-level=moderate
+      continue-on-error: true # Don't fail the build just yet for vulnerabilities, just report them
+
+    - name: Run Linter
+      run: npm run lint
+      continue-on-error: true # Allow linting issues to pass for now, we want to focus on unit tests
+
+    - name: Run Unit Tests
+      run: npm run test
