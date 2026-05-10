@@ -517,12 +517,12 @@ export default function POSPage() {
         customerRes,
         staffRes,
       ] = await Promise.all([
-        fetch("/api/services?limit=1000"),
-        fetch("/api/products?limit=1000"),
+        fetch("/api/services?limit=0"),
+        fetch("/api/products?limit=0"),
         fetch("/api/service-packages?active=true"),
         fetch("/api/service-bundles"),
         fetch("/api/customers?limit=0"),
-        fetch("/api/staff?limit=1000"),
+        fetch("/api/staff?limit=0"),
       ]);
 
       const sData = await serviceRes.json();

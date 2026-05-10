@@ -20,7 +20,9 @@ export async function GET(request: NextRequest, props: any) {
         
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get("page") || "1");
-        const limit = parseInt(searchParams.get("limit") || "10");
+        const limitParam = parseInt(searchParams.get("limit") || "10");
+        const limit = limitParam === 0 ? 0 : limitParam;
+        const skip = limit > 0 ? (page - 1) * limit : 0;
         const search = searchParams.get("search");
 
         const query: any = { status: "active" };
@@ -29,10 +31,11 @@ export async function GET(request: NextRequest, props: any) {
         }
 
         const total = await Product.countDocuments(query);
-        const products = await Product.find(query)
-            .sort({ name: 1 })
-            .skip((page - 1) * limit)
-            .limit(limit);
+        let productQuery = Product.find(query).sort({ name: 1 });
+        if (limit > 0) {
+            productQuery = productQuery.skip(skip).limit(limit);
+        }
+        const products = await productQuery;
 
         return NextResponse.json({
             success: true,

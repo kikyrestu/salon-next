@@ -16,8 +16,9 @@ export async function GET(request: NextRequest, props: any) {
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search");
         const page = parseInt(searchParams.get("page") || "1");
-        const limit = parseInt(searchParams.get("limit") || "10");
-        const skip = (page - 1) * limit;
+        const limitParam = parseInt(searchParams.get("limit") || "10");
+        const limit = limitParam === 0 ? 0 : limitParam;
+        const skip = limit > 0 ? (page - 1) * limit : 0;
 
         const query: any = { isActive: true };
         if (search) {
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest, props: any) {
         }
 
         const [staffMembers, total] = await Promise.all([
-            Staff.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+            limit > 0 ? Staff.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit) : Staff.find(query).sort({ createdAt: -1 }),
             Staff.countDocuments(query)
         ]);
 

@@ -50,7 +50,9 @@ export async function GET(request: NextRequest, props: any) {
 
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get("page") || "1");
-        const limit = parseInt(searchParams.get("limit") || "10");
+        const limitParam = parseInt(searchParams.get("limit") || "10");
+        const limit = limitParam === 0 ? 0 : limitParam;
+        const skip = limit > 0 ? (page - 1) * limit : 0;
         const categoryId = searchParams.get("category");
         const search = searchParams.get("search");
 
@@ -61,11 +63,11 @@ export async function GET(request: NextRequest, props: any) {
         }
 
         const total = await Service.countDocuments(query);
-        const services = await Service.find(query)
-            .populate("category", "name")
-            .sort({ name: 1 })
-            .skip((page - 1) * limit)
-            .limit(limit);
+        let serviceQuery = Service.find(query).populate("category", "name").sort({ name: 1 });
+        if (limit > 0) {
+            serviceQuery = serviceQuery.skip(skip).limit(limit);
+        }
+        const services = await serviceQuery;
 
         return NextResponse.json({
             success: true,

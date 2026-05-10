@@ -13,7 +13,9 @@ export async function GET(request: NextRequest, props: any) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limitParam = parseInt(searchParams.get("limit") || "20");
+    const limit = limitParam === 0 ? 0 : limitParam;
+    const skip = limit > 0 ? (page - 1) * limit : 0;
     const search = searchParams.get("search") || "";
 
     const query: any = {};
@@ -22,10 +24,11 @@ export async function GET(request: NextRequest, props: any) {
     }
 
     const total = await Voucher.countDocuments(query);
-    const vouchers = await Voucher.find(query)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    let voucherQuery = Voucher.find(query).sort({ createdAt: -1 });
+    if (limit > 0) {
+      voucherQuery = voucherQuery.skip(skip).limit(limit);
+    }
+    const vouchers = await voucherQuery;
 
     return NextResponse.json({
       success: true,
