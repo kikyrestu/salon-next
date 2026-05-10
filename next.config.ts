@@ -4,9 +4,7 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    instrumentationHook: true,
-  },
+
   async headers() {
     return [
       {
