@@ -77,6 +77,7 @@ interface Customer {
   membershipTier?: string;
   membershipExpiry?: string;
   loyaltyPoints?: number;
+  walletBalance?: number;
   referredBy?: string | object;
   packageSummary?: {
     activePackages?: number;
@@ -398,15 +399,19 @@ export default function POSPage() {
     const customer = customers.find((entry) => entry._id === selectedCustomer);
     setFollowUpPhoneNumber(String(customer?.phone || "").trim());
 
-    // Fetch customer loyalty points
+    // Fetch customer loyalty points & wallet balance
     fetch(`/api/customers/${selectedCustomer}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
           setCustomerLoyaltyPoints(Number(data.data?.loyaltyPoints || 0));
+          setCustomerWalletBalance(Number(data.data?.walletBalance || 0));
         }
       })
-      .catch(() => setCustomerLoyaltyPoints(0));
+      .catch(() => {
+        setCustomerLoyaltyPoints(0);
+        setCustomerWalletBalance(0);
+      });
 
     // Check if customer is a first-timer (no paid invoices)
     fetch(`/api/invoices?customerId=${selectedCustomer}&status=paid&limit=1`)
