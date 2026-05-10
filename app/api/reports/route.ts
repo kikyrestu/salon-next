@@ -243,6 +243,30 @@ export async function GET(request: NextRequest, props: any) {
                 };
                 break;
 
+            case "wallet":
+                const { WalletTransaction } = await getTenantModels(tenantSlug);
+                const walletTxs = await WalletTransaction.find({
+                    createdAt: { $gte: start, $lte: end }
+                }).populate('customer', 'name').lean();
+
+                let totalTopUp = 0;
+                let totalUsage = 0;
+
+                walletTxs.forEach((tx: any) => {
+                    if (tx.type === 'topup' || tx.type === 'bonus' || tx.type === 'refund') {
+                        totalTopUp += tx.amount;
+                    } else if (tx.type === 'payment') {
+                        totalUsage += tx.amount;
+                    }
+                });
+
+                data = {
+                    totalTopUp,
+                    totalUsage,
+                    transactions: walletTxs
+                };
+                break;
+
             default:
                 return NextResponse.json({ success: false, error: "Invalid report type" }, { status: 400 });
         }

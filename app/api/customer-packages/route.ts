@@ -23,7 +23,15 @@ export async function GET(request: NextRequest, props: any) {
       return NextResponse.json({ success: false, error: 'Valid customerId is required' }, { status: 400 });
     }
 
-    const packages = await CustomerPackage.find({ customer: customerId, status: { $in: ['active', 'depleted'] } })
+    const packages = await CustomerPackage.find({ 
+      customer: customerId, 
+      status: { $in: ['active', 'depleted'] },
+      $or: [
+        { expiresAt: { $exists: false } },
+        { expiresAt: null },
+        { expiresAt: { $gt: new Date() } }
+      ]
+    })
       .populate('package', 'name code')
       .sort({ activatedAt: -1 });
 

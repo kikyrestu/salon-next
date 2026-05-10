@@ -164,9 +164,10 @@ export default function CustomerDashboardPage() {
   // UI state
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
-    "invoices" | "packages" | "photos" | "notes"
+    "invoices" | "packages" | "photos" | "notes" | "wallet"
   >("invoices");
   const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
+  const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
   const [copied, setCopied] = useState(false);
 
   // Edit notes modal
@@ -227,6 +228,12 @@ export default function CustomerDashboardPage() {
     if (data.success) setPhotos(data.data || []);
   }, [customerId]);
 
+  const fetchWalletHistory = useCallback(async () => {
+    const res = await fetch(`/api/customers/${customerId}/wallet`);
+    const data = await res.json();
+    if (data.success) setWalletTransactions(data.data || []);
+  }, [customerId]);
+
   const fetchLoyaltyHistory = useCallback(async () => {
     setLoadingLoyalty(true);
     try {
@@ -247,6 +254,7 @@ export default function CustomerDashboardPage() {
       fetchPackages(),
       fetchPhotos(),
       fetchLoyaltyHistory(),
+      fetchWalletHistory(),
     ]).finally(() => setLoading(false));
   }, [customerId, fetchCustomer, fetchHistory, fetchPackages, fetchPhotos, fetchLoyaltyHistory]);
 
@@ -607,11 +615,12 @@ export default function CustomerDashboardPage() {
         {/* ── Tab Content ── */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
           {/* Tabs */}
-          <div className="flex border-b border-gray-200 px-4 pt-1">
+          <div className="flex border-b border-gray-200 px-4 pt-1 overflow-x-auto whitespace-nowrap hide-scrollbar">
             {(
               [
                 { id: "invoices", label: "Riwayat Invoice", count: invoices.length },
                 { id: "packages", label: "Riwayat Paket", count: packageOrders.length },
+                { id: "wallet", label: "Riwayat Wallet", count: walletTransactions.length },
                 { id: "photos", label: "Before & After", count: photos.length },
                 { id: "notes", label: "Catatan Preferensi", count: null },
               ] as const
@@ -931,6 +940,65 @@ export default function CustomerDashboardPage() {
                     </p>
                     <p className="text-sm text-gray-700">{customer.notes}</p>
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Wallet Tab ── */}
+            {activeTab === "wallet" && (
+              <div className="space-y-3">
+                {walletTransactions.length === 0 ? (
+                  <div className="text-center py-10 text-gray-400">
+                    <Wallet className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                    <p className="text-sm">Belum ada riwayat wallet</p>
+                  </div>
+                ) : (
+                  walletTransactions.map((trx) => (
+                    <div
+                      key={trx._id}
+                      className="border border-gray-200 rounded-lg p-3 bg-white flex justify-between items-center"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span
+                            className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${trx.type === "topup"
+                              ? "bg-green-100 text-green-700"
+                              : trx.type === "payment"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-blue-100 text-blue-700"
+                              }`}
+                          >
+                            {trx.type}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {fmtDate(trx.createdAt)}
+                          </span>
+                        </div>
+                        <p className="text-sm font-bold text-gray-900">
+                          {trx.description}
+                        </p>
+                        {trx.invoice?.invoiceNumber && (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Invoice: {trx.invoice.invoiceNumber}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p
+                          className={`text-sm font-black ${trx.type === "topup" || trx.type === "bonus" || trx.type === "refund"
+                            ? "text-green-600"
+                            : "text-red-600"
+                            }`}
+                        >
+                          {trx.type === "topup" || trx.type === "bonus" || trx.type === "refund" ? "+" : "-"}
+                          {fmt(trx.amount, settings.symbol)}
+                        </p>
+                        <p className="text-[10px] text-gray-500 mt-0.5 font-semibold">
+                          Saldo: {fmt(trx.balanceAfter, settings.symbol)}
+                        </p>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             )}

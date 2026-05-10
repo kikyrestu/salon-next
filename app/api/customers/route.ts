@@ -101,6 +101,11 @@ export async function GET(request: NextRequest, props: any) {
         ? await CustomerPackage.find({
             customer: { $in: customerIds },
             status: { $in: ["active", "depleted"] },
+            $or: [
+              { expiresAt: { $exists: false } },
+              { expiresAt: null },
+              { expiresAt: { $gt: new Date() } }
+            ]
           })
             .select("customer status serviceQuotas packageName activatedAt")
             .lean<CustomerPackageRow[]>()

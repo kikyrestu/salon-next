@@ -1351,9 +1351,7 @@ export default function POSPage() {
     const maxWalletAllowedSubtotal = cart.reduce((sum, item) => {
       if (item.type === "Service" && packageClaims[getCartItemKey(item._id, item.type)]?.enabled) return sum;
       let isAllowed = false;
-      if (item.type === "Service" && settings.walletIncludedServices?.includes(item._id)) isAllowed = true;
-      if (item.type === "Product" && settings.walletIncludedProducts?.includes(item._id)) isAllowed = true;
-      if (item.type === "Bundle" && settings.walletIncludedBundles?.includes(item._id)) isAllowed = true;
+      if (["Service", "Product", "Bundle", "Package"].includes(item.type)) isAllowed = true;
       if (isAllowed) return sum + getEffectivePrice(item) * item.quantity;
       return sum;
     }, 0);

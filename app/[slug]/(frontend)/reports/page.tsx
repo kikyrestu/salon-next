@@ -25,7 +25,8 @@ import {
     Shield,
     X,
     Eye,
-    Clock
+    Clock,
+    Wallet
 } from "lucide-react";
 import { format, subMonths, isValid } from "date-fns";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
@@ -35,7 +36,7 @@ import { getCurrentDateInTimezone, getMonthDateRangeInTimezone } from "@/lib/dat
 import { useSession } from "next-auth/react";
 import { useTenantRouter } from "@/hooks/useTenantRouter";
 
-type ReportType = 'summary' | 'sales' | 'services' | 'products' | 'staff' | 'customers' | 'inventory' | 'expenses' | 'profit' | 'daily' | 'activity-log';
+type ReportType = 'summary' | 'sales' | 'services' | 'products' | 'staff' | 'customers' | 'inventory' | 'expenses' | 'profit' | 'daily' | 'activity-log' | 'wallet';
 
 export default function ReportsPage() {
     const { settings } = useSettings();
@@ -110,6 +111,7 @@ export default function ReportsPage() {
         ...(isKasir ? [] : [{ id: 'staff' as ReportType, label: 'Staff Performance', icon: Users }]),
         { id: 'expenses', label: 'Expense Tracking', icon: ShoppingBag },
         { id: 'profit', label: 'Profit & Loss', icon: TrendingUp },
+        { id: 'wallet', label: 'E-Wallet Activity', icon: Wallet },
         { id: 'activity-log', label: 'System Audit', icon: Shield },
     ];
 
@@ -890,6 +892,41 @@ export default function ReportsPage() {
                             <TrendingUp className="w-16 h-16 text-blue-400 mb-6 animate-pulse" />
                             <h4 className="text-xl font-bold mb-2">Growth Forecast</h4>
                             <p className="text-gray-400 text-sm">Our AI models are processing your salon's patterns to provide next month's projections.</p>
+                        </div>
+                    </div>
+                );
+            case 'wallet':
+                return (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="bg-white p-5 sm:p-8 rounded-xl shadow-sm border border-gray-100 lg:col-span-1 space-y-6">
+                            <h3 className="text-xl font-bold text-gray-900 mb-6 border-b pb-4">E-Wallet Summary</h3>
+                            <div className="bg-green-50 rounded-2xl p-6 border border-green-100">
+                                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-green-800">Total Top-Up Masuk</span>
+                                <p className="text-2xl sm:text-3xl font-black text-green-600 mt-2">{formatCurrency(reportData?.totalTopUp)}</p>
+                            </div>
+                            <div className="bg-red-50 rounded-2xl p-6 border border-red-100">
+                                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-red-800">Total Terpakai (Payment)</span>
+                                <p className="text-2xl sm:text-3xl font-black text-red-600 mt-2">-{formatCurrency(reportData?.totalUsage)}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden lg:col-span-2">
+                            {(!reportData?.transactions || reportData.transactions.length === 0) ? (
+                                <div className="text-center py-20 text-gray-400">
+                                    <Wallet className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                                    <p className="text-sm">Tidak ada transaksi wallet di periode ini</p>
+                                </div>
+                            ) : (
+                                renderTable(
+                                    ['Date', 'Customer', 'Type', 'Amount', 'Description'],
+                                    reportData.transactions.map((t: any) => ({
+                                        date: formatSafeDate(t.createdAt),
+                                        customer: t.customer?.name || '-',
+                                        type: <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${t.type === 'topup' || t.type === 'bonus' || t.type === 'refund' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{t.type}</span>,
+                                        amount: <span className={`font-bold ${t.type === 'topup' || t.type === 'bonus' || t.type === 'refund' ? 'text-green-600' : 'text-red-600'}`}>{t.type === 'topup' || t.type === 'bonus' || t.type === 'refund' ? '+' : '-'}{formatCurrency(t.amount)}</span>,
+                                        description: t.description
+                                    }))
+                                )
+                            )}
                         </div>
                     </div>
                 );

@@ -394,16 +394,18 @@ export default function InvoicesPage() {
                                                             Edit Notes
                                                         </button>
                                                         <div className="h-px bg-gray-100 my-1" />
-                                                        <button
-                                                            onClick={() => {
-                                                                handleDelete(inv._id);
-                                                                setActiveDropdown(null);
-                                                            }}
-                                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                            Delete Invoice
-                                                        </button>
+                                                        {!isKasir && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleDelete(inv._id);
+                                                                    setActiveDropdown(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                                Delete Invoice
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -469,12 +471,14 @@ export default function InvoicesPage() {
                                                         <Edit className="w-4 h-4 text-amber-600" /> Edit Notes
                                                     </button>
                                                     <div className="h-px bg-gray-100 my-1" />
-                                                    <button
-                                                        onClick={() => { handleDelete(inv._id); setActiveDropdown(null); }}
-                                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" /> Delete Invoice
-                                                    </button>
+                                                    {!isKasir && (
+                                                        <button
+                                                            onClick={() => { handleDelete(inv._id); setActiveDropdown(null); }}
+                                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" /> Delete Invoice
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
