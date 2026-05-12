@@ -21,8 +21,8 @@ export async function GET(request: NextRequest, props: any) {
         const permissionError = await checkPermission(request, 'appointments', 'view');
         if (permissionError) return permissionError;
 
-        
-        
+
+
         const { searchParams } = new URL(request.url);
 
         const page = parseInt(searchParams.get("page") || "1");
@@ -105,8 +105,8 @@ export async function POST(request: NextRequest, props: any) {
         const permissionError = await checkPermission(request, 'appointments', 'create');
         if (permissionError) return permissionError;
 
-        
-        
+
+
         const body = await request.json();
 
         if (!body.customer || !body.staff || !body.startTime || !body.services || !Array.isArray(body.services) || body.services.length === 0) {
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest, props: any) {
                 date: appointment.date || new Date()
             });
 
-            await scheduleFollowUp(createdInvoice._id);
+            await scheduleFollowUp(createdInvoice._id, tenantSlug);
         }
 
         return NextResponse.json({ success: true, data: appointment });

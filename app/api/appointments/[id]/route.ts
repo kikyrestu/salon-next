@@ -3,12 +3,6 @@ import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextRequest, NextResponse } from "next/server";
 
-
-
-
-
-
-
 import { checkPermission } from "@/lib/rbac";
 import { handleApiError } from "@/lib/errorHandler";
 import { scheduleFollowUp } from "@/lib/waFollowUp";
@@ -21,8 +15,6 @@ export async function GET(request: NextRequest, props: any) {
         const permissionError = await checkPermission(request, 'appointments', 'view');
         if (permissionError) return permissionError;
 
-        
-        
         const { id } = await props.params;
 
         const appointment = await Appointment.findById(id)
@@ -47,11 +39,9 @@ export async function PUT(request: NextRequest, props: any) {
         const permissionError = await checkPermission(request, 'appointments', 'edit');
         if (permissionError) return permissionError;
 
-        
         const { id } = await props.params;
         const body = await request.json();
 
-        
         const settings = await Settings.findOne();
         const taxRate = settings?.taxRate || 0;
 
@@ -68,7 +58,9 @@ export async function PUT(request: NextRequest, props: any) {
 
         const services = cleanBody.services || existingAppointment.services;
         const staffId = cleanBody.staff || existingAppointment.staff;
-        const discount = cleanBody.discount !== undefined ? cleanBody.discount : (existingAppointment.discount || 0);
+        const discount = cleanBody.discount !== undefined
+            ? cleanBody.discount
+            : (existingAppointment.discount || 0);
 
         const subtotal = services.reduce((acc: number, s: any) => acc + s.price, 0);
         const tax = subtotal * (taxRate / 100);
@@ -91,11 +83,15 @@ export async function PUT(request: NextRequest, props: any) {
         }, { new: true });
 
         if (appointment && (appointment.status === 'confirmed' || appointment.status === 'completed')) {
-            
+
             const existingInvoice = await Invoice.findOne({ appointment: id });
+
             if (!existingInvoice) {
                 const count = await Invoice.countDocuments();
-                const invoiceNumber = `INV-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;
+
+                const invoiceNumber = `INV-${new Date().getFullYear()}-${(count + 1)
+                    .toString()
+                    .padStart(5, '0')}`;
 
                 const createdInvoice = await Invoice.create({
                     invoiceNumber,
@@ -115,24 +111,36 @@ export async function PUT(request: NextRequest, props: any) {
                     totalAmount: appointment.totalAmount,
                     commission: totalCommission,
                     staff: appointment.staff,
-                    staffAssignments: appointment.staff ? [{
-                        staff: appointment.staff,
-                        percentage: 100,
-                        porsiPersen: 100,  // ✅ FIX
-                        commission: totalCommission,
-                        tip: 0
-                    }] : [],
-                    status: appointment.status === 'completed' ? 'paid' : 'pending',
+                    staffAssignments: appointment.staff
+                        ? [{
+                            staff: appointment.staff,
+                            percentage: 100,
+                            porsiPersen: 100,
+                            commission: totalCommission,
+                            tip: 0
+                        }]
+                        : [],
+                    status: appointment.status === 'completed'
+                        ? 'paid'
+                        : 'pending',
                     date: appointment.date
                 });
 
-                await scheduleFollowUp(createdInvoice._id);
-            } else if (appointment.status === 'completed' && existingInvoice.status !== 'paid') {
-                await Invoice.findByIdAndUpdate(existingInvoice._id, { status: 'paid' });
+                // ✅ FIX HERE
+                await scheduleFollowUp(createdInvoice._id, tenantSlug);
+
+            } else if (
+                appointment.status === 'completed' &&
+                existingInvoice.status !== 'paid'
+            ) {
+                await Invoice.findByIdAndUpdate(existingInvoice._id, {
+                    status: 'paid'
+                });
             }
         }
 
         return NextResponse.json({ success: true, data: appointment });
+
     } catch (error: any) {
         return handleApiError('UPDATE_APPOINTMENT', error);
     }
@@ -146,16 +154,20 @@ export async function DELETE(request: NextRequest, props: any) {
         const permissionError = await checkPermission(request, 'appointments', 'delete');
         if (permissionError) return permissionError;
 
-        
         const { id } = await props.params;
 
         const linkedInvoices = await Invoice.find({ appointment: id });
-        
-        // Check for any paid invoices to prevent deleting appointments with paid records
-        const hasPaidInvoices = linkedInvoices.some((inv: any) => inv.status === 'paid' || inv.status === 'partially_paid');
+
+        const hasPaidInvoices = linkedInvoices.some(
+            (inv: any) => inv.status === 'paid' || inv.status === 'partially_paid'
+        );
+
         if (hasPaidInvoices) {
             return NextResponse.json(
-                { success: false, error: "Jadwal tidak dapat dihapus karena sudah memiliki nota pembayaran lunas. Harap Void nota terlebih dahulu." },
+                {
+                    success: false,
+                    error: "Jadwal tidak dapat dihapus karena sudah memiliki nota pembayaran lunas. Harap Void nota terlebih dahulu."
+                },
                 { status: 400 }
             );
         }
@@ -164,21 +176,23 @@ export async function DELETE(request: NextRequest, props: any) {
 
         if (invoiceIds.length > 0) {
             await Deposit.deleteMany({ invoice: { $in: invoiceIds } });
-            // Soft-delete (void) pending invoices instead of hard-delete to maintain audit trail
+
             await Invoice.updateMany(
                 { _id: { $in: invoiceIds } },
-                { 
-                    $set: { 
+                {
+                    $set: {
                         status: 'voided',
                         voidReason: 'Appointment dihapus',
                         voidedAt: new Date()
-                    } 
+                    }
                 }
             );
         }
 
         await Appointment.findByIdAndDelete(id);
+
         return NextResponse.json({ success: true });
+
     } catch (error: any) {
         return handleApiError('DELETE_APPOINTMENT', error);
     }
