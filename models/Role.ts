@@ -23,6 +23,7 @@ export interface IRole {
         expenses: IPermission;
         purchases: IPermission;
         invoices: IPermission;
+        deposits: IPermission;
         payroll: IPermission;
         vouchers: IPermission;
         usageLogs: IPermission;
@@ -86,6 +87,7 @@ const RoleSchema = new Schema<IRole>(
                 expenses: { view: 'none', create: false, edit: false, delete: false },
                 purchases: { view: 'none', create: false, edit: false, delete: false },
                 invoices: { view: 'none', create: false, edit: false, delete: false },
+                deposits: { view: 'none', create: false, edit: false, delete: false },
                 payroll: { view: 'none', create: false, edit: false, delete: false },
                 vouchers: { view: 'none', create: false, edit: false, delete: false },
                 usageLogs: { view: 'none', create: false, edit: false, delete: false },

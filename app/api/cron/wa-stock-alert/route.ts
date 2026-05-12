@@ -22,6 +22,7 @@ export async function GET(request: NextRequest, props: any) {
         
         const settings = await Settings.findOne();
         const adminPhone = settings?.waAdminNumber;
+        const fonnteToken = settings?.fonnteToken ? String(settings.fonnteToken).trim() : undefined;
 
         if (!adminPhone) {
             return NextResponse.json({
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest, props: any) {
             `${productList}\n\n` +
             `Segera lakukan restok! 📦`;
 
-        const result = await sendWhatsApp(adminPhone, message);
+        const result = await sendWhatsApp(adminPhone, message, fonnteToken);
 
         if (result.success) {
             // Mark products as notified

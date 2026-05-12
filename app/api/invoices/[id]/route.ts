@@ -12,12 +12,13 @@ export async function GET(request: NextRequest, props: any) {
     const { Invoice, Customer } = await getTenantModels(tenantSlug);
 
     try {
-        // Security Check
-        const permissionError = await checkPermission(request, 'invoices', 'view');
-        if (permissionError) return permissionError;
+        // Security Check — kasir butuh akses untuk receipt page post-checkout
+        const posPermErr = await checkPermission(request, 'pos', 'view');
+        const invPermErr = await checkPermission(request, 'invoices', 'view');
+        if (posPermErr && invPermErr) return invPermErr;
 
-        
-        
+
+
         const { id } = await props.params;
         const invoice = await Invoice.findById(id)
             .populate({
@@ -39,8 +40,8 @@ export async function PUT(request: NextRequest, props: any) {
     const { Invoice, Customer } = await getTenantModels(tenantSlug);
 
     try {
-        
-        
+
+
         const { id } = await props.params;
 
         // Security Check
@@ -128,8 +129,8 @@ export async function DELETE(request: NextRequest, props: any) {
             );
         }
 
-        
-        
+
+
         const { id } = await props.params;
 
         const invoice = await Invoice.findById(id);

@@ -102,6 +102,11 @@ const SettingsSchema = new mongoose.Schema({
         default: ''
     },
     // WA Auto-Reminder Settings
+    greetingEnabled: {
+        type: Boolean,
+        default: true
+    },
+    // WA Auto-Reminder Settings
     membershipExpiryReminderDays: {
         type: Number,
         default: 30,

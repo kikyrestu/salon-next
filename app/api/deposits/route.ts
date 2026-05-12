@@ -11,10 +11,11 @@ export async function GET(request: NextRequest, props: any) {
     const { Deposit, Invoice } = await getTenantModels(tenantSlug);
 
     try {
-    const permissionErrorGET = await checkPermission(request, 'deposits', 'view');
-    if (permissionErrorGET) return permissionErrorGET;
-        
-        
+        const posPermErr = await checkPermission(request, 'pos', 'view');
+        const depPermErr = await checkPermission(request, 'deposits', 'view');
+        if (posPermErr && depPermErr) return depPermErr;
+
+
         const { searchParams } = new URL(request.url);
         const invoiceId = searchParams.get("invoiceId");
 
@@ -33,9 +34,10 @@ export async function POST(request: NextRequest, props: any) {
     const { Deposit, Invoice } = await getTenantModels(tenantSlug);
 
     try {
-    const permissionErrorPOST = await checkPermission(request, 'deposits', 'create');
-    if (permissionErrorPOST) return permissionErrorPOST;
-        
+        const posPermErrPOST = await checkPermission(request, 'pos', 'create');
+        const depPermErrPOST = await checkPermission(request, 'deposits', 'create');
+        if (posPermErrPOST && depPermErrPOST) return depPermErrPOST;
+
         const body = await request.json();
 
         // Validation
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest, props: any) {
                 return NextResponse.json({ success: false, error: "Pembayaran e-wallet membutuhkan data customer terdaftar." }, { status: 400 });
             }
             const customerDoc = await Customer.findById(body.customer);
-            
+
             if (!customerDoc) {
                 return NextResponse.json({ success: false, error: "Customer tidak ditemukan." }, { status: 400 });
             }
