@@ -131,6 +131,27 @@ interface PaymentEntry {
   amount: number | string;
 }
 
+interface QrisCreateResponse {
+  success: boolean;
+  error?: string;
+  data?: {
+    externalId: string;
+    checkoutUrl: string;
+    status?: string;
+  };
+}
+
+interface QrisStatusResponse {
+  success: boolean;
+  error?: string;
+  data?: {
+    externalId: string;
+    status: string;
+    sourceType?: "invoice" | "package_order";
+    sourceId?: string;
+    checkoutUrl?: string;
+  };
+}
 
 export default function POSPage() {
   const router = useTenantRouter();
@@ -211,11 +232,19 @@ export default function POSPage() {
     discountAmount: number;
   } | null>(null);
   const [isFirstTimer, setIsFirstTimer] = useState(false);
-
+  const [isQrisModalOpen, setIsQrisModalOpen] = useState(false);
+  const [qrisSession, setQrisSession] = useState<{
+    externalId: string;
+    checkoutUrl: string;
+    invoiceId: string;
+    status: string;
+    sourceType: "invoice" | "package_order";
+  } | null>(null);
+  const [checkingQris, setCheckingQris] = useState(false);
 
   // Derived from splitPayments (backward compat with checkout logic)
   const paymentMethod = splitPayments[0]?.method || "Cash";
-
+  const isQrisOnly = splitPayments.length === 1 && paymentMethod === "QRIS";
 
   // Split payment helpers
   const totalSplitPaidComputed = splitPayments.reduce((sum, p) => {
@@ -1416,7 +1445,7 @@ export default function POSPage() {
       }
     }
 
-    if (nonQrisPaid === undefined) {
+    if (!isQrisOnly && nonQrisPaid === undefined) {
       setIsNonQrisConfirmOpen(true);
       return;
     }
@@ -1429,7 +1458,7 @@ export default function POSPage() {
       ? parsedAmountPaid
       : 0;
 
-    if (isMarkedPaid) {
+    if (!isQrisOnly && isMarkedPaid) {
       // Validate empty method
       if (splitPayments.some((p) => !p.method || p.method === "Pilih Metode..." || p.method.trim() === "")) {
         alert("Harap pilih metode pembayaran yang valid.");
@@ -1640,6 +1669,13 @@ export default function POSPage() {
           return Array.from({ length: qty }, () => item);
         });
 
+        if (paymentMethod === "QRIS" && expandedPackageItems.length > 1) {
+          alert(
+            "QRIS untuk multi paket belum didukung dalam satu checkout. Gunakan Cash/Card/Transfer atau proses QRIS satu paket per transaksi.",
+          );
+          return;
+        }
+
         const createdPayments: Array<{
           sourceId: string;
           amount: number;
@@ -1664,6 +1700,46 @@ export default function POSPage() {
           }
 
           createdPayments.push(orderData.data.payment);
+        }
+
+        if (paymentMethod === "QRIS") {
+          const payment = createdPayments[0];
+          const qrisRes = await fetch("/api/payments/xendit/create-invoice", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sourceType: "package_order",
+              sourceId: payment.sourceId,
+              amount: payment.amount,
+              customer: payment.customer,
+              description: payment.description,
+            }),
+          });
+
+          const qrisData = (await qrisRes.json()) as QrisCreateResponse;
+          if (!qrisData.success || !qrisData.data) {
+            alert(qrisData.error || "Gagal membuat pembayaran QRIS paket");
+            return;
+          }
+
+          setCart([]);
+          setDiscount(0);
+          setDiscountReason("");
+          setStaffTips({});
+          setSelectedCustomer("");
+          setServiceStaffAssignments({});
+          setServiceSplitModes({});
+          setPackageClaims({});
+          setSplitPayments([{ method: "", amount: "" }]);
+          setQrisSession({
+            externalId: qrisData.data.externalId,
+            checkoutUrl: qrisData.data.checkoutUrl,
+            invoiceId: "",
+            status: qrisData.data.status || "pending",
+            sourceType: "package_order",
+          });
+          setIsQrisModalOpen(true);
+          return;
         }
 
         if (isMarkedPaid) {
@@ -1745,18 +1821,23 @@ export default function POSPage() {
         effectiveDiscount,
       } = calculateTotal();
 
+      const isQrisPayment = isQrisOnly;
       // amountPaid di-cap ke totalAmount — nominal kasir boleh lebih (kembalian),
       // tapi yang tersimpan sebagai 'dibayar' tidak boleh melebihi total transaksi.
-      const paid = isMarkedPaid
-        ? totalSplitPaidComputed > 0
-          ? Math.min(totalSplitPaidComputed, total)
-          : total
-        : 0;
-      const status = isMarkedPaid
-        ? paid >= total
-          ? "paid"
-          : "partially_paid"
-        : "pending";
+      const paid = isQrisPayment
+        ? 0
+        : isMarkedPaid
+          ? totalSplitPaidComputed > 0
+            ? Math.min(totalSplitPaidComputed, total)
+            : total
+          : 0;
+      const status = isQrisPayment
+        ? "pending"
+        : isMarkedPaid
+          ? paid >= total
+            ? "paid"
+            : "partially_paid"
+          : "pending";
 
       // Handle walking customer by setting customer to undefined
       const customerId =
@@ -1999,6 +2080,44 @@ export default function POSPage() {
           }
         }
 
+        if (isQrisPayment) {
+          const qrisRes = await fetch("/api/payments/xendit/create-invoice", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              invoiceId: data.data._id,
+              description: `Pembayaran ${data.data.invoiceNumber}`,
+            }),
+          });
+
+          const qrisData = (await qrisRes.json()) as QrisCreateResponse;
+          if (!qrisData.success || !qrisData.data) {
+            alert(qrisData.error || "Gagal membuat pembayaran QRIS");
+            return;
+          }
+
+          setCart([]);
+          setDiscount(0);
+          setDiscountReason("");
+          setStaffTips({});
+          setSelectedCustomer("");
+          setFollowUpPhoneNumber("");
+          setServiceStaffAssignments({});
+          setServiceSplitModes({});
+          setPackageClaims({});
+          setSplitPayments([{ method: "", amount: "" }]);
+          setReferralCode("");
+          setQrisSession({
+            externalId: qrisData.data.externalId,
+            checkoutUrl: qrisData.data.checkoutUrl,
+            invoiceId: data.data._id,
+            status: qrisData.data.status || "pending",
+            sourceType: "invoice",
+          });
+          setIsQrisModalOpen(true);
+          return;
+        }
+
         // If there's a payment, create deposit record(s) — one per split payment entry
         if (paid > 0) {
           const depositEntries = splitPayments.filter((p) => {
@@ -2082,6 +2201,48 @@ export default function POSPage() {
     }
   };
 
+  const checkQrisStatus = async () => {
+    if (!qrisSession?.externalId) return;
+
+    setCheckingQris(true);
+    try {
+      const res = await fetch(
+        `/api/payments/xendit/status/${qrisSession.externalId}`,
+      );
+      const statusData = (await res.json()) as QrisStatusResponse;
+      if (!statusData.success || !statusData.data) {
+        alert(statusData.error || "Gagal cek status QRIS");
+        return;
+      }
+
+      setQrisSession((prev) =>
+        prev ? { ...prev, status: statusData.data!.status } : prev,
+      );
+
+      if (statusData.data.status === "paid") {
+        if (
+          statusData.data.sourceType === "package_order" ||
+          qrisSession?.sourceType === "package_order"
+        ) {
+          alert("Pembayaran QRIS paket berhasil. Paket customer sudah aktif.");
+          setIsQrisModalOpen(false);
+          return;
+        }
+
+        alert("Pembayaran QRIS berhasil. Invoice sudah diperbarui.");
+        setIsQrisModalOpen(false);
+        const invoiceId = statusData.data.sourceId || qrisSession?.invoiceId;
+        if (invoiceId) {
+          router.push(`/invoices/print/${invoiceId}`);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gagal cek status QRIS");
+    } finally {
+      setCheckingQris(false);
+    }
+  };
 
   const {
     subtotal,
@@ -3168,13 +3329,15 @@ export default function POSPage() {
                   >
                     Isi Pas
                   </button>
-                  <button
-                    type="button"
-                    onClick={addSplitPayment}
-                    className="text-[9px] lg:text-[10px] font-bold text-blue-900 hover:text-blue-700 flex items-center gap-0.5 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-50 transition-colors"
-                  >
-                    <Plus className="w-2.5 h-2.5" /> Tambah Metode
-                  </button>
+                  {!isQrisOnly && (
+                    <button
+                      type="button"
+                      onClick={addSplitPayment}
+                      className="text-[9px] lg:text-[10px] font-bold text-blue-900 hover:text-blue-700 flex items-center gap-0.5 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-50 transition-colors"
+                    >
+                      <Plus className="w-2.5 h-2.5" /> Tambah Metode
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -3461,6 +3624,45 @@ export default function POSPage() {
             >
               Gunakan Diskon Referral
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isQrisModalOpen}
+        onClose={() => setIsQrisModalOpen(false)}
+        title="Pembayaran QRIS"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Status:{" "}
+            <span className="font-bold uppercase text-gray-900">
+              {qrisSession?.status || "pending"}
+            </span>
+          </p>
+          <p className="text-xs text-gray-500 break-all">
+            External ID: {qrisSession?.externalId || "-"}
+          </p>
+
+          {qrisSession?.checkoutUrl && (
+            <a
+              href={qrisSession.checkoutUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-900 text-white text-sm font-semibold hover:bg-blue-800"
+            >
+              Buka Checkout QRIS
+            </a>
+          )}
+
+          <div>
+            <FormButton
+              onClick={checkQrisStatus}
+              loading={checkingQris}
+              variant="secondary"
+            >
+              Cek Status QRIS
+            </FormButton>
           </div>
         </div>
       </Modal>
