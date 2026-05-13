@@ -66,7 +66,7 @@ export default function BundlesPage() {
     setLoading(true);
     try {
       const [serviceRes, bundleRes] = await Promise.all([
-        fetch("/api/services?limit=1000"),
+        fetch("/api/services/bundle-list"),
         fetch("/api/service-bundles"),
       ]);
 

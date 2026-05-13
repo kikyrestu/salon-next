@@ -12,6 +12,7 @@ import mongoose from "mongoose";
 import { checkPermission } from "@/lib/rbac";
 import { handleApiError } from "@/lib/errorHandler";
 import { scheduleFollowUp } from "@/lib/waFollowUp";
+import { generateInvoiceNumber } from "@/lib/invoiceNumber";
 
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
@@ -144,15 +145,8 @@ export async function POST(request: NextRequest, props: any) {
         }) as unknown as IAppointment;
 
         if (appointment.status === 'confirmed' || appointment.status === 'completed' || !appointment.status) {
-            const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });
-            let nextNum = 1;
-
-            if (lastInvoice && lastInvoice.invoiceNumber) {
-                const lastNum = parseInt(lastInvoice.invoiceNumber.split('-').pop() || "0");
-                if (!isNaN(lastNum)) nextNum = lastNum + 1;
-            }
-
-            const invoiceNumber = `INV-${new Date().getFullYear()}-${nextNum.toString().padStart(5, '0')}`;
+            // Atomic invoice number via MongoDB counter
+            const invoiceNumber = await generateInvoiceNumber(tenantSlug);
 
             const createdInvoice = await Invoice.create({
                 invoiceNumber,

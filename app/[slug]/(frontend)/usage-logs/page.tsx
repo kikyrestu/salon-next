@@ -35,8 +35,8 @@ export default function UsageLogsPage() {
         // Fetch products and staff for the modal
         const fetchResources = async () => {
             const [prodRes, staffRes] = await Promise.all([
-                fetch('/api/products?limit=100'),
-                fetch('/api/staff?limit=100')
+                fetch('/api/products/usage-list'),
+                fetch('/api/staff/usage-list')
             ]);
             const prodData = await prodRes.json();
             const staffData = await staffRes.json();

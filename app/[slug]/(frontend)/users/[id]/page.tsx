@@ -28,7 +28,7 @@ export default function EditUserPage() {
         const fetchData = async () => {
             try {
                 const [rolesRes, userRes] = await Promise.all([
-                    fetch("/api/roles"),
+                    fetch("/api/roles/user-list"),
                     fetch(`/api/users/${id}`)
                 ]);
 

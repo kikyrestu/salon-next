@@ -84,7 +84,7 @@ export default function PayrollPage() {
 
             const [payrollRes, staffRes] = await Promise.all([
                 fetch(`/api/payroll?${queryParams.toString()}`),
-                fetch("/api/staff")
+                fetch("/api/staff/payroll-list")
             ]);
 
             const payrollData = await payrollRes.json();

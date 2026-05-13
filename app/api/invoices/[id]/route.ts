@@ -12,10 +12,11 @@ export async function GET(request: NextRequest, props: any) {
     const { Invoice, Customer } = await getTenantModels(tenantSlug);
 
     try {
-        // Security Check — kasir butuh akses untuk receipt page post-checkout
+        // Security Check — allow pos.view, invoices.view, OR customers.view (for customer history modal)
         const posPermErr = await checkPermission(request, 'pos', 'view');
         const invPermErr = await checkPermission(request, 'invoices', 'view');
-        if (posPermErr && invPermErr) return invPermErr;
+        const custPermErr = await checkPermission(request, 'customers', 'view');
+        if (posPermErr && invPermErr && custPermErr) return invPermErr;
 
 
 

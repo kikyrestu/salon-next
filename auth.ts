@@ -23,26 +23,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 const slug = String(credentials.slug).toLowerCase().trim();
 
                 try {
-                    // Get models for specific tenant
-                    const { User, Role } = await getTenantModels(slug);
+                    const { User } = await getTenantModels(slug);
 
-                    // Find user and include password field & role
-                    const user: any = await User.findOne({
-                        email
-                    }).select('+password').populate('role');
+                    const user: any = await User.findOne({ email })
+                        .select('+password')
+                        .populate('role');
 
                     if (!user) {
                         throw new Error("Invalid email or password");
                     }
 
-                    // Check password
                     const isPasswordValid = await user.comparePassword(password);
-
                     if (!isPasswordValid) {
                         throw new Error("Invalid email or password");
                     }
 
-                    // Return user object
                     return {
                         id: user._id.toString(),
                         email: user.email,
@@ -57,32 +52,55 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
         }),
     ],
-    // Keep specialized callbacks that need DB here if they can't be in config
     callbacks: {
+        // `authorized` dan `session` diwariskan dari authConfig.callbacks
         ...authConfig.callbacks,
-        async jwt({ token, user, trigger, session }) {
-            // Initial sign in or manual update
+
+        /**
+         * JWT Callback - berjalan di Node.js runtime (bisa pakai mongoose).
+         *
+         * Strategi refresh permissions:
+         * - Saat sign-in awal: langsung set dari user object
+         * - Setelah itu: refresh dari DB setiap REFRESH_INTERVAL_MS (default 5 menit)
+         *   atau saat `trigger === 'update'` (admin trigger manual)
+         *
+         * TIDAK menggunakan HTTP fetch ke /api/roles — direct DB query via getTenantModels.
+         */
+        async jwt({ token, user, trigger }: any) {
+            // --- Initial sign in ---
             if (user) {
                 token.id = user.id;
-                token.tenantSlug = (user as any).tenantSlug;
+                token.tenantSlug = user.tenantSlug;
                 if (user.role) {
                     token.role = user.role.name;
                     token.permissions = user.role.permissions;
                     token.roleId = user.role._id?.toString() || user.role.id;
                 }
-            } else if (trigger === "update" || !token.permissions) {
-                // Only refresh permissions if explicitly updated or missing
-                if (token.roleId && typeof token.roleId === 'string' && token.tenantSlug) {
-                    try {
-                        const { Role } = await getTenantModels(token.tenantSlug as string);
-                        const role = await Role.findById(token.roleId);
-                        if (role) {
-                            token.role = role.name;
-                            token.permissions = role.permissions;
-                        }
-                    } catch (error) {
-                        console.error("Error refreshing permissions in JWT callback:", error);
+                token.permissionsRefreshedAt = Date.now();
+                return token;
+            }
+
+            // --- Periodic refresh dari DB (max setiap 5 menit) ---
+            const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+            const lastRefresh = (token.permissionsRefreshedAt as number) || 0;
+
+            const shouldRefresh =
+                trigger === 'update' ||
+                !token.permissions ||
+                Date.now() - lastRefresh > REFRESH_INTERVAL_MS;
+
+            if (shouldRefresh && token.roleId && token.tenantSlug) {
+                try {
+                    const { Role } = await getTenantModels(token.tenantSlug as string);
+                    const role = await Role.findById(token.roleId).lean() as any;
+                    if (role) {
+                        token.role = role.name;
+                        token.permissions = role.permissions;
+                        token.permissionsRefreshedAt = Date.now();
                     }
+                } catch (error) {
+                    // Silently fail — pakai permissions lama dari token
+                    console.error('[Auth] Error refreshing permissions from DB:', error);
                 }
             }
 

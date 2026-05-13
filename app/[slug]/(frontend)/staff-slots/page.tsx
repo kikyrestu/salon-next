@@ -58,7 +58,7 @@ export default function StaffSlotsPage() {
 
     const fetchStaff = async () => {
         try {
-            const res = await fetch("/api/staff?limit=100");
+            const res = await fetch("/api/staff/slots-list");
             const data = await res.json();
             if (data.success) {
                 setStaffList(data.data);

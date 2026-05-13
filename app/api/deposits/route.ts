@@ -11,13 +11,15 @@ export async function GET(request: NextRequest, props: any) {
     const { Deposit, Invoice } = await getTenantModels(tenantSlug);
 
     try {
-        const posPermErr = await checkPermission(request, 'pos', 'view');
-        const depPermErr = await checkPermission(request, 'deposits', 'view');
-        if (posPermErr && depPermErr) return depPermErr;
-
-
         const { searchParams } = new URL(request.url);
         const invoiceId = searchParams.get("invoiceId");
+
+        // Permission check: allow pos.view, deposits.view, OR invoices.view (if querying by invoiceId)
+        const posPermErr = await checkPermission(request, 'pos', 'view');
+        const depPermErr = await checkPermission(request, 'deposits', 'view');
+        const invPermErr = invoiceId ? await checkPermission(request, 'invoices', 'view') : depPermErr;
+
+        if (posPermErr && depPermErr && invPermErr) return depPermErr;
 
         let query = {};
         if (invoiceId) query = { invoice: invoiceId };

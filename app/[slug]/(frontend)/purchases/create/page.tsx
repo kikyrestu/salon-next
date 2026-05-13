@@ -49,8 +49,8 @@ export default function CreatePurchasePage() {
     const fetchData = async () => {
         try {
             const [supRes, prodRes] = await Promise.all([
-                fetch('/api/suppliers?limit=100'),
-                fetch('/api/products?limit=100') // Limitation: logic for searching products should be dynamic
+                fetch('/api/suppliers/purchase-list'),
+                fetch('/api/products/purchase-list')
             ]);
             const supData = await supRes.json();
             const prodData = await prodRes.json();

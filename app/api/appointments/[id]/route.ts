@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkPermission } from "@/lib/rbac";
 import { handleApiError } from "@/lib/errorHandler";
 import { scheduleFollowUp } from "@/lib/waFollowUp";
+import { generateInvoiceNumber } from "@/lib/invoiceNumber";
 
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
@@ -87,11 +88,8 @@ export async function PUT(request: NextRequest, props: any) {
             const existingInvoice = await Invoice.findOne({ appointment: id });
 
             if (!existingInvoice) {
-                const count = await Invoice.countDocuments();
-
-                const invoiceNumber = `INV-${new Date().getFullYear()}-${(count + 1)
-                    .toString()
-                    .padStart(5, '0')}`;
+                // Atomic invoice number via MongoDB counter
+                const invoiceNumber = await generateInvoiceNumber(tenantSlug);
 
                 const createdInvoice = await Invoice.create({
                     invoiceNumber,

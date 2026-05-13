@@ -94,8 +94,8 @@ export default function PackagesPage() {
     setLoading(true);
     try {
       const [serviceRes, customerRes, packageRes, orderRes] = await Promise.all([
-        fetch("/api/services?limit=0"),
-        fetch("/api/customers?limit=0"),
+        fetch("/api/services/package-list"),
+        fetch("/api/customers/package-list"),
         fetch("/api/service-packages"),
         fetch("/api/package-orders"),
       ]);

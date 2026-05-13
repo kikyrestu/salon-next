@@ -25,7 +25,7 @@ export default function NewUserPage() {
 
     const fetchRoles = async () => {
         try {
-            const res = await fetch("/api/roles");
+            const res = await fetch("/api/roles/user-list");
             const data = await res.json();
             if (data.success) {
                 setRoles(data.data);

@@ -187,7 +187,7 @@ export default function AppointmentsPage() {
 
   const fetchResources = async () => {
     const [staffRes, serviceRes, customerRes] = await Promise.all([
-      fetch("/api/staff?limit=0"),
+      fetch("/api/staff/appointment-list"),
       fetch("/api/services?limit=0"),
       fetch("/api/customers?limit=0"),
     ]);
