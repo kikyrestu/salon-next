@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Calendar, Clock, User, Plus, Save, X, Trash2 } from "lucide-react";
 import FormInput, { FormSelect, FormButton } from "@/components/dashboard/FormInput";
@@ -23,6 +25,8 @@ interface Slot {
 }
 
 export default function StaffSlotsPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const [staffList, setStaffList] = useState<Staff[]>([]);
     const [selectedStaff, setSelectedStaff] = useState<string>("");
     const [creationType, setCreationType] = useState<'date' | 'day'>('date');
@@ -58,7 +62,7 @@ export default function StaffSlotsPage() {
 
     const fetchStaff = async () => {
         try {
-            const res = await fetch("/api/staff/slots-list");
+            const res = await fetch("/api/staff/slots-list", { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setStaffList(data.data);
@@ -79,7 +83,7 @@ export default function StaffSlotsPage() {
                 ? `staffId=${selectedStaff}&date=${selectedDate}&type=date`
                 : `staffId=${selectedStaff}&dayOfWeek=${selectedDay}&type=day`;
 
-            const res = await fetch(`/api/staff-slots?${query}`);
+            const res = await fetch(`/api/staff-slots?${query}`, { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success && data.data.availableSlots) {
                 setSlots(data.data.availableSlots.map((s: any) => ({
@@ -200,7 +204,7 @@ export default function StaffSlotsPage() {
             setDeleting(true);
             if (slot._id) {
                 try {
-                    const res = await fetch(`/api/staff-slots/${slot._id}`, { method: "DELETE" });
+                    const res = await fetch(`/api/staff-slots/${slot._id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
                     const data = await res.json();
                     if (!data.success) {
                         setMessage({ type: 'error', text: 'Failed to delete slot from database' });
@@ -231,7 +235,7 @@ export default function StaffSlotsPage() {
         try {
             const res = await fetch("/api/staff-slots", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({
                     staffId: selectedStaff,
                     date: creationType === 'date' ? selectedDate : undefined,

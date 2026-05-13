@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { 
@@ -11,6 +13,8 @@ import { useSession } from "next-auth/react";
 import { useSettings } from "@/components/providers/SettingsProvider";
 
 export default function CashDrawerPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { data: session } = useSession();
     const { settings } = useSettings();
     const [loading, setLoading] = useState(true);
@@ -38,14 +42,14 @@ export default function CashDrawerPage() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/cash-drawer');
+            const res = await fetch('/api/cash-drawer', { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setBalance(data.data.balance);
                 setActiveSession(data.data.activeSession);
             }
 
-            const logsRes = await fetch('/api/cash-drawer/logs?limit=20');
+            const logsRes = await fetch('/api/cash-drawer/logs?limit=20', { headers: { "x-store-slug": slug } });
             const logsData = await logsRes.json();
             if (logsData.success) {
                 setLogs(logsData.data);
@@ -70,7 +74,7 @@ export default function CashDrawerPage() {
                 
             const res = await fetch('/api/cash-drawer/session', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { "x-store-slug": slug, 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
             const data = await res.json();
@@ -96,7 +100,7 @@ export default function CashDrawerPage() {
         try {
             const res = await fetch('/api/cash-drawer/transfer', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { "x-store-slug": slug, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     source: transferSource,
                     destination: transferDestination,

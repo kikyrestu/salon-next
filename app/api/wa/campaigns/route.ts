@@ -1,8 +1,7 @@
 import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 
-import { checkPermission } from '@/lib/rbac';
-import { auth } from '@/auth';
+import { checkPermissionWithSession } from '@/lib/rbac';
 
 
 
@@ -11,7 +10,7 @@ export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Customer, WaCampaignQueue } = await getTenantModels(tenantSlug);
 
-    const permError = await checkPermission(request, 'customers', 'view');
+    const { error: permError } = await checkPermissionWithSession(request, 'customers', 'view');
     if (permError) return permError;
 
     try {
@@ -36,11 +35,9 @@ export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Customer, WaCampaignQueue } = await getTenantModels(tenantSlug);
 
-    const permError = await checkPermission(request, 'customers', 'edit');
+    // [B14 FIX] Gunakan checkPermissionWithSession — 1 auth() call
+    const { error: permError, session } = await checkPermissionWithSession(request, 'customers', 'edit');
     if (permError) return permError;
-
-    
-    
 
     try {
         const body = await request.json();
@@ -56,7 +53,7 @@ export async function POST(request: NextRequest, props: any) {
             return NextResponse.json({ success: false, error: 'Schedule time is required' }, { status: 400 });
         }
 
-        const session: any = await auth();
+        // [B14 FIX] session diambil dari checkPermissionWithSession di atas
         
         // Find customers to get their phone numbers
         const customers = await Customer.find({
@@ -87,7 +84,7 @@ export async function POST(request: NextRequest, props: any) {
             scheduledAt: scheduleDate,
             filters: filters || {},
             targets,
-            sentBy: session?.user?.id,
+            sentBy: (session as any)?.user?.id,
             status: 'pending'
         });
 
@@ -106,7 +103,7 @@ export async function DELETE(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Customer, WaCampaignQueue } = await getTenantModels(tenantSlug);
 
-    const permError = await checkPermission(request, 'customers', 'edit');
+    const { error: permError } = await checkPermissionWithSession(request, 'customers', 'edit');
     if (permError) return permError;
 
     try {

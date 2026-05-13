@@ -4,9 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 
 
-import { checkPermission } from "@/lib/rbac";
+import { checkPermissionWithSession } from "@/lib/rbac";
 import { logActivity } from "@/lib/logger";
-import { auth } from "@/auth";
 
 export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
@@ -16,11 +15,10 @@ export async function POST(request: NextRequest, props: any) {
         
         
 
-        const permissionError = await checkPermission(request, 'pos', 'create'); 
+        // [B14 FIX] Gunakan checkPermissionWithSession — 1 auth() call
+        const { error: permissionError, session } = await checkPermissionWithSession(request, 'pos', 'create');
         if (permissionError) return permissionError;
-
-        const session: any = await auth();
-        const userId = session?.user?.id;
+        const userId = (session as any)?.user?.id;
 
         const body = await request.json();
         const { source, destination, amount, notes, ownerPassword } = body;

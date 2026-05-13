@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState } from "react";
 import { useTenantRouter } from "@/hooks/useTenantRouter";
 import TenantLink from '@/components/TenantLink';
@@ -36,6 +38,8 @@ const RESOURCES = [
 ];
 
 export default function NewRolePage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const router = useTenantRouter();
 
     const [saving, setSaving] = useState(false);
@@ -73,7 +77,7 @@ export default function NewRolePage() {
         try {
             const res = await fetch(`/api/roles`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({
                     name,
                     description,

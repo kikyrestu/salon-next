@@ -34,10 +34,10 @@ export function handleApiError(context: string, error: any, userId?: string) {
   // Return a generic error message to the client
   if (error.name === 'ValidationError') {
     return createErrorResponse(400, 'Validation error occurred', false);
-  } else if (error.name === 'MongoServerError' || error.name === 'MongoError') {
-    return createErrorResponse(400, 'Database error occurred', false);
   } else if (error.code === 11000) {
     return createErrorResponse(400, 'Duplicate entry error', false);
+  } else if (error.name === 'MongoServerError' || error.name === 'MongoError') {
+    return createErrorResponse(400, 'Database error occurred', false);
   } else {
     return createErrorResponse(500, 'Internal server error occurred', false);
   }

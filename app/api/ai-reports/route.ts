@@ -3,32 +3,26 @@ import { NextResponse, NextRequest } from "next/server";
 
 
 import { startOfMonth, endOfMonth, subDays } from "date-fns";
-import { checkPermission } from "@/lib/rbac";
+import { checkPermissionWithSession } from "@/lib/rbac";
 import { checkRateLimit } from "@/lib/rateLimiter";
-import { auth } from "@/auth";
 
 export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Settings, Invoice, Expense, Appointment, Customer, Product, Service, Staff, Payroll, Purchase } = await getTenantModels(tenantSlug);
 
     try {
-        const session = await auth();
-        if (!session) {
-            return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-        }
+        // [B14 FIX] Gunakan checkPermissionWithSession — 1 auth() call, bukan 2
+        const { error: permissionError, session } = await checkPermissionWithSession(request, 'ai-reports', 'view');
+        if (permissionError) return permissionError;
 
-        // Rate Limiting (AI is expensive)
-        const ratelimit = checkRateLimit(session.user?.id || 'anonymous', 60000 * 60, 10); // 10 requests per hour
+        // Rate Limiting (AI is expensive) — reuse session dari atas
+        const ratelimit = checkRateLimit(session?.user?.id || 'anonymous', 60000 * 60, 10); // 10 requests per hour
         if (!ratelimit.allowed) {
             return NextResponse.json({
                 success: false,
                 error: `Rate limit exceeded. Please try again in ${Math.ceil((ratelimit.resetTime - Date.now()) / 60000)} minutes.`
             }, { status: 429 });
         }
-
-        // Security Check
-        const permissionError = await checkPermission(request, 'ai-reports', 'view');
-        if (permissionError) return permissionError;
 
         
         const { prompt, timeRange = '30d' } = await request.json();

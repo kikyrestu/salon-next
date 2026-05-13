@@ -2,7 +2,7 @@ import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 
 import { auth } from '@/auth';
-import { checkPermission } from '@/lib/rbac';
+import { checkPermissionWithSession } from '@/lib/rbac';
 
 // GET /api/settings - Get store settings
 export async function GET(request: NextRequest, props: any) {
@@ -59,9 +59,12 @@ export async function GET(request: NextRequest, props: any) {
             });
         }
 
-        // If authenticated, check for settings view permission before returning full data
-        const permissionError = await checkPermission(request, 'settings', 'view');
-        if (permissionError) return permissionError;
+        // [B14 FIX] Inline permission check — session sudah ada dari auth() di atas, tidak perlu auth() kedua
+        const isSuperAdmin = (session as any)?.user?.role === 'Super Admin' || (session as any)?.user?.role?.name === 'Super Admin';
+        const canViewSettings = isSuperAdmin || ((session as any)?.user?.permissions?.settings?.view ?? 'none') !== 'none';
+        if (!canViewSettings) {
+            return NextResponse.json({ success: false, error: 'Access Denied: Cannot view settings' }, { status: 403 });
+        }
 
         return NextResponse.json({ success: true, data: settings });
     } catch (error: any) {
@@ -90,19 +93,8 @@ export async function PUT(request: NextRequest, props: any) {
     const { Settings } = await getTenantModels(tenantSlug);
 
     try {
-        const session = await auth();
-        if (!session) {
-            return NextResponse.json(
-                { success: false, error: 'Unauthorized' },
-                { status: 401 }
-            );
-        }
-
-        
-
-        // Check Permissions
-        // Settings edit uses 'edit' permission
-        const permissionError = await checkPermission(request, 'settings', 'edit');
+        // [B14 FIX] Gunakan checkPermissionWithSession — 1 auth() call, bukan 2
+        const { error: permissionError } = await checkPermissionWithSession(request, 'settings', 'edit');
         if (permissionError) return permissionError;
 
         const body = await request.json();

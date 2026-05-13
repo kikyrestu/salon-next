@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { Search, Plus, Trash2, Edit, Eye, FileText, Filter, DollarSign, ChevronLeft, ChevronRight, MoreVertical } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -52,6 +54,8 @@ interface PaginationData {
 }
 
 export default function InvoicesPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { settings } = useSettings();
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(true);
@@ -131,7 +135,7 @@ export default function InvoicesPage() {
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to delete this invoice?")) return;
         try {
-            const res = await fetch(`/api/invoices/${id}`, { method: "DELETE" });
+            const res = await fetch(`/api/invoices/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
             const data = await res.json();
             if (data.success) {
                 fetchInvoices(pagination.page);
@@ -155,7 +159,7 @@ export default function InvoicesPage() {
         try {
             const res = await fetch(`/api/invoices/${editingInvoice._id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify(editFormData),
             });
             const data = await res.json();
@@ -188,7 +192,7 @@ export default function InvoicesPage() {
         try {
             const res = await fetch("/api/deposits", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({
                     invoice: payingInvoice._id,
                     customer: payingInvoice.customer?._id,

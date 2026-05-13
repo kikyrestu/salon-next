@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import {
   Plus,
@@ -65,6 +67,8 @@ function generateCode(): string {
 }
 
 export default function VouchersPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const { settings } = useSettings();
 
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -93,7 +97,7 @@ export default function VouchersPage() {
         limit: "20",
         ...(search ? { search } : {}),
       });
-      const res = await fetch(`/api/vouchers?${q}`);
+      const res = await fetch(`/api/vouchers?${q}`, { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) {
         setVouchers(data.data || []);
@@ -177,7 +181,7 @@ export default function VouchersPage() {
         : "/api/vouchers";
       const res = await fetch(url, {
         method: editingVoucher ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
@@ -199,7 +203,7 @@ export default function VouchersPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Nonaktifkan voucher ini?")) return;
-    const res = await fetch(`/api/vouchers/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/vouchers/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
     const data = await res.json();
     if (data.success) void fetchVouchers();
     else alert(data.error || "Gagal menghapus");
@@ -208,7 +212,7 @@ export default function VouchersPage() {
   const handleToggleActive = async (v: Voucher) => {
     const res = await fetch(`/api/vouchers/${v._id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "x-store-slug": slug, "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: !v.isActive }),
     });
     const data = await res.json();

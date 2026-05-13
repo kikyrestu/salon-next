@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams , useParams } from "next/navigation";
 import { FormButton } from "@/components/dashboard/FormInput";
 
 interface CreatePaymentResponse {
@@ -31,6 +31,8 @@ interface PaymentStatusResponse {
 }
 
 export default function QrisXenditPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const searchParams = useSearchParams();
   const [invoiceId, setInvoiceId] = useState("");
   const [amount, setAmount] = useState<number | string>("");
@@ -88,7 +90,7 @@ export default function QrisXenditPage() {
 
       const res = await fetch("/api/payments/xendit/create-invoice", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -117,7 +119,7 @@ export default function QrisXenditPage() {
 
     setChecking(true);
     try {
-      const res = await fetch(`/api/payments/xendit/status/${externalId}`);
+      const res = await fetch(`/api/payments/xendit/status/${externalId}`, { headers: { "x-store-slug": slug } });
       const data = (await res.json()) as PaymentStatusResponse;
 
       if (!data.success || !data.data) {

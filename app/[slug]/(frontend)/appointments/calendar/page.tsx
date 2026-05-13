@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { format, parse, addMinutes } from "date-fns";
 import { useTenantRouter } from "@/hooks/useTenantRouter";
@@ -49,6 +51,8 @@ interface Appointment {
 }
 
 export default function CalendarPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { settings } = useSettings();
     const router = useTenantRouter();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -91,8 +95,8 @@ export default function CalendarPage() {
 
     const fetchResources = async () => {
         const [staffRes, serviceRes, customerRes] = await Promise.all([
-            fetch("/api/staff/appointment-list"),
-            fetch("/api/services?limit=0"),
+            fetch("/api/staff/appointment-list", { headers: { "x-store-slug": slug } }),
+            fetch("/api/services?limit=0", { headers: { "x-store-slug": slug } }),
             fetch("/api/customers?limit=0")
         ]);
         const staffData = await staffRes.json();
@@ -106,7 +110,7 @@ export default function CalendarPage() {
 
     const fetchSettings = async () => {
         try {
-            const res = await fetch("/api/settings");
+            const res = await fetch("/api/settings", { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setTaxRate(data.data.taxRate || 0);
@@ -120,7 +124,7 @@ export default function CalendarPage() {
         setLoadingSlots(true);
         try {
             const excludeId = editingAppointment?._id || "";
-            const res = await fetch(`/api/staff-slots?staffId=${formData.staffId}&date=${formData.date}&excludeAppointmentId=${excludeId}`);
+            const res = await fetch(`/api/staff-slots?staffId=${formData.staffId}&date=${formData.date}&excludeAppointmentId=${excludeId}`, { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 const slots = data.data.availableSlotsForBooking || data.data.availableSlots || [];
@@ -186,7 +190,7 @@ export default function CalendarPage() {
             const url = editingAppointment ? `/api/appointments/${editingAppointment._id}` : "/api/appointments";
             const res = await fetch(url, {
                 method: editingAppointment ? "PUT" : "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
 
@@ -209,9 +213,7 @@ export default function CalendarPage() {
 
         setIsSubmitting(true);
         try {
-            const res = await fetch(`/api/appointments/${editingAppointment._id}`, {
-                method: "DELETE"
-            });
+            const res = await fetch(`/api/appointments/${editingAppointment._id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
             const data = await res.json();
             if (data.success) {
                 setRefreshTrigger(prev => prev + 1);
@@ -262,7 +264,7 @@ export default function CalendarPage() {
     const onSelectEvent = async (event: any) => {
         try {
             // Show loading state or just fetch
-            const res = await fetch(`/api/appointments/${event.id}`);
+            const res = await fetch(`/api/appointments/${event.id}`, { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 openEditModal(data.data);

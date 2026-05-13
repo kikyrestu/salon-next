@@ -2,6 +2,8 @@
 
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   Plus,
@@ -44,6 +46,8 @@ interface Product {
 }
 
 export default function ProductsPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const { settings } = useSettings();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +137,7 @@ export default function ProductsPage() {
         : "/api/products";
       const res = await fetch(url, {
         method: editingProduct ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
       const data = await res.json();
@@ -153,7 +157,7 @@ export default function ProductsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this product?")) return;
-    const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/products/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
     if ((await res.json()).success) fetchProducts();
   };
 

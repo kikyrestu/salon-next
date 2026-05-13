@@ -9,6 +9,8 @@ import { FormButton } from "@/components/dashboard/FormInput";
 import { getCurrencySymbol } from "@/lib/currency";
 
 export default function PrintInvoicePage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { id } = useParams();
     const router = useTenantRouter();
     const [invoice, setInvoice] = useState<any>(null);
@@ -20,8 +22,8 @@ export default function PrintInvoicePage() {
         const fetchData = async () => {
             try {
                 const [invRes, settingsRes, depositsRes] = await Promise.all([
-                    fetch(`/api/invoices/${id}`),
-                    fetch("/api/settings"),
+                    fetch(`/api/invoices/${id}`, { headers: { "x-store-slug": slug } }),
+                    fetch("/api/settings", { headers: { "x-store-slug": slug } }),
                     fetch(`/api/deposits?invoiceId=${id}`)
                 ]);
                 const invData = await invRes.json();

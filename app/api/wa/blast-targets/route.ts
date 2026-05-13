@@ -5,8 +5,7 @@ import { getTenantModels } from "@/lib/tenantDb";
  */
 import { NextRequest, NextResponse } from 'next/server';
 
-import { checkPermission } from '@/lib/rbac';
-import { auth } from '@/auth';
+import { checkPermissionWithSession } from '@/lib/rbac';
 
 import { sendWhatsApp } from '@/lib/fonnte';
 
@@ -18,7 +17,7 @@ export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Customer, Invoice, WaBlastLog } = await getTenantModels(tenantSlug);
 
-    const permError = await checkPermission(request, 'customers', 'view');
+    const { error: permError } = await checkPermissionWithSession(request, 'customers', 'view');
     if (permError) return permError;
 
     const { searchParams } = new URL(request.url);
@@ -114,7 +113,8 @@ export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Customer, WaBlastLog, Settings } = await getTenantModels(tenantSlug);
 
-    const permError = await checkPermission(request, 'customers', 'edit');
+    // [B14 FIX] Gunakan checkPermissionWithSession — 1 auth() call
+    const { error: permError, session } = await checkPermissionWithSession(request, 'customers', 'edit');
     if (permError) return permError;
 
     const body = await request.json();
@@ -126,8 +126,6 @@ export async function POST(request: NextRequest, props: any) {
     if (!customerIds?.length) {
         return NextResponse.json({ success: false, error: 'No customers selected' }, { status: 400 });
     }
-
-    const session: any = await auth();
     const customers = await Customer.find({
         _id: { $in: customerIds },
         phone: { $exists: true, $ne: '' },

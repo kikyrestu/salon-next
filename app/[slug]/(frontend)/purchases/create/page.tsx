@@ -1,6 +1,8 @@
 
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Plus, Trash2, Save, Calculator, X } from "lucide-react";
 import TenantLink from '@/components/TenantLink';
@@ -22,6 +24,8 @@ interface Supplier {
 }
 
 export default function CreatePurchasePage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { settings } = useSettings();
     const router = useTenantRouter();
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -49,7 +53,7 @@ export default function CreatePurchasePage() {
     const fetchData = async () => {
         try {
             const [supRes, prodRes] = await Promise.all([
-                fetch('/api/suppliers/purchase-list'),
+                fetch('/api/suppliers/purchase-list', { headers: { "x-store-slug": slug } }),
                 fetch('/api/products/purchase-list')
             ]);
             const supData = await supRes.json();
@@ -121,7 +125,7 @@ export default function CreatePurchasePage() {
 
             const res = await fetch('/api/purchases', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { "x-store-slug": slug, 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 

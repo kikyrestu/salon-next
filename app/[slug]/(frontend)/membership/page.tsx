@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import {
   Crown,
@@ -68,6 +70,8 @@ const DEFAULT_CONFIG: MembershipConfig = {
 };
 
 export default function MembershipPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const { settings } = useSettings();
   const router = useTenantRouter();
 
@@ -119,7 +123,7 @@ export default function MembershipPage() {
   const fetchConfig = async () => {
     setConfigLoading(true);
     try {
-      const res = await fetch("/api/settings");
+      const res = await fetch("/api/settings", { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) {
         const d = data.data;
@@ -144,9 +148,9 @@ export default function MembershipPage() {
   const fetchAllItems = async () => {
     try {
       const [sRes, pRes, bRes] = await Promise.all([
-        fetch("/api/services/membership-list"),
-        fetch("/api/products/membership-list"),
-        fetch("/api/service-bundles/membership-list"),
+        fetch("/api/services/membership-list", { headers: { "x-store-slug": slug } }),
+        fetch("/api/products/membership-list", { headers: { "x-store-slug": slug } }),
+        fetch("/api/service-bundles/membership-list", { headers: { "x-store-slug": slug } }),
       ]);
       const [sData, pData, bData] = await Promise.all([sRes.json(), pRes.json(), bRes.json()]);
       if (sData.success) setAllServices((sData.data || []).map((s: any) => ({ _id: s._id, name: s.name, price: s.price, memberPrice: s.memberPrice })));
@@ -159,7 +163,7 @@ export default function MembershipPage() {
 
   const fetchVouchers = async () => {
     try {
-      const res = await fetch("/api/vouchers?limit=0");
+      const res = await fetch("/api/vouchers?limit=0", { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) setVouchers((data.data || []).filter((v: Voucher) => v.isActive));
     } catch (err) {
@@ -183,7 +187,7 @@ export default function MembershipPage() {
   const fetchActiveMembers = async () => {
     setMembersLoading(true);
     try {
-      const res = await fetch("/api/customers?limit=0&membership=premium");
+      const res = await fetch("/api/customers?limit=0&membership=premium", { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) {
         const premiums = (data.data || []).filter(
@@ -208,7 +212,7 @@ export default function MembershipPage() {
 
       const res = await fetch("/api/settings", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
@@ -258,7 +262,7 @@ export default function MembershipPage() {
     try {
       const res = await fetch("/api/membership/purchase", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify({ customerId: selectedCustomer._id, paymentMethod }),
       });
       const data = await res.json();

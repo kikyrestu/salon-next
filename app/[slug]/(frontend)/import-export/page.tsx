@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useRef, useCallback } from "react";
 import {
   Upload,
@@ -69,6 +71,8 @@ interface ImportResult {
 /* ------------------------------------------------------------------ */
 
 export default function ImportExportPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const [activeTab, setActiveTab] = useState<"import" | "export">("import");
   const [selectedEntity, setSelectedEntity] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
@@ -80,7 +84,7 @@ export default function ImportExportPage() {
   /* ────── Template download ────── */
   const downloadTemplate = useCallback(async (entity: string) => {
     try {
-      const res = await fetch(`/api/import/template/${entity}`);
+      const res = await fetch(`/api/import/template/${entity}`, { headers: { "x-store-slug": slug } });
       if (!res.ok) throw new Error("Failed to download template");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -99,7 +103,7 @@ export default function ImportExportPage() {
   const handleExport = useCallback(async (entity: string) => {
     setExporting(entity);
     try {
-      const res = await fetch(`/api/export/${entity}`);
+      const res = await fetch(`/api/export/${entity}`, { headers: { "x-store-slug": slug } });
       if (!res.ok) throw new Error("Failed to export");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -123,10 +127,8 @@ export default function ImportExportPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`/api/import/${entity}`, {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(`/api/import/${entity}`, { headers: { "x-store-slug": slug }, method: "POST",
+        body: formData, });
       const data: ImportResult = await res.json();
       setImportResult(data);
     } catch (err: any) {

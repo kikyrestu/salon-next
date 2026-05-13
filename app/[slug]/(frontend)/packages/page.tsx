@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, QrCode, RefreshCw } from "lucide-react";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
@@ -58,6 +60,8 @@ interface QrisSession {
 }
 
 export default function PackagesPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const { settings } = useSettings();
 
   const [services, setServices] = useState<ServiceItem[]>([]);
@@ -94,10 +98,10 @@ export default function PackagesPage() {
     setLoading(true);
     try {
       const [serviceRes, customerRes, packageRes, orderRes] = await Promise.all([
-        fetch("/api/services/package-list"),
-        fetch("/api/customers/package-list"),
-        fetch("/api/service-packages"),
-        fetch("/api/package-orders"),
+        fetch("/api/services/package-list", { headers: { "x-store-slug": slug } }),
+        fetch("/api/customers/package-list", { headers: { "x-store-slug": slug } }),
+        fetch("/api/service-packages", { headers: { "x-store-slug": slug } }),
+        fetch("/api/package-orders", { headers: { "x-store-slug": slug } }),
       ]);
 
       const serviceData = await serviceRes.json();
@@ -162,7 +166,7 @@ export default function PackagesPage() {
       const url = editingPackage ? `/api/service-packages/${editingPackage._id}` : "/api/service-packages";
       const res = await fetch(url, {
         method: editingPackage ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formName,
           code: formCode,
@@ -203,7 +207,7 @@ export default function PackagesPage() {
     try {
       const orderRes = await fetch("/api/package-orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify({ customerId: selectedCustomer, packageId: selectedPackage }),
       });
       const orderData = await orderRes.json();
@@ -216,7 +220,7 @@ export default function PackagesPage() {
       const paymentPayload = orderData.data.payment;
       const qrisRes = await fetch("/api/payments/xendit/create-invoice", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify({
           sourceType: paymentPayload.sourceType,
           sourceId: paymentPayload.sourceId,
@@ -253,7 +257,7 @@ export default function PackagesPage() {
 
     setCheckingQris(true);
     try {
-      const res = await fetch(`/api/payments/xendit/status/${qrisSession.externalId}`);
+      const res = await fetch(`/api/payments/xendit/status/${qrisSession.externalId}`, { headers: { "x-store-slug": slug } });
       const data = await res.json();
 
       if (!data.success || !data.data) {
@@ -376,7 +380,7 @@ export default function PackagesPage() {
                     <button
                       onClick={async () => {
                         if (!confirm(`Hapus package "${pkg.name}"?`)) return;
-                        const res = await fetch(`/api/service-packages/${pkg._id}`, { method: 'DELETE' });
+                        const res = await fetch(`/api/service-packages/${pkg._id}`, { headers: { "x-store-slug": slug }, method: 'DELETE' });
                         const data = await res.json();
                         if (data.success) loadData();
                         else alert(data.error || 'Gagal hapus');

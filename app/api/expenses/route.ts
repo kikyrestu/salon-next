@@ -1,21 +1,17 @@
 import { getTenantModels } from "@/lib/tenantDb";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-
-
+import { checkPermissionWithSession } from "@/lib/rbac";
 import { getUtcRangeForDateRange } from "@/lib/dateUtils";
 
-
-import { auth } from "@/auth";
-
-export async function GET(request: Request, props: any) {
+export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Expense, Settings, CashBalance, CashLog } = await getTenantModels(tenantSlug);
+    const { Expense, Settings } = await getTenantModels(tenantSlug);
 
     try {
-        
-        
+        const permissionError = await checkPermissionWithSession(request, 'expenses', 'view').then(r => r.error);
+        if (permissionError) return permissionError;
 
         const { searchParams } = new URL(request.url);
         const search = searchParams.get("search");
@@ -73,12 +69,15 @@ export async function GET(request: Request, props: any) {
     }
 }
 
-export async function POST(request: Request, props: any) {
+export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Expense, Settings, CashBalance, CashLog } = await getTenantModels(tenantSlug);
+    const { Expense, CashBalance, CashLog } = await getTenantModels(tenantSlug);
 
     try {
-        
+        // [B14 FIX] Gunakan checkPermissionWithSession — 1 auth() call
+        const { error: permissionError, session: permSession } = await checkPermissionWithSession(request, 'expenses', 'create');
+        if (permissionError) return permissionError;
+
         const body = await request.json();
 
         // Validation
@@ -88,18 +87,17 @@ export async function POST(request: Request, props: any) {
         }
 
         const expense: any = await Expense.create(body);
-        
+
         // --- CASH DRAWER INTEGRATION ---
         if (expense.paymentMethod && expense.paymentMethod.toLowerCase() === 'cash') {
-            const session: any = await auth();
-            const userId = session?.user?.id || expense.recordedBy;
-            
+            const userId = (permSession as any)?.user?.id || expense.recordedBy;
+
             let balance = await CashBalance.findOneAndUpdate(
                 {},
                 { $inc: { kasirBalance: -amountNum }, $set: { lastUpdatedAt: new Date() } },
                 { new: true, upsert: true }
             );
-            
+
             await CashLog.create({
                 type: 'expense',
                 amount: amountNum,
@@ -117,7 +115,7 @@ export async function POST(request: Request, props: any) {
             });
         }
         // -------------------------------
-        
+
         return NextResponse.json({ success: true, data: expense });
     } catch (error) {
         console.error(error);

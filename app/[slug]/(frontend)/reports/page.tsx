@@ -1,6 +1,8 @@
 
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import * as XLSX from "xlsx";
 import {
@@ -39,6 +41,8 @@ import { useTenantRouter } from "@/hooks/useTenantRouter";
 type ReportType = 'summary' | 'sales' | 'services' | 'products' | 'staff' | 'customers' | 'inventory' | 'expenses' | 'profit' | 'daily' | 'activity-log' | 'wallet';
 
 export default function ReportsPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { settings } = useSettings();
     const { data: session } = useSession();
     const router = useTenantRouter();
@@ -87,7 +91,7 @@ export default function ReportsPage() {
 
     // Load staff & service lists for filter dropdowns
     useEffect(() => {
-        fetch('/api/reports/data?type=lists').then(r => r.json()).then(d => {
+        fetch('/api/reports/data?type=lists', { headers: { "x-store-slug": slug } }).then(r => r.json()).then(d => {
             if (d.success && d.data) {
                 setStaffList(d.data.staff || []);
                 setServiceList(d.data.services || []);
@@ -125,7 +129,7 @@ export default function ReportsPage() {
         setReportData(null);
         try {
             if (activeTab === 'summary') {
-                const res = await fetch(`/api/reports/data?startDate=${dateRange.start}&endDate=${dateRange.end}`);
+                const res = await fetch(`/api/reports/data?startDate=${dateRange.start}&endDate=${dateRange.end}`, { headers: { "x-store-slug": slug } });
                 const aggregatedData = await res.json();
 
                 if (!aggregatedData.success) {
@@ -207,7 +211,7 @@ export default function ReportsPage() {
         setPreviewLoading(true);
         setPreviewInvoice({ _loading: true });
         try {
-            const res = await fetch(`/api/invoices/${invoiceId}`);
+            const res = await fetch(`/api/invoices/${invoiceId}`, { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setPreviewInvoice(data.data);
@@ -222,7 +226,7 @@ export default function ReportsPage() {
         setSpenderLoading(true);
         setSpenderHistory([]);
         try {
-            const res = await fetch(`/api/invoices?customerId=${customer._id}&limit=100`);
+            const res = await fetch(`/api/invoices?customerId=${customer._id}&limit=100`, { headers: { "x-store-slug": slug } });
             const data = await res.json();
             setSpenderHistory(data.success ? data.data : []);
         } catch { setSpenderHistory([]); } finally { setSpenderLoading(false); }
@@ -636,7 +640,7 @@ export default function ReportsPage() {
                         // Find the staff ID from list by matching name
                         const match = staffList.find(s => s.name === staffName);
                         if (!match) { setDrillDownData([]); return; }
-                        const res = await fetch(`/api/reports?type=sales&startDate=${dateRange.start}&endDate=${dateRange.end}&staffId=${match._id}`);
+                        const res = await fetch(`/api/reports?type=sales&startDate=${dateRange.start}&endDate=${dateRange.end}&staffId=${match._id}`, { headers: { "x-store-slug": slug } });
                         const data = await res.json();
                         setDrillDownData(data.success ? data.data : []);
                     } catch { setDrillDownData([]); } finally { setDrillDownLoading(false); }

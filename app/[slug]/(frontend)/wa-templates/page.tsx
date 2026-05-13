@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Edit, Plus, Search, Trash2, MessageSquareText } from "lucide-react";
 import Modal from "@/components/dashboard/Modal";
@@ -25,6 +27,8 @@ const renderPreview = (message: string) => {
 };
 
 export default function WaTemplatesPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const [templates, setTemplates] = useState<WaTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -111,7 +115,7 @@ export default function WaTemplatesPage() {
 
             const res = await fetch(url, {
                 method,
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({
                     ...formData,
                     isGreetingEnabled: formData.templateType === 'greeting' ? formData.isGreetingEnabled : false,
@@ -134,7 +138,7 @@ export default function WaTemplatesPage() {
     const handleDelete = async (id: string) => {
         if (!confirm("Hapus template ini?")) return;
 
-        const res = await fetch(`/api/wa/templates/${id}`, { method: "DELETE" });
+        const res = await fetch(`/api/wa/templates/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
         const data = await res.json();
         if (!data.success) {
             alert(data.error || "Gagal menghapus template");
@@ -147,7 +151,7 @@ export default function WaTemplatesPage() {
     const handleToggleGreeting = async (template: WaTemplate) => {
         const res = await fetch(`/api/wa/templates/${template._id}`, {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: { "x-store-slug": slug, "Content-Type": "application/json" },
             body: JSON.stringify({
                 name: template.name,
                 message: template.message,

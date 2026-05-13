@@ -1,6 +1,8 @@
 
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Search, DollarSign, Calendar, Tag, Filter, ChevronLeft, ChevronRight, MoreVertical, FileText } from "lucide-react";
 import Modal from "@/components/dashboard/Modal";
@@ -32,6 +34,8 @@ const EXPENSE_CATEGORIES = [
 ];
 
 export default function ExpensesPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { settings } = useSettings();
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [loading, setLoading] = useState(true);
@@ -96,7 +100,7 @@ export default function ExpensesPage() {
             const url = editingExpense ? `/api/expenses/${editingExpense._id}` : "/api/expenses";
             const res = await fetch(url, {
                 method: editingExpense ? "PUT" : "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify(formData),
             });
             const data = await res.json();
@@ -116,7 +120,7 @@ export default function ExpensesPage() {
 
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this expense?")) return;
-        const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
+        const res = await fetch(`/api/expenses/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
         if ((await res.json()).success) fetchExpenses();
     };
 

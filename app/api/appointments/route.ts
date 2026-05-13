@@ -48,9 +48,9 @@ export async function GET(request: NextRequest, props: any) {
         const pipeline: any[] = [
             { $match: query },
             { $lookup: { from: 'customers', localField: 'customer', foreignField: '_id', as: 'customer' } },
-            { $unwind: '$customer' },
+            { $unwind: { path: '$customer', preserveNullAndEmptyArrays: true } },
             { $lookup: { from: 'staffs', localField: 'staff', foreignField: '_id', as: 'staff' } },
-            { $unwind: '$staff' }
+            { $unwind: { path: '$staff', preserveNullAndEmptyArrays: true } }
         ];
 
         if (search) {
@@ -118,6 +118,30 @@ export async function POST(request: NextRequest, props: any) {
             body.status = body.status.target.value;
         }
 
+        // [U03 FIX] Cek konflik jadwal staff — tolak jika ada appointment lain di slot yang sama
+        if (body.staff && body.date && body.startTime && body.endTime) {
+            const conflictingAppointment = await Appointment.findOne({
+                staff: body.staff,
+                date: new Date(body.date),
+                status: { $nin: ['cancelled', 'no-show'] },
+                $or: [
+                    // Appointment baru mulai di tengah-tengah appointment lain
+                    { startTime: { $lte: body.startTime }, endTime: { $gt: body.startTime } },
+                    // Appointment baru berakhir di tengah-tengah appointment lain
+                    { startTime: { $lt: body.endTime }, endTime: { $gte: body.endTime } },
+                    // Appointment baru sepenuhnya menutupi appointment lain
+                    { startTime: { $gte: body.startTime }, endTime: { $lte: body.endTime } },
+                ]
+            });
+
+            if (conflictingAppointment) {
+                return NextResponse.json(
+                    { success: false, error: `Staff sudah memiliki jadwal pada jam ${conflictingAppointment.startTime}–${conflictingAppointment.endTime}. Pilih waktu lain.` },
+                    { status: 409 }
+                );
+            }
+        }
+
         const settings = await Settings.findOne();
         const taxRate = settings?.taxRate || 0;
 
@@ -144,40 +168,48 @@ export async function POST(request: NextRequest, props: any) {
             commission
         }) as unknown as IAppointment;
 
-        if (appointment.status === 'confirmed' || appointment.status === 'completed' || !appointment.status) {
+        // [B15 FIX] Hapus branch || !appointment.status — appointment tanpa status dianggap 'pending',
+        // tidak boleh langsung dibuatkan invoice
+        if (appointment.status === 'confirmed' || appointment.status === 'completed') {
             // Atomic invoice number via MongoDB counter
             const invoiceNumber = await generateInvoiceNumber(tenantSlug);
 
-            const createdInvoice = await Invoice.create({
-                invoiceNumber,
-                customer: appointment.customer,
-                appointment: appointment._id,
-                items: (appointment.services || []).map((s: any) => ({
-                    item: s.service,
-                    itemModel: 'Service',
-                    name: s.name,
-                    price: s.price || 0,
-                    quantity: 1,
-                    total: s.price || 0
-                })),
-                subtotal: subtotal || 0,
-                tax: tax || 0,
-                discount: discount || 0,
-                totalAmount: totalAmount || 0,
-                commission: commission || 0,
-                staff: appointment.staff,
-                staffAssignments: appointment.staff ? [{
-                    staff: appointment.staff,
-                    percentage: 100,
-                    porsiPersen: 100,  // ✅ FIX
+            try {
+                const createdInvoice = await Invoice.create({
+                    invoiceNumber,
+                    customer: appointment.customer,
+                    appointment: appointment._id,
+                    items: (appointment.services || []).map((s: any) => ({
+                        item: s.service,
+                        itemModel: 'Service',
+                        name: s.name,
+                        price: s.price || 0,
+                        quantity: 1,
+                        total: s.price || 0
+                    })),
+                    subtotal: subtotal || 0,
+                    tax: tax || 0,
+                    discount: discount || 0,
+                    totalAmount: totalAmount || 0,
                     commission: commission || 0,
-                    tip: 0
-                }] : [],
-                status: appointment.status === 'completed' ? 'paid' : 'pending',
-                date: appointment.date || new Date()
-            });
+                    staff: appointment.staff,
+                    staffAssignments: appointment.staff ? [{
+                        staff: appointment.staff,
+                        percentage: 100,
+                        porsiPersen: 100,  // ✅ FIX
+                        commission: commission || 0,
+                        tip: 0
+                    }] : [],
+                    status: appointment.status === 'completed' ? 'paid' : 'pending',
+                    date: appointment.date || new Date()
+                });
 
-            await scheduleFollowUp(createdInvoice._id, tenantSlug);
+                await scheduleFollowUp(createdInvoice._id, tenantSlug);
+            } catch (invoiceError) {
+                // Rollback: hapus appointment yang sudah tersimpan
+                await Appointment.findByIdAndDelete(appointment._id);
+                throw invoiceError;
+            }
         }
 
         return NextResponse.json({ success: true, data: appointment });

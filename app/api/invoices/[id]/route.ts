@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 
 
-import { checkPermission } from "@/lib/rbac";
+import { checkPermissionWithSession } from "@/lib/rbac";
 import { logActivity } from "@/lib/logger";
 import { auth } from "@/auth";
 
@@ -13,10 +13,13 @@ export async function GET(request: NextRequest, props: any) {
 
     try {
         // Security Check — allow pos.view, invoices.view, OR customers.view (for customer history modal)
-        const posPermErr = await checkPermission(request, 'pos', 'view');
-        const invPermErr = await checkPermission(request, 'invoices', 'view');
-        const custPermErr = await checkPermission(request, 'customers', 'view');
-        if (posPermErr && invPermErr && custPermErr) return invPermErr;
+        // [B14 FIX] Gunakan checkPermissionWithSession untuk 1 auth() call, lalu cek manual dari session
+        const { error: posPermErr, session: pSession } = await checkPermissionWithSession(request, 'pos', 'view');
+        const perms = (pSession as any)?.user?.permissions;
+        const isSA = (pSession as any)?.user?.role === 'Super Admin' || (pSession as any)?.user?.role?.name === 'Super Admin';
+        const invPermErr = (!isSA && !perms) ? true : (!isSA && perms?.invoices?.view === 'none');
+        const custPermErr = (!isSA && !perms) ? true : (!isSA && perms?.customers?.view === 'none');
+        if (posPermErr && invPermErr && custPermErr) return posPermErr;
 
 
 
@@ -38,7 +41,7 @@ export async function GET(request: NextRequest, props: any) {
 
 export async function PUT(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Invoice, Customer } = await getTenantModels(tenantSlug);
+    const { Invoice, Customer, Settings } = await getTenantModels(tenantSlug);
 
     try {
 
@@ -46,7 +49,7 @@ export async function PUT(request: NextRequest, props: any) {
         const { id } = await props.params;
 
         // Security Check
-        const permissionError = await checkPermission(request, 'invoices', 'edit');
+        const { error: permissionError } = await checkPermissionWithSession(request, 'invoices', 'edit');
         if (permissionError) return permissionError;
 
         const body = await request.json();
@@ -70,7 +73,10 @@ export async function PUT(request: NextRequest, props: any) {
 
         // Loyalty Point Logic: If status changed to 'paid'
         if (body.status === 'paid' && oldInvoice.status !== 'paid' && invoice.customer) {
-            const pointsToGain = Math.floor(invoice.totalAmount / 10);
+            // [B07 FIX] Baca rate dari Settings, fallback ke 10 jika belum di-set
+            const systemSettings = await Settings.findOne().lean() as any;
+            const spendRule = systemSettings?.loyaltyPointPerSpend || 10;
+            const pointsToGain = Math.floor(invoice.totalAmount / spendRule);
             if (pointsToGain > 0) {
                 await Customer.findByIdAndUpdate(invoice.customer, {
                     $inc: {

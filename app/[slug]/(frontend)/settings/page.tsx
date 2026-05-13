@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Save, Store, Mail, Phone, MapPin, DollarSign, Percent, Image as ImageIcon, Globe, FileText, Clock, CreditCard, MessageSquare, Send, Bell, Sparkles, Trash2, RefreshCw, Gift, Crown } from "lucide-react";
 import FormInput, { FormSelect, FormButton } from "@/components/dashboard/FormInput";
@@ -93,6 +95,8 @@ interface GreetingLogItem {
 }
 
 export default function SettingsPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { refreshSettings } = useSettings();
     const [settings, setSettings] = useState<Settings>({
         storeName: "",
@@ -192,9 +196,9 @@ export default function SettingsPage() {
     const fetchOptions = async () => {
         try {
             const [resS, resP, resB, resV] = await Promise.all([
-                fetch('/api/services?limit=1000'),
-                fetch('/api/products?limit=1000'),
-                fetch('/api/service-bundles?limit=1000'),
+                fetch('/api/services?limit=1000', { headers: { "x-store-slug": slug } }),
+                fetch('/api/products?limit=1000', { headers: { "x-store-slug": slug } }),
+                fetch('/api/service-bundles?limit=1000', { headers: { "x-store-slug": slug } }),
                 fetch('/api/vouchers?limit=999')
             ]);
             const [dataS, dataP, dataB, dataV] = await Promise.all([resS.json(), resP.json(), resB.json(), resV.json()]);
@@ -210,7 +214,7 @@ export default function SettingsPage() {
     const fetchGreetingLogs = async () => {
         setLoadingGreetingLogs(true);
         try {
-            const res = await fetch('/api/wa/greeting-logs');
+            const res = await fetch('/api/wa/greeting-logs', { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (!data.success) return;
 
@@ -225,7 +229,7 @@ export default function SettingsPage() {
 
     const fetchSettings = async () => {
         try {
-            const res = await fetch("/api/settings");
+            const res = await fetch("/api/settings", { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 // Merge fetched data with defaults to ensure all fields exist
@@ -317,7 +321,7 @@ export default function SettingsPage() {
         try {
             const res = await fetch("/api/settings", {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify(settings),
             });
             const data = await res.json();
@@ -341,9 +345,7 @@ export default function SettingsPage() {
         setWaPushResult(null);
 
         try {
-            const res = await fetch("/api/wa/trigger", {
-                method: "POST",
-            });
+            const res = await fetch("/api/wa/trigger", { headers: { "x-store-slug": slug }, method: "POST", });
             const data = await res.json();
 
             if (!data.success) {
@@ -373,7 +375,7 @@ export default function SettingsPage() {
         try {
             const res = await fetch("/api/wa/greeting-logs", {
                 method: "DELETE",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({ phone: phoneToDelete }),
             });
             const data = await res.json();
@@ -401,7 +403,7 @@ export default function SettingsPage() {
         try {
             const res = await fetch("/api/wa/greeting-logs", {
                 method: "DELETE",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({ clearAll: true }),
             });
             const data = await res.json();
@@ -1004,14 +1006,21 @@ export default function SettingsPage() {
                             min="0"
                             placeholder="1000 = 1 poin = Rp1.000"
                         />
-                        <FormInput
-                            label="Referral: Bonus Poin untuk Pengajak"
-                            type="number"
-                            value={settings.referralRewardPoints.toString()}
-                            onChange={(e) => setSettings({ ...settings, referralRewardPoints: parseFloat(e.target.value) || 0 })}
-                            min="0"
-                            placeholder="Misal: 50 poin"
-                        />
+                        <div>
+                          <FormInput
+                              label="Referral: Bonus Poin untuk Pengajak"
+                              type="number"
+                              value={settings.referralRewardPoints.toString()}
+                              onChange={(e) => setSettings({ ...settings, referralRewardPoints: parseFloat(e.target.value) || 0 })}
+                              min="0"
+                              placeholder="Misal: 50 poin"
+                          />
+                          {/* [U04 FIX] Info VIP-only agar admin tidak bingung */}
+                          <p className="mt-1 text-xs text-amber-600 flex items-start gap-1">
+                            <span className="flex-shrink-0">⚠️</span>
+                            <span><strong>Reward ini hanya diberikan kepada pengajak yang berstatus Member VIP.</strong> Customer regular yang mereferensikan orang lain tidak akan mendapatkan reward poin ini.</span>
+                          </p>
+                        </div>
                         <div className="flex gap-2 items-end">
                             <div className="flex-1">
                                 <FormInput

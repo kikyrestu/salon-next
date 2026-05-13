@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Search, Truck, Phone, Mail, MapPin, MoreVertical, ChevronLeft, ChevronRight, Filter, FileText } from "lucide-react";
 import Modal from "@/components/dashboard/Modal";
@@ -17,6 +19,8 @@ interface Supplier {
 }
 
 export default function SuppliersPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,7 +57,7 @@ export default function SuppliersPage() {
     const fetchSuppliers = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/suppliers?search=${search}&page=${page}&limit=10`);
+            const res = await fetch(`/api/suppliers?search=${search}&page=${page}&limit=10`, { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setSuppliers(data.data);
@@ -73,7 +77,7 @@ export default function SuppliersPage() {
             const url = editingSupplier ? `/api/suppliers/${editingSupplier._id}` : "/api/suppliers";
             const res = await fetch(url, {
                 method: editingSupplier ? "PUT" : "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify(formData),
             });
             const data = await res.json();
@@ -93,7 +97,7 @@ export default function SuppliersPage() {
 
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this supplier?")) return;
-        const res = await fetch(`/api/suppliers/${id}`, { method: "DELETE" });
+        const res = await fetch(`/api/suppliers/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
         if ((await res.json()).success) fetchSuppliers();
     };
 

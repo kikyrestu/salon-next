@@ -147,6 +147,7 @@ function fmtDate(d: string): string {
 
 export default function CustomerDashboardPage() {
   const params = useParams();
+  const slug = params.slug as string;
   const router = useTenantRouter();
   const { settings } = useSettings();
   const customerId = params?.id as string;
@@ -195,7 +196,7 @@ export default function CustomerDashboardPage() {
   // ── Fetch ────────────────────────────────────────────────────────────────
 
   const fetchCustomer = useCallback(async () => {
-    const res = await fetch(`/api/customers/${customerId}`);
+    const res = await fetch(`/api/customers/${customerId}`, { headers: { "x-store-slug": slug } });
     const data = await res.json();
     if (data.success) {
       setCustomer(data.data);
@@ -205,7 +206,7 @@ export default function CustomerDashboardPage() {
   }, [customerId]);
 
   const fetchHistory = useCallback(async () => {
-    const res = await fetch(`/api/customers/${customerId}/history`);
+    const res = await fetch(`/api/customers/${customerId}/history`, { headers: { "x-store-slug": slug } });
     const data = await res.json();
     if (data.success) {
       setInvoices(data.data.invoices || []);
@@ -223,13 +224,13 @@ export default function CustomerDashboardPage() {
   }, [customerId]);
 
   const fetchPhotos = useCallback(async () => {
-    const res = await fetch(`/api/customers/${customerId}/photos`);
+    const res = await fetch(`/api/customers/${customerId}/photos`, { headers: { "x-store-slug": slug } });
     const data = await res.json();
     if (data.success) setPhotos(data.data || []);
   }, [customerId]);
 
   const fetchWalletHistory = useCallback(async () => {
-    const res = await fetch(`/api/customers/${customerId}/wallet`);
+    const res = await fetch(`/api/customers/${customerId}/wallet`, { headers: { "x-store-slug": slug } });
     const data = await res.json();
     if (data.success) setWalletTransactions(data.data || []);
   }, [customerId]);
@@ -237,7 +238,7 @@ export default function CustomerDashboardPage() {
   const fetchLoyaltyHistory = useCallback(async () => {
     setLoadingLoyalty(true);
     try {
-      const res = await fetch(`/api/customers/${customerId}/loyalty`);
+      const res = await fetch(`/api/customers/${customerId}/loyalty`, { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) setLoyaltyHistory(data.data || []);
     } finally {
@@ -265,7 +266,7 @@ export default function CustomerDashboardPage() {
     const newVal = !customer.waNotifEnabled;
     const res = await fetch(`/api/customers/${customerId}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "x-store-slug": slug, "Content-Type": "application/json" },
       body: JSON.stringify({ waNotifEnabled: newVal }),
     });
     const data = await res.json();
@@ -277,7 +278,7 @@ export default function CustomerDashboardPage() {
     try {
       const res = await fetch(`/api/customers/${customerId}/notes`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify({ preferenceNotes: notesForm }),
       });
       const data = await res.json();
@@ -297,7 +298,7 @@ export default function CustomerDashboardPage() {
     try {
       const res = await fetch(`/api/customers/${customerId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify({ membershipTier: membershipForm }),
       });
       const data = await res.json();
@@ -322,7 +323,7 @@ export default function CustomerDashboardPage() {
     try {
       const res = await fetch(`/api/customers/${customerId}/photos`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify(photoForm),
       });
       const data = await res.json();
@@ -340,9 +341,7 @@ export default function CustomerDashboardPage() {
 
   const deletePhoto = async (photoId: string) => {
     if (!confirm("Hapus foto ini?")) return;
-    await fetch(`/api/customers/${customerId}/photos?photoId=${photoId}`, {
-      method: "DELETE",
-    });
+    await fetch(`/api/customers/${customerId}/photos?photoId=${photoId}`, { headers: { "x-store-slug": slug }, method: "DELETE", });
     setPhotos((prev) => prev.filter((p) => p._id !== photoId));
   };
 
@@ -540,23 +539,32 @@ export default function CustomerDashboardPage() {
 
           {/* Referral Code */}
           {customer.referralCode && (
-            <div className="mt-3 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-              <Gift className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <span className="text-xs text-gray-500">Kode Referral:</span>
-              <span className="text-sm font-black text-gray-900 tracking-widest">
-                {customer.referralCode}
-              </span>
-              <button
-                onClick={copyReferral}
-                className="ml-auto p-1 text-gray-400 hover:text-gray-700 transition-colors"
-                title="Copy kode"
-              >
-                {copied ? (
-                  <Check className="w-3.5 h-3.5 text-green-600" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-              </button>
+            <div className="mt-3">
+              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <Gift className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <span className="text-xs text-gray-500">Kode Referral:</span>
+                <span className="text-sm font-black text-gray-900 tracking-widest">
+                  {customer.referralCode}
+                </span>
+                <button
+                  onClick={copyReferral}
+                  className="ml-auto p-1 text-gray-400 hover:text-gray-700 transition-colors"
+                  title="Copy kode"
+                >
+                  {copied ? (
+                    <Check className="w-3.5 h-3.5 text-green-600" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+              {/* [U04 FIX] Info VIP-only referral reward — cegah customer bingung reward tidak datang */}
+              {customer.membershipTier !== "premium" && (
+                <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
+                  <span>⚠️</span>
+                  <span>Reward referral hanya diberikan jika customer ini adalah <strong>Member VIP</strong>. Upgrade tier untuk mengaktifkan reward.</span>
+                </p>
+              )}
             </div>
           )}
 

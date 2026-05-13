@@ -146,7 +146,7 @@ export async function PUT(request: NextRequest, props: any) {
 
 export async function DELETE(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Appointment, Invoice, Deposit, Settings, Staff, Service } = await getTenantModels(tenantSlug);
+    const { Appointment, Invoice, Deposit, Customer, WalletTransaction, Settings, Staff, Service } = await getTenantModels(tenantSlug);
 
     try {
         const permissionError = await checkPermission(request, 'appointments', 'delete');
@@ -173,6 +173,35 @@ export async function DELETE(request: NextRequest, props: any) {
         const invoiceIds = linkedInvoices.map((inv: any) => inv._id);
 
         if (invoiceIds.length > 0) {
+            // [B05 FIX] Refund wallet deposits sebelum dihapus
+            const walletDeposits = await Deposit.find({
+                invoice: { $in: invoiceIds },
+                paymentMethod: { $regex: /^wallet$/i },
+                amount: { $gt: 0 }
+            });
+
+            for (const dep of walletDeposits) {
+                if (!dep.customer) continue;
+
+                // Tambah saldo balik ke customer, dan ambil nilai terbaru untuk balanceAfter
+                const updatedCustomer = await Customer.findByIdAndUpdate(
+                    dep.customer,
+                    { $inc: { walletBalance: dep.amount } },
+                    { new: true }
+                );
+
+                if (updatedCustomer) {
+                    await WalletTransaction.create({
+                        customer: dep.customer,
+                        type: 'refund',
+                        amount: dep.amount,
+                        balanceAfter: updatedCustomer.walletBalance,
+                        description: `Refund dari appointment yang dihapus`,
+                        invoice: dep.invoice,
+                    });
+                }
+            }
+
             await Deposit.deleteMany({ invoice: { $in: invoiceIds } });
 
             await Invoice.updateMany(

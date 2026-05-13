@@ -6,13 +6,12 @@ import { getTenantModels } from "@/lib/tenantDb";
  */
 import { NextRequest, NextResponse } from 'next/server';
 
-import { checkPermission } from '@/lib/rbac';
+import { checkPermissionWithSession } from '@/lib/rbac';
 import { logActivity } from '@/lib/logger';
 import { normalizeIndonesianPhone } from '@/lib/phone';
 import { parseExcelBuffer, ENTITY_COLUMNS, EntityType, ParsedRow } from '@/lib/excel';
 import crypto from 'crypto';
 
-import { auth } from '@/auth';
 
 /* ------------------------------------------------------------------ */
 /*  Permission map — which RBAC resource to check for each entity      */
@@ -317,7 +316,8 @@ export async function POST(request: NextRequest, props: any) {
 
     // Permission check
     const resource = RESOURCE_MAP[entity];
-    const permError = await checkPermission(request, resource, 'create');
+    // [B14 FIX] Gunakan checkPermissionWithSession — 1 auth() call
+    const { error: permError, session } = await checkPermissionWithSession(request, resource, 'create');
     if (permError) return permError;
 
     // Read file from FormData
@@ -340,9 +340,8 @@ export async function POST(request: NextRequest, props: any) {
         );
     }
 
-    // Get user for recordedBy etc.
-    const session: any = await auth();
-    const userId = session?.user?.id || '';
+    // [B14 FIX] session diambil dari checkPermissionWithSession di atas
+    const userId = (session as any)?.user?.id || '';
 
     // Insert valid rows
     let result: InsertResult = { inserted: 0, rowErrors: [] };

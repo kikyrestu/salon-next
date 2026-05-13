@@ -24,8 +24,9 @@ import { FormButton } from "@/components/dashboard/FormInput";
 import { useSettings } from "@/components/providers/SettingsProvider";
 
 export default function PurchaseDetailsPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { settings } = useSettings();
-    const params = useParams();
     const router = useTenantRouter();
     const [purchase, setPurchase] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -38,7 +39,7 @@ export default function PurchaseDetailsPage() {
     const fetchPurchase = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/purchases/${params.id}`);
+            const res = await fetch(`/api/purchases/${params.id}`, { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setPurchase(data.data);
@@ -59,9 +60,7 @@ export default function PurchaseDetailsPage() {
 
         setDeleting(true);
         try {
-            const res = await fetch(`/api/purchases/${params.id}`, {
-                method: 'DELETE'
-            });
+            const res = await fetch(`/api/purchases/${params.id}`, { headers: { "x-store-slug": slug }, method: 'DELETE' });
             const data = await res.json();
             if (data.success) {
                 router.push('/purchases');

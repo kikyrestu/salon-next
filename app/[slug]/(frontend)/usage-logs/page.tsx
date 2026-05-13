@@ -1,6 +1,8 @@
 
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Plus, Search, Archive, User, Calendar, History, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import Modal from "@/components/dashboard/Modal";
@@ -8,6 +10,8 @@ import FormInput, { FormSelect, FormButton } from "@/components/dashboard/FormIn
 import { format } from "date-fns";
 
 export default function UsageLogsPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -35,7 +39,7 @@ export default function UsageLogsPage() {
         // Fetch products and staff for the modal
         const fetchResources = async () => {
             const [prodRes, staffRes] = await Promise.all([
-                fetch('/api/products/usage-list'),
+                fetch('/api/products/usage-list', { headers: { "x-store-slug": slug } }),
                 fetch('/api/staff/usage-list')
             ]);
             const prodData = await prodRes.json();
@@ -72,7 +76,7 @@ export default function UsageLogsPage() {
         if (!confirm("Are you sure? Deleting this log will REVERT the product stock.")) return;
 
         try {
-            const res = await fetch(`/api/usage-logs/${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/usage-logs/${id}`, { headers: { "x-store-slug": slug }, method: 'DELETE' });
             const data = await res.json();
             if (data.success) {
                 fetchLogs();
@@ -91,7 +95,7 @@ export default function UsageLogsPage() {
         try {
             const res = await fetch('/api/usage-logs', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { "x-store-slug": slug, 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
             const data = await res.json();

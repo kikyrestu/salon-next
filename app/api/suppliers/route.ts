@@ -1,9 +1,7 @@
 import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 
-
-import { checkPermission, getViewScope } from '@/lib/rbac';
-import { auth } from '@/auth';
+import { checkPermissionWithSession, getViewScope } from '@/lib/rbac';
 
 // GET /api/suppliers - List all suppliers
 export async function GET(request: NextRequest, props: any) {
@@ -11,10 +9,8 @@ export async function GET(request: NextRequest, props: any) {
     const { Supplier } = await getTenantModels(tenantSlug);
 
     try {
-        
-
-        // Check Permissions
-        const permissionError = await checkPermission(request, 'suppliers', 'view');
+        // [B14 FIX] checkPermissionWithSession — session tersedia langsung
+        const { error: permissionError, session } = await checkPermissionWithSession(request, 'suppliers', 'view');
         if (permissionError) return permissionError;
 
         const { searchParams } = new URL(request.url);
@@ -26,10 +22,9 @@ export async function GET(request: NextRequest, props: any) {
         // Build query
         const query: any = {};
 
-        // Apply Scope
-        const scope = await getViewScope('suppliers');
+        // Apply Scope — gunakan session dari checkPermissionWithSession
+        const scope = await getViewScope('suppliers', session);
         if (scope === 'own') {
-            const session: any = await auth();
             if (session?.user?.id) {
                 query.createdBy = session.user.id;
             }
@@ -79,14 +74,11 @@ export async function POST(request: NextRequest, props: any) {
     const { Supplier } = await getTenantModels(tenantSlug);
 
     try {
-        
-
-        // Check Permissions
-        const permissionError = await checkPermission(request, 'suppliers', 'create');
+        // [B14 FIX] checkPermissionWithSession — tidak perlu auth() terpisah
+        const { error: permissionError, session } = await checkPermissionWithSession(request, 'suppliers', 'create');
         if (permissionError) return permissionError;
 
         const body = await request.json();
-        const session: any = await auth();
         const supplier = await Supplier.create({
             ...body,
             createdBy: session?.user?.id

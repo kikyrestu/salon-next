@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   Plus,
@@ -89,6 +91,8 @@ interface ServiceBundle {
 }
 
 export default function ServicesPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const { settings } = useSettings();
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -196,7 +200,7 @@ export default function ServicesPage() {
   }, [search]);
 
   const fetchCategories = async () => {
-    const res = await fetch("/api/service-categories");
+    const res = await fetch("/api/service-categories", { headers: { "x-store-slug": slug } });
     const data = await res.json();
     if (data.success) setCategories(data.data);
   };
@@ -225,7 +229,7 @@ export default function ServicesPage() {
 
   const fetchWaTemplates = async () => {
     try {
-      const res = await fetch("/api/wa/templates?type=follow_up");
+      const res = await fetch("/api/wa/templates?type=follow_up", { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) {
         setWaTemplates(data.data || []);
@@ -237,7 +241,7 @@ export default function ServicesPage() {
 
   const fetchBundles = async () => {
     try {
-      const res = await fetch("/api/service-bundles");
+      const res = await fetch("/api/service-bundles", { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) setBundles(data.data || []);
     } catch (error) {
@@ -277,7 +281,7 @@ export default function ServicesPage() {
         : "/api/services";
       const res = await fetch(url, {
         method: editingService ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify(serviceFormData),
       });
       const data = await res.json();
@@ -304,7 +308,7 @@ export default function ServicesPage() {
         : "/api/service-categories";
       const res = await fetch(url, {
         method: editingCategory ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify({
           name: categoryName,
           slug: categoryName.toLowerCase().replace(/\s+/g, "-"),
@@ -333,9 +337,7 @@ export default function ServicesPage() {
       )
     )
       return;
-    const res = await fetch(`/api/service-categories/${id}`, {
-      method: "DELETE",
-    });
+    const res = await fetch(`/api/service-categories/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE", });
     if ((await res.json()).success) fetchCategories();
   };
 
@@ -352,7 +354,7 @@ export default function ServicesPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this service?")) return;
-    const res = await fetch(`/api/services/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/services/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
     if ((await res.json()).success) fetchServices();
   };
 
@@ -513,7 +515,7 @@ export default function ServicesPage() {
         : "/api/service-bundles";
       const res = await fetch(url, {
         method: editingBundle ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify(bundleFormData),
       });
       const data = await res.json();
@@ -533,7 +535,7 @@ export default function ServicesPage() {
 
   const handleBundleDelete = async (id: string) => {
     if (!confirm("Hapus bundle ini?")) return;
-    const res = await fetch(`/api/service-bundles/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/service-bundles/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
     if ((await res.json()).success) fetchBundles();
   };
 

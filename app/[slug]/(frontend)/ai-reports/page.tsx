@@ -1,11 +1,15 @@
 
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Sparkles, Send, Loader2, TrendingUp, AlertTriangle, Lightbulb, PieChart, RefreshCw } from "lucide-react";
 import FormInput, { FormButton } from "@/components/dashboard/FormInput";
 
 export default function AIReportsPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const [prompt, setPrompt] = useState("");
     const [loading, setLoading] = useState(false);
     const [analysis, setAnalysis] = useState("");
@@ -19,7 +23,7 @@ export default function AIReportsPage() {
 
     const checkSettings = async () => {
         try {
-            const res = await fetch("/api/settings");
+            const res = await fetch("/api/settings", { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success && !data.data.aiEnabled) {
                 setAiEnabled(false);
@@ -38,7 +42,7 @@ export default function AIReportsPage() {
         try {
             const res = await fetch("/api/ai-reports", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({ prompt, timeRange }),
             });
             const data = await res.json();

@@ -9,8 +9,9 @@ import FormInput, { FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
 
 export default function EditUserPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const router = useTenantRouter();
-    const params = useParams();
     const { id } = params;
 
     const [loading, setLoading] = useState(true);
@@ -28,8 +29,8 @@ export default function EditUserPage() {
         const fetchData = async () => {
             try {
                 const [rolesRes, userRes] = await Promise.all([
-                    fetch("/api/roles/user-list"),
-                    fetch(`/api/users/${id}`)
+                    fetch("/api/roles/user-list", { headers: { "x-store-slug": slug } }),
+                    fetch(`/api/users/${id}`, { headers: { "x-store-slug": slug } })
                 ]);
 
                 const rolesData = await rolesRes.json();
@@ -83,7 +84,7 @@ export default function EditUserPage() {
 
             const res = await fetch(`/api/users/${id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify(body),
             });
 

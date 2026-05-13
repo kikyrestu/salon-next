@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { useTenantRouter } from "@/hooks/useTenantRouter";
 import { format, parse, addMinutes } from "date-fns";
 import {
@@ -74,6 +75,8 @@ interface Appointment {
 
 export default function AppointmentsPage() {
   const { settings } = useSettings();
+  const params = useParams();
+  const slug = params.slug as string;
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -186,10 +189,11 @@ export default function AppointmentsPage() {
   }, [activeDropdown]);
 
   const fetchResources = async () => {
+    const headers = { "x-store-slug": slug };
     const [staffRes, serviceRes, customerRes] = await Promise.all([
-      fetch("/api/staff/appointment-list"),
-      fetch("/api/services?limit=0"),
-      fetch("/api/customers?limit=0"),
+      fetch("/api/staff/appointment-list", { headers }),
+      fetch("/api/services?limit=0", { headers }),
+      fetch("/api/customers?limit=0", { headers }),
     ]);
     const staffData = await staffRes.json();
     const serviceData = await serviceRes.json();
@@ -211,6 +215,7 @@ export default function AppointmentsPage() {
       const excludeId = editingAppointment?._id || "";
       const res = await fetch(
         `/api/staff-slots?staffId=${formData.staffId}&date=${formData.date}&excludeAppointmentId=${excludeId}`,
+        { headers: { "x-store-slug": slug } }
       );
       const data = await res.json();
       if (data.success) {
@@ -239,7 +244,9 @@ export default function AppointmentsPage() {
     if (endDate) url += `&end=${endDate}`;
 
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: { "x-store-slug": slug }
+      });
       const data = await res.json();
       if (data.success) {
         setAppointments(data.data);
@@ -256,7 +263,7 @@ export default function AppointmentsPage() {
     try {
       const res = await fetch(`/api/appointments/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-store-slug": slug },
         body: JSON.stringify({ status: newStatus }),
       });
       const data = await res.json();
@@ -336,7 +343,7 @@ export default function AppointmentsPage() {
 
       const res = await fetch(url, {
         method: method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-store-slug": slug },
         body: JSON.stringify(payload),
       });
 
@@ -359,7 +366,10 @@ export default function AppointmentsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this appointment?")) return;
     try {
-      const res = await fetch(`/api/appointments/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/appointments/${id}`, {
+        method: "DELETE",
+        headers: { "x-store-slug": slug }
+      });
       const data = await res.json();
       if (data.success) {
         fetchAppointments();
@@ -490,7 +500,9 @@ export default function AppointmentsPage() {
               refreshTrigger={refreshTrigger}
               onSelectEvent={async (event) => {
                 try {
-                  const res = await fetch(`/api/appointments/${event.id}`);
+                  const res = await fetch(`/api/appointments/${event.id}`, {
+                    headers: { "x-store-slug": slug }
+                  });
                   const data = await res.json();
                   if (data.success) openEditModal(data.data);
                 } catch (error) {

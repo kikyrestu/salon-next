@@ -1,11 +1,15 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import TenantLink from '@/components/TenantLink';
 import { Plus, Search, Users, Edit, Trash2, Shield, Mail, Filter, ChevronLeft, ChevronRight, MoreVertical, FileText } from "lucide-react";
 import PermissionGate from "@/components/PermissionGate";
 
 export default function UsersPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -35,7 +39,7 @@ export default function UsersPage() {
                 page: page.toString(),
                 limit: "10"
             });
-            const res = await fetch(`/api/users?${query}`);
+            const res = await fetch(`/api/users?${query}`, { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setUsers(data.data);
@@ -52,9 +56,7 @@ export default function UsersPage() {
         if (!confirm("Are you sure you want to delete this user?")) return;
 
         try {
-            const res = await fetch(`/api/users/${id}`, {
-                method: "DELETE",
-            });
+            const res = await fetch(`/api/users/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE", });
             const data = await res.json();
 
             if (data.success) {

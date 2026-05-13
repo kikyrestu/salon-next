@@ -1,6 +1,8 @@
 
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Search, User, Phone, Mail, Scissors, ChevronLeft, ChevronRight, MoreVertical, Filter, FileText } from "lucide-react";
 import Modal from "@/components/dashboard/Modal";
@@ -21,6 +23,8 @@ interface Staff {
 }
 
 export default function StaffPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { settings } = useSettings();
     const [staffMembers, setStaffMembers] = useState<Staff[]>([]);
     const [loading, setLoading] = useState(true);
@@ -65,7 +69,7 @@ export default function StaffPage() {
                 limit: "10",
                 search
             });
-            const res = await fetch(`/api/staff?${query}`);
+            const res = await fetch(`/api/staff?${query}`, { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setStaffMembers(data.data);
@@ -90,7 +94,7 @@ export default function StaffPage() {
             const url = editingStaff ? `/api/staff/${editingStaff._id}` : "/api/staff";
             const res = await fetch(url, {
                 method: editingStaff ? "PUT" : "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
             const data = await res.json();
@@ -110,7 +114,7 @@ export default function StaffPage() {
 
     const handleDelete = async (id: string) => {
         if (!confirm("Remove this staff member?")) return;
-        const res = await fetch(`/api/staff/${id}`, { method: "DELETE" });
+        const res = await fetch(`/api/staff/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
         if ((await res.json()).success) fetchStaff();
     };
 

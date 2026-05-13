@@ -4,7 +4,9 @@
       "PowerShell(Get-ChildItem -Path \"D:\\\\PROJECT\\\\salon-next\\\\app\" -Recurse -Directory | Where-Object { $_.Name -eq \"appointments\" } | Select-Object FullName)",
       "Bash(awk '{print $NF}')",
       "Bash(npm test:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(tail:*)",
+      "Bash(ls:*)"
     ]
   }
 }

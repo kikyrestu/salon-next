@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Save, User, Mail, Lock, Shield } from "lucide-react";
 import FormInput, { FormButton } from "@/components/dashboard/FormInput";
@@ -12,6 +14,8 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const [profile, setProfile] = useState<UserProfile>({
         name: "",
         email: "",
@@ -28,7 +32,7 @@ export default function ProfilePage() {
 
     const fetchProfile = async () => {
         try {
-            const res = await fetch("/api/profile");
+            const res = await fetch("/api/profile", { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setProfile(prev => ({
@@ -75,7 +79,7 @@ export default function ProfilePage() {
         try {
             const res = await fetch("/api/profile", {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify(profile),
             });
             const data = await res.json();

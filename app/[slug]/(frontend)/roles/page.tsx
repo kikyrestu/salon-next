@@ -1,11 +1,15 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import TenantLink from '@/components/TenantLink';
 import { Plus, Search, Shield, Edit, Trash2, Key, Filter, ChevronLeft, ChevronRight, MoreVertical, FileText, Clock } from "lucide-react";
 import PermissionGate from "@/components/PermissionGate";
 
 export default function RolesPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const [roles, setRoles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -35,7 +39,7 @@ export default function RolesPage() {
                 page: page.toString(),
                 limit: "10"
             });
-            const res = await fetch(`/api/roles?${query}`);
+            const res = await fetch(`/api/roles?${query}`, { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setRoles(data.data);
@@ -52,9 +56,7 @@ export default function RolesPage() {
         if (!confirm("Are you sure you want to delete this role?")) return;
 
         try {
-            const res = await fetch(`/api/roles/${id}`, {
-                method: "DELETE",
-            });
+            const res = await fetch(`/api/roles/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE", });
             const data = await res.json();
 
             if (data.success) {

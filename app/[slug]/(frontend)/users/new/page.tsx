@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useTenantRouter } from "@/hooks/useTenantRouter";
 import TenantLink from '@/components/TenantLink';
@@ -8,6 +10,8 @@ import FormInput, { FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
 
 export default function NewUserPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const router = useTenantRouter();
     const [loading, setLoading] = useState(false);
     const [roles, setRoles] = useState<any[]>([]);
@@ -25,7 +29,7 @@ export default function NewUserPage() {
 
     const fetchRoles = async () => {
         try {
-            const res = await fetch("/api/roles/user-list");
+            const res = await fetch("/api/roles/user-list", { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setRoles(data.data);
@@ -49,7 +53,7 @@ export default function NewUserPage() {
         try {
             const res = await fetch("/api/users", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({
                     name,
                     email,

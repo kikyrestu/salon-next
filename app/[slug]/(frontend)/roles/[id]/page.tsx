@@ -37,8 +37,9 @@ const RESOURCES = [
 ];
 
 export default function EditRolePage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const router = useTenantRouter();
-    const params = useParams();
     const { id } = params;
 
     const [loading, setLoading] = useState(true);
@@ -68,7 +69,7 @@ export default function EditRolePage() {
 
     const fetchRole = async () => {
         try {
-            const res = await fetch(`/api/roles/${id}`);
+            const res = await fetch(`/api/roles/${id}`, { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 const role = data.data;
@@ -113,7 +114,7 @@ export default function EditRolePage() {
         try {
             const res = await fetch(`/api/roles/${id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({
                     name,
                     description,

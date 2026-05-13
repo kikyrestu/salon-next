@@ -266,11 +266,17 @@ export async function scheduleFollowUp(transactionId: string | mongoose.Types.Ob
     if (docsToInsert.length === 0) return 0;
 
     // ordered: false supaya sisa dokumen tetap masuk meski satu gagal (race condition).
-    await WaSchedule.insertMany(docsToInsert, { ordered: false }).catch((error: any) => {
-        if (error?.code !== 11000) {
-            throw error;
+    try {
+        await WaSchedule.insertMany(docsToInsert, { ordered: false });
+    } catch (error: any) {
+        const isDuplicate = error?.code === 11000 ||
+            (error?.writeErrors ?? []).some((e: any) => e.code === 11000);
+        if (!isDuplicate) {
+            console.error('[waFollowUp] insertMany error (non-fatal):', error.message);
         }
-    });
+        // Jangan throw — WA follow-up gagal tidak boleh batalkan booking
+        return 0;
+    }
 
     return docsToInsert.length;
 }

@@ -4,32 +4,30 @@ import { NextRequest, NextResponse } from "next/server";
 
 
 
-import { checkPermission } from "@/lib/rbac";
+import { checkPermissionWithSession } from "@/lib/rbac";
 import { logActivity } from "@/lib/logger";
-import { auth } from "@/auth";
 
 export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { CashBalance, CashSession, CashLog } = await getTenantModels(tenantSlug);
 
     try {
-        
-        
 
-        const permissionError = await checkPermission(request, 'pos', 'create'); 
+
+
+        // [B14 FIX] Gunakan checkPermissionWithSession — 1 auth() call
+        const { error: permissionError, session } = await checkPermissionWithSession(request, 'pos', 'create');
         if (permissionError) return permissionError;
-
-        const session: any = await auth();
-        const userId = session?.user?.id;
+        const userId = (session as any)?.user?.id;
 
         const body = await request.json();
         const action = body.action; // 'open' | 'close'
 
         if (action === 'open') {
             const { startingCash, notes } = body;
-            
-            // Check if there is already an open session
-            const existingSession = await CashSession.findOne({ status: 'open' });
+
+            // [B08 FIX] Cek sesi per kasir (openedBy), bukan global — kasir A tidak memblokir kasir B
+            const existingSession = await CashSession.findOne({ status: 'open', openedBy: userId });
             if (existingSession) {
                 return NextResponse.json({ success: false, error: "A session is already open" }, { status: 400 });
             }
@@ -103,7 +101,8 @@ export async function POST(request: NextRequest, props: any) {
         } else if (action === 'close') {
             const { actualEndingCash, notes } = body;
 
-            const existingSession = await CashSession.findOne({ status: 'open' });
+            // [B08 FIX] Tutup sesi milik kasir ini saja
+            const existingSession = await CashSession.findOne({ status: 'open', openedBy: userId });
             if (!existingSession) {
                 return NextResponse.json({ success: false, error: "No active session to close" }, { status: 400 });
             }
@@ -126,7 +125,7 @@ export async function POST(request: NextRequest, props: any) {
             existingSession.discrepancy = discrepancy;
             existingSession.status = 'closed';
             if (notes) existingSession.notes = (existingSession.notes ? existingSession.notes + '\n' : '') + notes;
-            
+
             await existingSession.save();
 
             // Log adjustment if discrepancy

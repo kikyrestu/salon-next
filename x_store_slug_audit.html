@@ -1,0 +1,207 @@
+
+<style>
+h2.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
+.badge-ok{background:var(--color-background-success);color:var(--color-text-success)}
+.badge-err{background:var(--color-background-danger);color:var(--color-text-danger)}
+.badge-warn{background:var(--color-background-warning);color:var(--color-text-warning)}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:12px}
+.risk-box{border-left:3px solid;border-radius:0 var(--border-radius-md) var(--border-radius-md) 0;padding:10px 14px;margin-bottom:10px}
+.risk-critical{border-color:var(--color-border-danger);background:var(--color-background-danger)}
+.risk-high{border-color:var(--color-border-warning);background:var(--color-background-warning)}
+.risk-medium{border-color:var(--color-border-info);background:var(--color-background-info)}
+.risk-title{font-size:13px;font-weight:500;color:var(--color-text-primary);margin:0 0 2px}
+.risk-desc{font-size:12px;color:var(--color-text-secondary);margin:0}
+.page-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
+.page-item{display:flex;align-items:center;justify-content:space-between;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:7px 10px;font-size:12px;color:var(--color-text-primary)}
+.page-name{font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary)}
+.stat-row{display:flex;gap:12px;margin-bottom:16px}
+.stat{flex:1;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;text-align:center}
+.stat-num{font-size:28px;font-weight:500;line-height:1}
+.stat-label{font-size:12px;color:var(--color-text-secondary);margin-top:4px}
+.num-danger{color:var(--color-text-danger)}
+.num-ok{color:var(--color-text-success)}
+.num-muted{color:var(--color-text-secondary)}
+.section-title{font-size:13px;font-weight:500;color:var(--color-text-secondary);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.05em}
+.fetch-count{font-size:10px;background:var(--color-background-danger);color:var(--color-text-danger);border-radius:10px;padding:1px 6px;font-weight:500}
+.fetch-ok{background:var(--color-background-success);color:var(--color-text-success)}
+</style>
+
+<h2 class="sr-only">Audit x-store-slug: 36 dari 40 halaman frontend tidak mengirim header x-store-slug saat melakukan API call</h2>
+
+<div style="padding:1rem 0">
+
+<div class="card">
+  <div style="font-size:15px;font-weight:500;margin-bottom:4px">Ringkasan Audit: <code style="font-size:13px">x-store-slug</code></div>
+  <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:16px">Frontend pages di <code>app/[slug]/(frontend)/</code></div>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-num num-danger">36</div>
+      <div class="stat-label">Halaman <strong>tanpa</strong> x-store-slug</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num num-ok">4</div>
+      <div class="stat-label">Halaman sudah benar</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num num-muted">40</div>
+      <div class="stat-label">Total halaman</div>
+    </div>
+  </div>
+
+  <div style="background:var(--color-background-danger);border-radius:var(--border-radius-md);padding:10px 14px;font-size:13px;color:var(--color-text-danger);font-weight:500">
+    ⚠️ 90% halaman frontend mengirim API call <strong>tanpa x-store-slug</strong> — semua akan fallback ke database <code>"pusat"</code>
+  </div>
+</div>
+
+<div class="card">
+  <div style="font-size:14px;font-weight:500;margin-bottom:12px">Bagaimana bug ini terjadi</div>
+  <div style="display:flex;gap:0;flex-direction:column">
+    <div style="display:flex;align-items:stretch;gap:12px;margin-bottom:2px">
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--color-background-info);color:var(--color-text-info);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0">1</div>
+        <div style="width:1px;flex:1;background:var(--color-border-tertiary);margin-top:4px"></div>
+      </div>
+      <div style="padding-bottom:12px">
+        <div style="font-size:13px;font-weight:500">User login sebagai toko <code>salon-abc</code></div>
+        <div style="font-size:12px;color:var(--color-text-secondary)">Session menyimpan <code>tenantSlug = "salon-abc"</code></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:stretch;gap:12px;margin-bottom:2px">
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--color-background-danger);color:var(--color-text-danger);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0">2</div>
+        <div style="width:1px;flex:1;background:var(--color-border-tertiary);margin-top:4px"></div>
+      </div>
+      <div style="padding-bottom:12px">
+        <div style="font-size:13px;font-weight:500">Halaman memanggil <code>fetch("/api/customers")</code></div>
+        <div style="font-size:12px;color:var(--color-text-secondary)">Tanpa header <code>x-store-slug</code> — bug!</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:stretch;gap:12px;margin-bottom:2px">
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--color-background-danger);color:var(--color-text-danger);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0">3</div>
+        <div style="width:1px;flex:1;background:var(--color-border-tertiary);margin-top:4px"></div>
+      </div>
+      <div style="padding-bottom:12px">
+        <div style="font-size:13px;font-weight:500">API route melakukan fallback</div>
+        <div style="font-size:12px;color:var(--color-text-secondary)"><code>request.headers.get('x-store-slug') || 'pusat'</code></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:stretch;gap:12px">
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--color-background-danger);color:var(--color-text-danger);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0">4</div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:500;color:var(--color-text-danger)">Data yang tampil = data toko "pusat"</div>
+        <div style="font-size:12px;color:var(--color-text-secondary)">Bukan data <code>salon-abc</code> — <strong>data isolation rusak!</strong></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="font-size:14px;font-weight:500;margin-bottom:12px">Risiko berdasarkan tingkat keparahan</div>
+  <div class="risk-box risk-critical">
+    <div class="risk-title">🔴 Kritis — Kebocoran data antar tenant</div>
+    <div class="risk-desc">Toko selain "pusat" akan membaca & menulis ke database toko lain. Customer, invoice, transaksi bercampur.</div>
+  </div>
+  <div class="risk-box risk-critical">
+    <div class="risk-title">🔴 Kritis — Korupsi data saat write/edit/delete</div>
+    <div class="risk-desc">Simpan customer baru, hapus produk, update settings → masuk ke database toko "pusat", bukan toko yang login.</div>
+  </div>
+  <div class="risk-box risk-high">
+    <div class="risk-title">🟠 Tinggi — Multi-tenancy tidak berfungsi</div>
+    <div class="risk-desc">Seluruh arsitektur multi-tenant jadi sia-sia. Semua toko non-pusat melihat data yang sama.</div>
+  </div>
+  <div class="risk-box risk-high">
+    <div class="risk-title">🟠 Tinggi — RBAC bypass tidak terdeteksi</div>
+    <div class="risk-desc">lib/rbac.ts memvalidasi x-store-slug vs session — tanpa header, validasi ini dilewati sepenuhnya.</div>
+  </div>
+  <div class="risk-box risk-medium">
+    <div class="risk-title">🔵 Medium — Hanya "pusat" yang kerja normal</div>
+    <div class="risk-desc">Secara tidak sengaja, toko "pusat" adalah satu-satunya toko yang berfungsi benar saat ini.</div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="font-size:14px;font-weight:500;margin-bottom:4px">Halaman yang sudah benar ✅</div>
+  <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:10px">Hanya 4 halaman yang mengirim x-store-slug dengan benar</div>
+  <div class="page-grid">
+    <div class="page-item"><span class="page-name">appointments/page.tsx</span><span class="badge badge-ok">✓ OK</span></div>
+    <div class="page-item"><span class="page-name">dashboard/page.tsx</span><span class="badge badge-ok">✓ OK</span></div>
+    <div class="page-item"><span class="page-name">pos/page.tsx</span><span class="badge badge-ok">✓ OK</span></div>
+    <div class="page-item"><span class="page-name">reports/activity-log/page.tsx</span><span class="badge badge-ok">✓ OK</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="font-size:14px;font-weight:500;margin-bottom:4px">Halaman yang bermasalah ❌</div>
+  <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:10px">36 halaman — angka = jumlah fetch() call tanpa slug</div>
+  <div class="page-grid" id="broken-pages"></div>
+</div>
+
+<div class="card">
+  <div style="font-size:14px;font-weight:500;margin-bottom:10px">Rekomendasi perbaikan</div>
+  <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:8px">Pola yang sudah benar (contoh dari <code>appointments/page.tsx</code>):</div>
+  <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);margin-bottom:12px;white-space:pre-wrap">const headers = { "x-store-slug": slug };
+fetch("/api/customers", { headers })
+fetch("/api/services", { headers })
+fetch("/api/products", { headers })</div>
+  <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:8px">Slug sudah tersedia via Next.js params di setiap halaman:</div>
+  <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);white-space:pre-wrap">const { slug } = await params;
+// atau
+const params = useParams();
+const slug = params.slug as string;</div>
+</div>
+
+</div>
+
+<script>
+const pages = [
+  ["ai-reports/page.tsx", 2],
+  ["appointments/calendar/page.tsx", 8],
+  ["bundles/page.tsx", 4],
+  ["cash-drawer/page.tsx", 4],
+  ["customers/page.tsx", 5],
+  ["customers/[id]/page.tsx", 11],
+  ["expenses/page.tsx", 3],
+  ["import-export/page.tsx", 3],
+  ["invoices/page.tsx", 4],
+  ["invoices/print/[id]/page.tsx", 3],
+  ["membership/page.tsx", 9],
+  ["packages/page.tsx", 9],
+  ["payments/qris/page.tsx", 2],
+  ["payroll/page.tsx", 6],
+  ["products/page.tsx", 3],
+  ["profile/page.tsx", 2],
+  ["purchases/page.tsx", 3],
+  ["purchases/create/page.tsx", 3],
+  ["purchases/[id]/page.tsx", 2],
+  ["reports/page.tsx", 6],
+  ["reports/financial/page.tsx", 1],
+  ["roles/page.tsx", 2],
+  ["roles/new/page.tsx", 1],
+  ["roles/[id]/page.tsx", 2],
+  ["services/page.tsx", 10],
+  ["settings/page.tsx", 10],
+  ["staff/page.tsx", 3],
+  ["staff-slots/page.tsx", 4],
+  ["suppliers/page.tsx", 3],
+  ["usage-logs/page.tsx", 5],
+  ["users/page.tsx", 2],
+  ["users/new/page.tsx", 2],
+  ["users/[id]/page.tsx", 3],
+  ["vouchers/page.tsx", 4],
+  ["wa-marketing/page.tsx", 12],
+  ["wa-templates/page.tsx", 4],
+  ["wallet/page.tsx", 4],
+];
+const grid = document.getElementById('broken-pages');
+pages.forEach(([name, count]) => {
+  const div = document.createElement('div');
+  div.className = 'page-item';
+  div.innerHTML = `<span class="page-name">${name}</span><span class="fetch-count">${count} fetch</span>`;
+  grid.appendChild(div);
+});
+</script>

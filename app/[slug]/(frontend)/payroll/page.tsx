@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { DollarSign, Calendar, User, TrendingUp, Download, Plus, Eye, Check, X, Edit, Trash2, Search, Filter, FileText, ChevronLeft, ChevronRight, MoreVertical } from "lucide-react";
 import { format } from "date-fns";
@@ -36,6 +38,8 @@ const MONTHS = [
 ];
 
 export default function PayrollPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { settings } = useSettings();
     const [payrolls, setPayrolls] = useState<Payroll[]>([]);
     const [staff, setStaff] = useState<Staff[]>([]);
@@ -112,7 +116,7 @@ export default function PayrollPage() {
         try {
             const res = await fetch("/api/payroll", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({
                     staffId: selectedStaff,
                     month: selectedMonth,
@@ -140,7 +144,7 @@ export default function PayrollPage() {
         try {
             const res = await fetch(`/api/payroll/${id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({ status, paidDate: status === "paid" ? new Date() : null })
             });
 
@@ -155,7 +159,7 @@ export default function PayrollPage() {
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to delete this payroll record?")) return;
         try {
-            const res = await fetch(`/api/payroll/${id}`, { method: "DELETE" });
+            const res = await fetch(`/api/payroll/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
             const data = await res.json();
             if (data.success) {
                 fetchData();
@@ -193,7 +197,7 @@ export default function PayrollPage() {
 
             const res = await fetch(`/api/payroll/${selectedPayroll._id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({
                     ...editPayrollData,
                     totalAmount

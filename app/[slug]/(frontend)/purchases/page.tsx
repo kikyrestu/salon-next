@@ -1,6 +1,8 @@
 
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Plus, Search, Filter, ShoppingBag, Eye, Calendar, ChevronLeft, ChevronRight, MoreVertical, Trash2, Wallet, X } from "lucide-react";
 import TenantLink from '@/components/TenantLink';
@@ -9,6 +11,8 @@ import { useSettings } from "@/components/providers/SettingsProvider";
 import { formatDate } from "@/lib/dateUtils";
 
 export default function PurchasesPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { settings } = useSettings();
     const [purchases, setPurchases] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -65,7 +69,7 @@ export default function PurchasesPage() {
         if (!confirm("Are you sure? Deleting a 'received' purchase will revert product stock levels.")) return;
 
         try {
-            const res = await fetch(`/api/purchases/${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/purchases/${id}`, { headers: { "x-store-slug": slug }, method: 'DELETE' });
             const data = await res.json();
             if (data.success) {
                 fetchPurchases();
@@ -85,7 +89,7 @@ export default function PurchasesPage() {
         try {
             const res = await fetch("/api/purchases/deposits", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                 body: JSON.stringify({
                     purchase: selectedPurchase._id,
                     supplier: selectedPurchase.supplier?._id,

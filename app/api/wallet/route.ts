@@ -5,11 +5,7 @@ import { getTenantModels } from "@/lib/tenantDb";
  */
 import { NextRequest, NextResponse } from 'next/server';
 
-import { auth } from '@/auth';
-
-
-
-import { checkPermission } from '@/lib/rbac';
+import { checkPermissionWithSession } from '@/lib/rbac';
 
 /* ------------------------------------------------------------------ */
 /*  GET — Wallet history for a customer                                */
@@ -22,7 +18,7 @@ export async function GET(request: NextRequest, props: any) {
     
     
 
-    const permissionError = await checkPermission(request, 'customers', 'view');
+    const { error: permissionError } = await checkPermissionWithSession(request, 'customers', 'view');
     if (permissionError) return permissionError;
 
     const { searchParams } = new URL(request.url);
@@ -73,10 +69,10 @@ export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { Customer, WalletTransaction, Settings } = await getTenantModels(tenantSlug);
 
-    const permissionError = await checkPermission(request, 'customers', 'edit');
+    // [B14 FIX] Gunakan checkPermissionWithSession — 1 auth() call
+    const { error: permissionError, session } = await checkPermissionWithSession(request, 'customers', 'edit');
     if (permissionError) return permissionError;
 
-    const session: any = await auth();
     const body = await request.json();
     const { customerId, type, paymentMethod, description, invoiceId } = body;
     

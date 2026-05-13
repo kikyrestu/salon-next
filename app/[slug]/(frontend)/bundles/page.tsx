@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Edit, Scissors } from "lucide-react";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
@@ -47,6 +49,8 @@ interface FormServiceItem {
 }
 
 export default function BundlesPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const { settings } = useSettings();
 
   const [services, setServices] = useState<ServiceItem[]>([]);
@@ -66,8 +70,8 @@ export default function BundlesPage() {
     setLoading(true);
     try {
       const [serviceRes, bundleRes] = await Promise.all([
-        fetch("/api/services/bundle-list"),
-        fetch("/api/service-bundles"),
+        fetch("/api/services/bundle-list", { headers: { "x-store-slug": slug } }),
+        fetch("/api/service-bundles", { headers: { "x-store-slug": slug } }),
       ]);
 
       const serviceData = await serviceRes.json();
@@ -153,7 +157,7 @@ export default function BundlesPage() {
 
       const res = await fetch(url, {
         method: editingBundle ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formName,
           description: formDescription,
@@ -211,7 +215,7 @@ export default function BundlesPage() {
 
   const handleDelete = async (bundle: ServiceBundle) => {
     if (!confirm(`Hapus bundle "${bundle.name}"?`)) return;
-    const res = await fetch(`/api/service-bundles/${bundle._id}`, { method: "DELETE" });
+    const res = await fetch(`/api/service-bundles/${bundle._id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
     const data = await res.json();
     if (data.success) loadData();
     else alert(data.error || "Gagal hapus bundle");

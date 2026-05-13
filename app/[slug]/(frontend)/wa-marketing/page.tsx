@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import {
   MessageSquare,
@@ -106,6 +108,8 @@ const TIER_COLORS: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 
 export default function WAMarketingPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   // Tab state
   const [activeTab, setActiveTab] = useState<"blast" | "history" | "automations">("blast");
 
@@ -165,8 +169,7 @@ export default function WAMarketingPage() {
 
   /* ────── Load services ────── */
   useEffect(() => {
-    fetch("/api/services?limit=200")
-      .then((r) => r.json())
+    fetch("/api/services?limit=200", { headers: { "x-store-slug": slug } }).then((r) => r.json())
       .then((d) => {
         if (d.success) setServices(d.data || []);
       })
@@ -184,7 +187,7 @@ export default function WAMarketingPage() {
       if (membershipTier) params.set("membershipTier", membershipTier);
       if (birthdayMonth) params.set("birthdayMonth", birthdayMonth);
 
-      const res = await fetch(`/api/wa/blast-targets?${params}`);
+      const res = await fetch(`/api/wa/blast-targets?${params}`, { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) {
         setTargets(data.data || []);
@@ -202,7 +205,7 @@ export default function WAMarketingPage() {
   const fetchHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const res = await fetch("/api/wa/blast-logs?limit=20");
+      const res = await fetch("/api/wa/blast-logs?limit=20", { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) setBlastLogs(data.data || []);
     } catch (err) {
@@ -216,7 +219,7 @@ export default function WAMarketingPage() {
   const fetchQueue = useCallback(async () => {
     setQueueLoading(true);
     try {
-      const res = await fetch("/api/wa/campaigns");
+      const res = await fetch("/api/wa/campaigns", { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) setUpcomingCampaigns(data.data || []);
     } catch (err) {
@@ -230,7 +233,7 @@ export default function WAMarketingPage() {
   const fetchAutomations = useCallback(async () => {
     setAutomationsLoading(true);
     try {
-      const res = await fetch("/api/wa/automations");
+      const res = await fetch("/api/wa/automations", { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) setAutomations(data.data || []);
     } catch (err) {
@@ -254,7 +257,7 @@ export default function WAMarketingPage() {
   const refreshDetailCampaign = useCallback(async (id: string) => {
     setDetailRefreshing(true);
     try {
-      const res = await fetch(`/api/wa/campaigns/${id}`);
+      const res = await fetch(`/api/wa/campaigns/${id}`, { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) setDetailCampaign(data.data);
     } catch (err) {
@@ -281,7 +284,7 @@ export default function WAMarketingPage() {
       try {
         const res = await fetch("/api/wa/campaigns", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "x-store-slug": slug, "Content-Type": "application/json" },
           body: JSON.stringify({
             customerIds: Array.from(selectedIds),
             message,
@@ -320,7 +323,7 @@ export default function WAMarketingPage() {
     try {
       const res = await fetch("/api/wa/blast-targets", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify({
           customerIds: Array.from(selectedIds),
           message,
@@ -346,7 +349,7 @@ export default function WAMarketingPage() {
   const cancelCampaign = async (id: string) => {
     if (!confirm("Batalkan jadwal campaign ini?")) return;
     try {
-      const res = await fetch(`/api/wa/campaigns?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/wa/campaigns?id=${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
       if (res.ok) fetchQueue();
     } catch (e) {
       console.error(e);
@@ -1173,7 +1176,7 @@ export default function WAMarketingPage() {
                       try {
                         const res = await fetch("/api/wa/automations", {
                           method: "POST",
-                          headers: { "Content-Type": "application/json" },
+                          headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                           body: JSON.stringify(autoForm),
                         });
                         if (res.ok) {
@@ -1215,7 +1218,7 @@ export default function WAMarketingPage() {
                         onClick={async () => {
                           const res = await fetch(`/api/wa/automations/${rule._id}`, {
                             method: "PUT",
-                            headers: { "Content-Type": "application/json" },
+                            headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                             body: JSON.stringify({ isActive: !rule.isActive }),
                           });
                           if (res.ok) fetchAutomations();
@@ -1247,7 +1250,7 @@ export default function WAMarketingPage() {
                     <button
                       onClick={async () => {
                         if (confirm("Hapus aturan ini?")) {
-                          await fetch(`/api/wa/automations/${rule._id}`, { method: "DELETE" });
+                          await fetch(`/api/wa/automations/${rule._id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
                           fetchAutomations();
                         }
                       }}

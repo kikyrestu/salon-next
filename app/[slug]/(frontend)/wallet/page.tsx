@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { Wallet, Plus, ArrowUpCircle, ArrowDownCircle, Search, RefreshCw } from "lucide-react";
 import FormInput, { FormSelect, FormButton } from "@/components/dashboard/FormInput";
@@ -31,6 +33,8 @@ interface WalletTx {
 }
 
 export default function WalletPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const { settings } = useSettings();
   const [customers, setCustomers] = useState<CustomerItem[]>([]);
   const [walletsWithBalance, setWalletsWithBalance] = useState<CustomerItem[]>([]);
@@ -64,8 +68,8 @@ export default function WalletPage() {
     setLoading(true);
     try {
       const [custRes, walletRes] = await Promise.all([
-        fetch("/api/customers?limit=0"),
-        fetch("/api/wallet"),
+        fetch("/api/customers?limit=0", { headers: { "x-store-slug": slug } }),
+        fetch("/api/wallet", { headers: { "x-store-slug": slug } }),
       ]);
       const custData = await custRes.json();
       const walletData = await walletRes.json();
@@ -93,7 +97,7 @@ export default function WalletPage() {
     try {
       const res = await fetch("/api/wallet", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId: topupCustomerId,
           amount: Number(topupAmount),
@@ -123,7 +127,7 @@ export default function WalletPage() {
     setHistoryLoading(true);
 
     try {
-      const res = await fetch(`/api/wallet?customerId=${customer._id}&limit=100`);
+      const res = await fetch(`/api/wallet?customerId=${customer._id}&limit=100`, { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) {
         setHistoryTxs(data.data.transactions || []);

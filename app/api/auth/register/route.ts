@@ -1,22 +1,22 @@
 import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-
+import { checkPermission } from '@/lib/rbac';
 
 export async function POST(req: NextRequest, props: any) {
     const tenantSlug = req.headers.get('x-store-slug') || 'pusat';
     const { User } = await getTenantModels(tenantSlug);
 
-    console.log('=== REGISTRATION ENDPOINT CALLED ===');
-
     try {
+        // [B12 FIX] Endpoint ini harus di-protect — hanya user dengan users.create yang boleh daftar akun baru
+        const permissionError = await checkPermission(req, 'users', 'create');
+        if (permissionError) return permissionError;
+
         const body = await req.json();
-        console.log('Request body:', { ...body, password: '[REDACTED]' });
 
         const { name, email, password } = body;
 
         // Validate input
         if (!email || !password) {
-            console.log('❌ Validation failed: Missing email or password');
             return NextResponse.json(
                 { error: 'Email and password are required' },
                 { status: 400 }
@@ -24,47 +24,36 @@ export async function POST(req: NextRequest, props: any) {
         }
 
         if (password.length < 8) {
-            console.log('❌ Validation failed: Password too short');
             return NextResponse.json(
                 { error: 'Password must be at least 8 characters' },
                 { status: 400 }
             );
         }
-        
+
         // Additional password strength validation
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
         if (!passwordRegex.test(password)) {
-            console.log('❌ Validation failed: Password not strong enough');
             return NextResponse.json(
                 { error: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character' },
                 { status: 400 }
             );
         }
 
-        // Connect to database
-        console.log('📡 Connecting to database...');
-        console.log('✅ Database connected');
-
         // Check if user already exists
-        console.log('🔍 Checking for existing user with email:', email);
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            console.log('⚠️ User already exists');
             return NextResponse.json(
                 { error: 'User already exists with this email' },
                 { status: 409 }
             );
         }
-        console.log('✅ No existing user found');
 
         // Create new user (password will be hashed by the pre-save hook)
-        console.log('👤 Creating new user...');
         const user = await User.create({
             name,
             email,
             password,
         });
-        console.log('✅ User created successfully:', user._id);
 
         // Return success (don't send password back)
         return NextResponse.json(
@@ -79,15 +68,8 @@ export async function POST(req: NextRequest, props: any) {
             { status: 201 }
         );
     } catch (error: any) {
-        console.error('=== REGISTRATION ERROR ===');
-        console.error('Error:', error);
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-
         // Handle validation errors
         if (error.name === 'ValidationError') {
-            console.log('Validation error details:', error.errors);
             return NextResponse.json(
                 { error: error.message },
                 { status: 400 }

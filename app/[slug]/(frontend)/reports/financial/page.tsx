@@ -1,6 +1,8 @@
 
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { DollarSign, TrendingUp, TrendingDown, ShoppingBag, CreditCard, Calendar, RefreshCcw } from "lucide-react";
 import { FormButton } from "@/components/dashboard/FormInput";
@@ -8,6 +10,8 @@ import { useSettings } from "@/components/providers/SettingsProvider";
 import { getMonthDateRangeInTimezone } from "@/lib/dateUtils";
 
 export default function FinancialReportPage() {
+  const params = useParams();
+  const slug = params.slug as string;
     const { settings } = useSettings();
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState(() => getMonthDateRangeInTimezone(settings.timezone || "UTC"));
@@ -25,7 +29,7 @@ export default function FinancialReportPage() {
         setLoading(true);
         try {
             const query = new URLSearchParams(dateRange);
-            const res = await fetch(`/api/reports/financial?${query.toString()}`);
+            const res = await fetch(`/api/reports/financial?${query.toString()}`, { headers: { "x-store-slug": slug } });
             const json = await res.json();
             if (json.success) {
                 setData(json.data);

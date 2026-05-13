@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import {
   Plus,
@@ -135,6 +137,8 @@ interface Customer {
 }
 
 export default function CustomersPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const { settings } = useSettings();
   const router = useTenantRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -179,7 +183,7 @@ export default function CustomersPage() {
           page: page.toString(),
           limit: "10",
         });
-        const res = await fetch(`/api/customers?${query}`);
+        const res = await fetch(`/api/customers?${query}`, { headers: { "x-store-slug": slug } });
         const data = await res.json();
         if (data.success) {
           setCustomers(data.data);
@@ -218,7 +222,7 @@ export default function CustomersPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this customer?")) return;
-    const res = await fetch(`/api/customers/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/customers/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
     if ((await res.json()).success) void fetchCustomers();
   };
 
@@ -229,7 +233,7 @@ export default function CustomersPage() {
     setHistoryData({ invoices: [], packageOrders: [], packageUsage: [] });
 
     try {
-      const res = await fetch(`/api/customers/${customer._id}/history`);
+      const res = await fetch(`/api/customers/${customer._id}/history`, { headers: { "x-store-slug": slug } });
       const data = await res.json();
       if (data.success) {
         setHistoryData({
@@ -265,8 +269,8 @@ export default function CustomersPage() {
 
     try {
       const [invoiceRes, depositsRes] = await Promise.all([
-        fetch(`/api/invoices/${invoiceId}`),
-        fetch(`/api/deposits?invoiceId=${invoiceId}`),
+        fetch(`/api/invoices/${invoiceId}`, { headers: { "x-store-slug": slug } }),
+        fetch(`/api/deposits?invoiceId=${invoiceId}`, { headers: { "x-store-slug": slug } }),
       ]);
 
       const invoiceData = await invoiceRes.json();
