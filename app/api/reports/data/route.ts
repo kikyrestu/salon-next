@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
         // For filter dropdowns - return minimal data
         if (dataType === 'lists') {
             const [staff, services] = await Promise.all([
-                Staff.find({ isActive: true }).select("_id name").sort({ name: 1 }),
-                Service.find({ isActive: true }).select("_id name").sort({ name: 1 })
+                Staff.find({ status: 'active' }).select("_id name").sort({ name: 1 }),
+                Service.find({ status: 'active' }).select("_id name").sort({ name: 1 })
             ]);
 
             return NextResponse.json({

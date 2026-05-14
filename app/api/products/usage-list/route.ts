@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
         const permissionError = await checkPermission(request, "usageLogs", "view");
         if (permissionError) return permissionError;
 
-        const products = await Product.find({ isActive: true })
+        const products = await Product.find({ status: 'active' })
             .select("_id name stock unit")
             .sort({ name: 1 });
 

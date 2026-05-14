@@ -1,4 +1,4 @@
-// app/[slug]/(frontend)/pos/page.tsx
+// app/(frontend)/pos/page.tsx
 
 "use client";
 
@@ -551,14 +551,7 @@ export default function POSPage() {
             price: b.price,
             image: b.image,
             type: "Bundle" as const,
-            bundleServices: (b.services || []).map((s: any) => ({
-              service: s.service?._id,
-              serviceName: s.service?.name,
-              servicePrice: s.service?.price,
-              duration: s.service?.duration,
-              commissionType: s.service?.commissionType,
-              commissionValue: s.service?.commissionValue,
-            })),
+            bundleServices: b.services,
           })),
         );
       }
@@ -1888,7 +1881,7 @@ export default function POSPage() {
                   }
                   : {}),
               item: item._id,
-              itemModel: item.type === "Bundle" ? "Service" : (item.type === "Package" ? "ServicePackage" : item.type),
+              itemModel: item.type === "Bundle" ? "Service" : item.type,
               name: item.name,
               price: item.price,
               quantity: item.quantity,
@@ -2634,7 +2627,7 @@ export default function POSPage() {
                         {isExpanded && (
                           <div className="ml-8 mt-1 space-y-1.5 bg-slate-50 border border-slate-200 rounded-lg p-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-slate-600">{settings.showCommissionInPOS ? "Staff & Komisi" : "Staff"}</span>
+                              <span className="text-[10px] font-bold text-slate-600">Staff & Komisi</span>
                               <div className="flex items-center gap-1.5">
                                 <div className="inline-flex rounded border border-slate-300 overflow-hidden text-[9px] font-bold">
                                   <button type="button" onClick={() => updateServiceSplitMode(item._id, item.type, "auto")} className={`px-1.5 py-0.5 ${splitMode === "auto" ? "bg-slate-700 text-white" : "bg-white text-slate-500"}`}>Auto</button>
@@ -2715,7 +2708,7 @@ export default function POSPage() {
                             }));
                           }}
                           options={[
-                            { value: "", label: settings.showCommissionInPOS ? "— Tanpa komisi staff —" : "— Tanpa staff —" },
+                            { value: "", label: "— Tanpa komisi staff —" },
                             ...staffList.map((s) => ({
                               value: s._id,
                               label: s.name,
@@ -2731,7 +2724,7 @@ export default function POSPage() {
                       {/* Services list inside bundle */}
                       <div className="bg-blue-50 border border-blue-100 rounded p-1.5 mb-2">
                         <p className="text-[9px] font-black text-blue-800 uppercase tracking-wide mb-1">
-                          {settings.showCommissionInPOS ? "Pembagian komisi per jasa:" : "Pembagian staff per jasa:"}
+                          Pembagian komisi per jasa:
                         </p>
                       </div>
 
@@ -2756,7 +2749,7 @@ export default function POSPage() {
                             {/* Auto/Manual Split Toggle */}
                             <div className="flex items-center justify-between gap-1 bg-slate-50 border border-slate-200 rounded p-1.5 mb-1.5">
                               <span className="text-[10px] font-bold text-slate-700">
-                                {settings.showCommissionInPOS ? "Split Komisi" : "Split Staff"}
+                                Split Komisi
                               </span>
                               <div className="inline-flex rounded border border-slate-300 overflow-hidden text-[10px] font-bold">
                                 <button
@@ -2902,7 +2895,7 @@ export default function POSPage() {
                     </span>
                   </div>
                 )}
-                {((settings.showCommissionInPOS && commission > 0) || tips > 0) && (
+                {(commission > 0 || tips > 0) && (
                   <div className="flex items-center justify-end">
                     <button
                       type="button"
@@ -2915,7 +2908,7 @@ export default function POSPage() {
                     </button>
                   </div>
                 )}
-                {((settings.showCommissionInPOS && commission > 0) || tips > 0) && !isStaffEarningsHidden && (
+                {(commission > 0 || tips > 0) && !isStaffEarningsHidden && (
                   <div className="space-y-1 bg-indigo-50 px-2 py-1.5 rounded border border-indigo-100/50">
                     <div className="flex justify-between text-indigo-600 font-bold mb-1 border-b border-indigo-200/50 pb-0.5 px-1">
                       <span>Staff Earnings</span>

@@ -79,7 +79,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                     referralRewardPoints: data.data.referralRewardPoints || 0,
                     referralDiscountType: data.data.referralDiscountType || "nominal",
                     referralDiscountValue: data.data.referralDiscountValue || 0,
-                    showCommissionInPOS: data.data.showCommissionInPOS !== false,
+                    showCommissionInPOS: data.data.showCommissionInPOS === true,
                     walletIncludedServices: data.data.walletIncludedServices || [],
                     walletIncludedProducts: data.data.walletIncludedProducts || [],
                     walletIncludedBundles: data.data.walletIncludedBundles || [],

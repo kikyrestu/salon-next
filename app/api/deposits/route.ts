@@ -95,9 +95,12 @@ export async function POST(request: NextRequest, props: any) {
         }
 
         // 2. Update the invoice paidAmount and status
+        // Recalculate from all deposits to avoid double-counting
+        // (POS already sets amountPaid on invoice creation, so incrementing would double it)
         const invoice = await Invoice.findById(body.invoice);
         if (invoice) {
-            const newPaidAmount = (invoice.amountPaid || 0) + amountNum;
+            const allDeposits = await Deposit.find({ invoice: body.invoice });
+            const newPaidAmount = allDeposits.reduce((sum: number, d: any) => sum + (d.amount || 0), 0);
             invoice.amountPaid = newPaidAmount;
 
             if (newPaidAmount >= invoice.totalAmount) {

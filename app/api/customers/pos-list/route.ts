@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
         const permissionError = await checkPermission(request, "pos", "view");
         if (permissionError) return permissionError;
 
-        const customers = await Customer.find({ isActive: true })
+        const customers = await Customer.find({ status: "active" })
             .select("_id name phone membershipTier membershipExpiry loyaltyPoints walletBalance referredBy")
             .sort({ name: 1 })
             .lean();

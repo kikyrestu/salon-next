@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
         const permissionError = await checkPermission(request, "pos", "view");
         if (permissionError) return permissionError;
 
-        const services = await Service.find({ isActive: true })
+        const services = await Service.find({ status: "active" })
             .select("_id name price memberPrice image duration commissionType commissionValue waFollowUp")
             .sort({ name: 1 });
 
