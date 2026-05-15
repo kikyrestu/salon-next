@@ -4,7 +4,7 @@ export interface IWaCampaignQueue extends Document {
     campaignName: string;
     message: string;
     scheduledAt: Date;
-    status: 'pending' | 'processing' | 'completed' | 'failed';
+    status: 'pending' | 'processing' | 'completed' | 'failed' | 'partially_failed';
     filters: {
         lastVisitSince?: Date;
         serviceIds?: mongoose.Types.ObjectId[];
@@ -16,7 +16,9 @@ export interface IWaCampaignQueue extends Document {
         phone: string;
         status: 'pending' | 'sent' | 'failed';
         error?: string;
+        sentAt?: Date;
     }[];
+    processingAt?: Date;
     sentBy: mongoose.Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
@@ -29,7 +31,7 @@ const waCampaignQueueSchema = new Schema<IWaCampaignQueue>(
         scheduledAt: { type: Date, required: true },
         status: { 
             type: String, 
-            enum: ['pending', 'processing', 'completed', 'failed'], 
+            enum: ['pending', 'processing', 'completed', 'failed', 'partially_failed'], 
             default: 'pending' 
         },
         filters: {
@@ -44,8 +46,10 @@ const waCampaignQueueSchema = new Schema<IWaCampaignQueue>(
                 phone: { type: String },
                 status: { type: String, enum: ['pending', 'sent', 'failed'], default: 'pending' },
                 error: { type: String },
+                sentAt: { type: Date },
             },
         ],
+        processingAt: { type: Date },
         sentBy: { type: Schema.Types.ObjectId, ref: 'User' },
     },
     { timestamps: true }

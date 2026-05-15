@@ -6,7 +6,9 @@ import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 
 
+import { decryptFonnteToken } from '@/lib/encryption';
 import { sendWhatsApp } from '@/lib/fonnte';
+import { hasRunToday, markAsRun } from '@/lib/cronDedup';
 
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest, props: any) {
         
         const settings = await Settings.findOne();
         const adminPhone = settings?.waAdminNumber;
-        const fonnteToken = settings?.fonnteToken ? String(settings.fonnteToken).trim() : undefined;
+        const fonnteToken = settings?.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : undefined;
 
         if (!adminPhone) {
             return NextResponse.json({

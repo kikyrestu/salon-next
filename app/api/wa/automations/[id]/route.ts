@@ -17,8 +17,27 @@ export async function PUT(request: NextRequest, props: any) {
         
 
         const body = await request.json();
-        
-        const automation = await WaAutomation.findByIdAndUpdate(id, body, { new: true });
+
+        // BUG-08/SEC-04 FIX: Whitelist field yang boleh diupdate
+        // Mencegah manipulasi field internal seperti lastRunDate, _id, createdAt
+        const { name, category, targetRole, frequency, scheduleDays, scheduleTime, daysBefore, messageTemplate, isActive } = body;
+        const update: Record<string, any> = {};
+        if (name !== undefined) update.name = name;
+        if (category !== undefined) update.category = category;
+        if (targetRole !== undefined) update.targetRole = targetRole;
+        if (frequency !== undefined) update.frequency = frequency;
+        if (scheduleDays !== undefined) update.scheduleDays = scheduleDays;
+        if (scheduleTime !== undefined) {
+            if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(scheduleTime)) {
+                return NextResponse.json({ success: false, error: 'Invalid scheduleTime format. Must be HH:MM' }, { status: 400 });
+            }
+            update.scheduleTime = scheduleTime;
+        }
+        if (daysBefore !== undefined) update.daysBefore = daysBefore;
+        if (messageTemplate !== undefined) update.messageTemplate = messageTemplate;
+        if (isActive !== undefined) update.isActive = isActive;
+
+        const automation = await WaAutomation.findByIdAndUpdate(id, update, { new: true });
         if (!automation) {
             return NextResponse.json({ success: false, error: 'Automation not found' }, { status: 404 });
         }

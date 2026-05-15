@@ -3,9 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import SessionProviderWrapper from "@/components/providers/SessionProviderWrapper";
 import { SettingsProvider } from "@/components/providers/SettingsProvider";
-import { startWaScheduler } from "@/lib/scheduler";
-
-startWaScheduler();
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

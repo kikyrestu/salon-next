@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 
 
+import { decryptFonnteToken } from '@/lib/encryption';
 import { sendWhatsApp } from '@/lib/fonnte';
 
 export async function GET(request: NextRequest, props: any) {
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest, props: any) {
         const settings = await Settings.findOne();
         const reminderDays = settings?.packageExpiryReminderDays || 30;
         const storeName = settings?.storeName || 'Salon';
+        const fonnteToken = settings?.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : undefined;
 
         const now = new Date();
         const futureDate = new Date();
@@ -66,7 +68,7 @@ export async function GET(request: NextRequest, props: any) {
                 `- ${storeName}`;
 
             try {
-                const result = await sendWhatsApp(customer.phone, message);
+                const result = await sendWhatsApp(customer.phone, message, fonnteToken);
                 if (result.success) sentCount++;
                 else errors.push(`${customer.name}: ${result.error}`);
             } catch (err: any) {

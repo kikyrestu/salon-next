@@ -1,5 +1,6 @@
 import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
+import { decryptFonnteToken } from '@/lib/encryption';
 import { sendWhatsApp } from '@/lib/fonnte';
 
 const normalizePhone = (phone: string): string => {
@@ -11,11 +12,11 @@ const normalizePhone = (phone: string): string => {
 
 const getInboundPhone = (payload: any): string => {
     const candidates = [
-        payload?.sender,
+        payload?.sender,   // Field utama dari Fonnte
         payload?.from,
         payload?.number,
         payload?.phone,
-        payload?.device,
+        // payload?.device DIHAPUS — ini nomor device owner, bukan customer
         payload?.chat,
     ];
     const found = candidates.find((value) => typeof value === 'string' && value.trim().length > 0);
@@ -50,7 +51,7 @@ const renderTemplate = (message: string, vars: Record<string, string>): string =
 };
 
 // Returns null jika greeting di-disable global atau tidak ada template aktif
-const getGreetingMessage = async (models: any): Promise<string | null> => {
+const getGreetingMessage = async (models: any): Promise<{ message: string, fonnteToken?: string } | null> => {
     const { WaTemplate, Settings } = models;
 
     // Cek global toggle dulu
@@ -58,6 +59,8 @@ const getGreetingMessage = async (models: any): Promise<string | null> => {
     if (settings?.greetingEnabled === false) {
         return null; // Greeting di-disable dari Settings — early exit
     }
+
+    const fonnteToken = settings?.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : undefined;
 
     const activeGreetingTemplate = await WaTemplate.findOne({
         isGreetingEnabled: true,
@@ -71,15 +74,15 @@ const getGreetingMessage = async (models: any): Promise<string | null> => {
         .lean() as any;
 
     if (activeGreetingTemplate?.message) {
-        return String(activeGreetingTemplate.message);
+        return { message: String(activeGreetingTemplate.message), fonnteToken };
     }
 
     // Jika tidak ada template aktif, fallback ke env
     // Tapi hanya kirim jika greetingEnabled tidak secara eksplisit false
-    return (
-        process.env.WA_GREETING_MESSAGE ||
-        'Halo, terima kasih sudah menghubungi kami. Admin salon akan membalas pesan Anda secepatnya.'
-    );
+    return {
+        message: process.env.WA_GREETING_MESSAGE || 'Halo, terima kasih sudah menghubungi kami. Admin salon akan membalas pesan Anda secepatnya.',
+        fonnteToken
+    };
 };
 
 export async function GET() {
@@ -92,6 +95,24 @@ export async function POST(request: NextRequest, props: any) {
     const { WaGreetingLog } = models;
 
     try {
+        // SEC-02 FIX: Verifikasi Signature Webhook Fonnte
+        const { Settings } = models;
+        const settings = await Settings.findOne().select('fonnteToken').lean() as any;
+        const expectedToken = settings?.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : undefined;
+        
+        const authHeader = request.headers.get('authorization');
+        
+        // Fonnte sends the token either directly or with Bearer prefix. We check both.
+        if (expectedToken) {
+            const incomingToken = authHeader?.replace('Bearer ', '')?.trim();
+            if (!incomingToken || incomingToken !== expectedToken) {
+                console.warn(`[FONNTE_WEBHOOK] Unauthorized access attempt. IP: ${request.headers.get('x-forwarded-for') || 'unknown'}`);
+                return NextResponse.json({ success: false, error: 'Unauthorized webhook signature' }, { status: 401 });
+            }
+        } else {
+            console.warn('[FONNTE_WEBHOOK] Tenant has no fonnteToken configured. Accepting payload blindly.');
+        }
+
         const contentType = request.headers.get('content-type') || '';
         let payload: any = null;
 
@@ -116,10 +137,31 @@ export async function POST(request: NextRequest, props: any) {
             return NextResponse.json({ success: true, skipped: true, reason: 'non-chat payload' });
         }
 
+        // BLOCK-08 FIX: Opt-out mechanism — handle "STOP" keyword
+        const lowerMsg = message.toLowerCase().trim();
+        if (lowerMsg === 'stop' || lowerMsg === 'berhenti' || lowerMsg === 'unsubscribe') {
+            const { Customer } = models;
+            // Cari customer berdasarkan nomor HP (normalized) dan disable WA notif
+            const updated = await Customer.updateMany(
+                { $or: [{ phone: normalizedPhone }, { phone: rawPhone }] },
+                { $set: { waNotifEnabled: false } }
+            );
+            console.log(`[FONNTE_WEBHOOK] Opt-out: ${normalizedPhone} (${updated.modifiedCount} customer(s) updated)`);
+
+            // Kirim konfirmasi opt-out
+            const { Settings } = models;
+            const settings = await Settings.findOne().select('fonnteToken storeName').lean() as any;
+            const fonnteToken = settings?.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : undefined;
+            const storeName = settings?.storeName || 'Salon';
+            await sendWhatsApp(normalizedPhone, `✅ Anda telah berhenti menerima pesan promosi dari ${storeName}. Jika ingin berlangganan kembali, silakan hubungi kami.`, fonnteToken);
+
+            return NextResponse.json({ success: true, optedOut: true, phone: normalizedPhone });
+        }
+
         // Cek greeting message SEBELUM insert log
         // Kalau null (greeting di-disable), langsung skip — jangan insert log dulu
-        const greetingMessageTemplate = await getGreetingMessage(models);
-        if (greetingMessageTemplate === null) {
+        const greetingData = await getGreetingMessage(models);
+        if (greetingData === null) {
             return NextResponse.json({ success: true, skipped: true, reason: 'greeting disabled' });
         }
 
@@ -140,14 +182,13 @@ export async function POST(request: NextRequest, props: any) {
         }
 
         // Render template dengan variabel
-        const greetingMessage = renderTemplate(greetingMessageTemplate, {
+        const greetingMessage = renderTemplate(greetingData.message, {
             nama_customer: customerName,
             nama_service: process.env.SALON_NAME || 'salon kami',
         });
 
-        // Ambil fonnteToken tenant
-        const settingsForToken = await (models as any).Settings.findOne().select('fonnteToken').lean() as any;
-        const fonnteToken = settingsForToken?.fonnteToken ? String(settingsForToken.fonnteToken).trim() : undefined;
+        // Pakai fonnteToken dari helper
+        const fonnteToken = greetingData.fonnteToken;
 
         const sendResult = await sendWhatsApp(normalizedPhone, greetingMessage, fonnteToken);
 

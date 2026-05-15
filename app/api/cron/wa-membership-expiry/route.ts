@@ -6,6 +6,7 @@ import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 
 
+import { decryptFonnteToken } from '@/lib/encryption';
 import { sendWhatsApp } from '@/lib/fonnte';
 
 export async function GET(request: NextRequest, props: any) {
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest, props: any) {
         const reminderDays = settings?.membershipExpiryReminderDays || 30;
         const storeName = settings?.storeName || 'Salon';
         const loyaltyPointValue = settings?.loyaltyPointValue || 0;
+        const fonnteToken = settings?.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : undefined;
 
         const now = new Date();
         const futureDate = new Date();
@@ -69,14 +71,15 @@ export async function GET(request: NextRequest, props: any) {
                 `- ${storeName}`;
 
             try {
-                const result = await sendWhatsApp(customer.phone!, message);
+                const result = await sendWhatsApp(customer.phone!, message, fonnteToken);
                 if (result.success) sentCount++;
                 else errors.push(`${customer.name}: ${result.error}`);
             } catch (err: any) {
                 errors.push(`${customer.name}: ${err.message}`);
             }
 
-            await new Promise((r) => setTimeout(r, 500));
+            // BLOCK-01 FIX: Delay aman 8-15 detik antar pengiriman
+            await new Promise((r) => setTimeout(r, 8000 + Math.floor(Math.random() * 7000)));
         }
 
         return NextResponse.json({

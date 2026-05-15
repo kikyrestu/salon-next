@@ -1,8 +1,10 @@
 import { getTenantModels } from "@/lib/tenantDb";
+import { validateWhatsAppNumber } from '@/lib/fonnte';
+import { decryptFonnteToken } from '@/lib/encryption';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { checkPermissionWithSession } from '@/lib/rbac';
-
+import { normalizeIndonesianPhone } from '@/lib/phone';
 
 
 // GET: Fetch upcoming campaigns
@@ -66,9 +68,18 @@ export async function POST(request: NextRequest, props: any) {
             return NextResponse.json({ success: false, error: 'None of the selected customers have valid phone numbers or WA enabled' }, { status: 400 });
         }
 
+        // FLOW-08 FIX: Limit max target per campaign
+        const MAX_TARGETS = 500;
+        if (customers.length > MAX_TARGETS) {
+            return NextResponse.json({
+                success: false,
+                error: `Terlalu banyak target (${customers.length}). Maksimal ${MAX_TARGETS} per campaign.`
+            }, { status: 400 });
+        }
+
         const targets = customers.map((c: any) => ({
             customerId: c._id,
-            phone: c.phone,
+            phone: normalizeIndonesianPhone(c.phone),
             status: 'pending',
         }));
 

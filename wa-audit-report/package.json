@@ -1,0 +1,9 @@
+{
+  "name": "wa-audit-reader",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Independent markdown reader for WA audit report",
+  "scripts": {
+    "start": "node index.js"
+  }
+}

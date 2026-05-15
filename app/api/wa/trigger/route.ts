@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkPermission } from '@/lib/rbac';
-import { processPendingWaSchedules } from '@/lib/scheduler';
 
 function hasValidTriggerSecret(request: NextRequest): boolean {
     const configuredSecret = process.env.WA_TRIGGER_SECRET;

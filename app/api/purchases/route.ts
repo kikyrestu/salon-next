@@ -33,10 +33,13 @@ export async function POST(request: NextRequest, props: any) {
                 const product = await Product.findById(item.product);
                 if (product) {
                     product.stock += item.quantity;
-                    // Update cost price if needed? 
-                    // Simple weighted average could be done here, but sticking to simple stock increase for now.
-                    // Or just update the cost price to the new one?
-                    // product.costPrice = item.costPrice; 
+                    
+                    // [B07 FIX] Reset alert WA saat restock
+                    const alertQty = product.alertQuantity ?? 5;
+                    if (product.stock > alertQty) {
+                        product.lowStockNotifSent = false;
+                    }
+                    
                     await product.save();
                 }
             }

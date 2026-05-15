@@ -10,6 +10,7 @@ import { generateInvoiceNumber } from "@/lib/invoiceNumber";
 import { logActivity } from "@/lib/logger";
 import { scheduleFollowUp } from "@/lib/waFollowUp";
 import { normalizeIndonesianPhone } from "@/lib/phone";
+import { decryptFonnteToken } from '@/lib/encryption';
 import { sendWhatsApp } from "@/lib/fonnte";
 
 
@@ -367,7 +368,7 @@ export async function POST(request: NextRequest, props: any) {
                 `Batas minimum: ${updatedProduct.alertQuantity}\n\n` +
                 `Segera lakukan pemesanan stok.`;
 
-              const fonnteToken = settings?.fonnteToken ? String(settings.fonnteToken).trim() : undefined;
+              const fonnteToken = settings?.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : undefined;
               await sendWhatsApp(adminPhone, message, fonnteToken);
             }
           } catch (waError) {

@@ -88,6 +88,29 @@ const SettingsSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    // Tanggal nomor Fonnte didaftarkan — untuk kalkulasi warm-up limit
+    fonnteDeviceRegisteredAt: {
+        type: Date,
+    },
+    // Override manual max pesan per hari (0 = auto berdasarkan umur nomor)
+    fonnteMaxDailyMessages: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    // Jam operasional pengiriman WA blast/campaign (WIB)
+    waOperationalHoursStart: {
+        type: Number,
+        default: 8,
+        min: 0,
+        max: 23
+    },
+    waOperationalHoursEnd: {
+        type: Number,
+        default: 20,
+        min: 0,
+        max: 23
+    },
     // WA Marketing Numbers
     waBlastNumber: {
         type: String,

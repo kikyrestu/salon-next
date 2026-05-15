@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { auth } from '@/auth';
 import { checkPermissionWithSession } from '@/lib/rbac';
+import { encryptFonnteToken, decryptFonnteToken } from '@/lib/encryption';
 
 // GET /api/settings - Get store settings
 export async function GET(request: NextRequest, props: any) {
@@ -66,6 +67,9 @@ export async function GET(request: NextRequest, props: any) {
             return NextResponse.json({ success: false, error: 'Access Denied: Cannot view settings' }, { status: 403 });
         }
 
+        if (settings.fonnteToken) {
+            settings.fonnteToken = decryptFonnteToken(settings.fonnteToken);
+        }
         return NextResponse.json({ success: true, data: settings });
     } catch (error: any) {
         console.error('Error fetching settings:', error);
@@ -100,6 +104,10 @@ export async function PUT(request: NextRequest, props: any) {
         const body = await request.json();
 
         // Sanitize Mongoose ObjectIds that might be sent as empty strings
+        if (body.fonnteToken) {
+            body.fonnteToken = encryptFonnteToken(body.fonnteToken);
+        }
+
         if (body.birthdayVoucherId === "") {
             body.birthdayVoucherId = null;
         }
@@ -112,6 +120,9 @@ export async function PUT(request: NextRequest, props: any) {
             { new: true, upsert: true, runValidators: true }
         );
 
+        if (settings.fonnteToken) {
+            settings.fonnteToken = decryptFonnteToken(settings.fonnteToken);
+        }
         return NextResponse.json({ success: true, data: settings });
     } catch (error: any) {
         console.error('Error updating settings:', error);

@@ -10,8 +10,6 @@ export interface IWaSchedule extends Document {
     serviceName?: string;
     scheduledAt: Date;
     status: WaScheduleStatus;
-    repeatEveryValue?: number;
-    repeatEveryUnit?: 'minute' | 'hour' | 'day';
     sentAt?: Date;
 }
 
@@ -50,16 +48,6 @@ const waScheduleSchema = new Schema<IWaSchedule>(
             enum: ['pending', 'sent', 'failed'],
             default: 'pending',
             required: true,
-        },
-        repeatEveryValue: {
-            type: Number,
-            default: 0,
-            min: 0,
-        },
-        repeatEveryUnit: {
-            type: String,
-            enum: ['minute', 'hour', 'day'],
-            default: 'day',
         },
         sentAt: {
             type: Date,

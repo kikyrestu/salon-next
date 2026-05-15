@@ -11,6 +11,8 @@ import {
     isEmailConfigured,
     isSMSConfigured,
 } from "@/lib/notifications";
+import { decryptFonnteToken } from '@/lib/encryption';
+import { sendWhatsApp } from "@/lib/fonnte";
 
 // POST /api/appointments/send-reminders - Send reminders for upcoming appointments
 export async function POST(request: NextRequest, props: any) {
@@ -23,11 +25,17 @@ export async function POST(request: NextRequest, props: any) {
         if (permissionError) return permissionError;
 
         const body = await request.json();
-        const { daysBefore = 1, method = 'both' } = body; // method: 'sms', 'email', or 'both'
+        const { daysBefore = 1, method = 'both' } = body; // method: 'sms', 'email', 'wa', or 'both'
+
+        // Get tenant Fonnte token
+        const { Settings } = await getTenantModels(tenantSlug);
+        const settings: any = await Settings.findOne({});
+        const fonnteToken = settings?.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : undefined;
 
         // Check configuration
         const emailEnabled = await isEmailConfigured();
         const smsEnabled = await isSMSConfigured();
+        const waEnabled = !!(fonnteToken || process.env.FONNTE_TOKEN);
 
         if (!emailEnabled && !smsEnabled) {
             return NextResponse.json({
@@ -77,9 +85,30 @@ export async function POST(request: NextRequest, props: any) {
 
             let smsSent = false;
             let emailSent = false;
+            let waSent = false;
+
+            // Send WA
+            if ((method === 'wa' || method === 'both') && waEnabled && customer.phone) {
+                const waMessage = 
+                    `📅 *Pengingat Appointment — ${settings?.storeName || process.env.SALON_NAME || 'Salon'}*\n\n` +
+                    `Halo *${customer.name}*,\n\n` +
+                    `Ini adalah pengingat bahwa Anda memiliki appointment besok dengan detail:\n` +
+                    `- Tanggal: *${dateStr}*\n` +
+                    `- Waktu: *${timeStr}*\n` +
+                    `- Staff: *${staff.name}*\n` +
+                    `- Layanan: *${services.join(', ')}*\n\n` +
+                    `Mohon datang tepat waktu. Jika ingin membatalkan/reschedule, silakan hubungi kami.\n` +
+                    `Terima kasih!`;
+                
+                const result = await sendWhatsApp(customer.phone, waMessage, fonnteToken);
+                waSent = result.success;
+
+                // BLOCK-01 FIX: Delay 8-15 detik antar pengiriman WA
+                await new Promise(r => setTimeout(r, 8000 + Math.floor(Math.random() * 7000)));
+            }
 
             // Send SMS
-            if ((method === 'sms' || method === 'both') && smsEnabled && customer.phone) {
+            if ((method === 'sms' || method === 'both') && smsEnabled && customer.phone && !waSent) {
                 const smsMessage = getAppointmentReminderSMS(
                     customer.name,
                     staff.name,
@@ -113,7 +142,7 @@ export async function POST(request: NextRequest, props: any) {
             }
 
             // Mark as sent if at least one method succeeded
-            if (smsSent || emailSent) {
+            if (smsSent || emailSent || waSent) {
                 appointment.reminderSent = true;
                 appointment.reminderSentAt = new Date();
                 await appointment.save();
@@ -125,6 +154,7 @@ export async function POST(request: NextRequest, props: any) {
                     customerEmail: customer.email,
                     date: appointment.date,
                     time: appointment.startTime,
+                    waSent,
                     smsSent,
                     emailSent,
                 });
@@ -160,12 +190,14 @@ export async function POST(request: NextRequest, props: any) {
 // GET /api/appointments/send-reminders - Check appointments needing reminders
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Appointment } = await getTenantModels(tenantSlug);
+        const { Appointment, Settings } = await getTenantModels(tenantSlug);
 
     try {
         // [B06 FIX] Sama dengan POST — butuh appointments.edit
         const permissionError = await checkPermission(request, 'appointments', 'edit');
         if (permissionError) return permissionError;
+
+        const settings = await Settings.findOne({}).select('fonnteToken').lean() as any;
 
         const { searchParams } = new URL(request.url);
         const daysBefore = parseInt(searchParams.get("daysBefore") || "1");
@@ -200,6 +232,7 @@ export async function GET(request: NextRequest, props: any) {
             config: {
                 emailEnabled: await isEmailConfigured(),
                 smsEnabled: await isSMSConfigured(),
+                waEnabled: !!(settings?.fonnteToken || process.env.FONNTE_TOKEN),
             }
         });
     } catch (error: any) {

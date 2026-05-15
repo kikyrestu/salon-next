@@ -1173,52 +1173,74 @@ export default function POSPage() {
         return;
       }
 
-      const splitResult = calculateSplitCommission({
-        splitMode: splitCommissionMode,
-        assignments: serviceAssignments.map((assignment) => ({
-          staffId: assignment.staffId,
-          percentage: assignment.percentage,
-          staffCommissionRate: getStaffRate(assignment.staffId),
-        })),
-        servicePrice: getEffectivePrice(item),
-        quantity: item.quantity,
-        commissionType: item.commissionType || "fixed",
-        commissionValue: Number(item.commissionValue || 0),
-        sourceType:
-          claim?.enabled && claim.customerPackageId
-            ? "package_redeem"
-            : "normal_sale",
-      });
-
-      if (!splitResult.isValid) {
-        lineItemSplits[key] = {
-          splitCommissionMode,
-          staffAssignments: [],
-        };
-        return;
-      }
-
-      totalCommission += splitResult.totalCommission;
-
-      splitResult.assignments.forEach((assignment) => {
-        if (!perStaff[assignment.staffId]) {
-          perStaff[assignment.staffId] = {
+      if (settings.showCommissionInPOS) {
+        // Komisi aktif — hitung normal
+        const splitResult = calculateSplitCommission({
+          splitMode: splitCommissionMode,
+          assignments: serviceAssignments.map((assignment) => ({
             staffId: assignment.staffId,
-            commission: 0,
-            tip: 0,
-          };
-        }
-        perStaff[assignment.staffId].commission += assignment.komisiNominal;
-
-        serviceLineAssignments.push({
-          staffId: assignment.staffId,
-          percentage: assignment.percentage,
-          porsiPersen: assignment.porsiPersen,
-          commission: assignment.komisiNominal,
-          komisiNominal: assignment.komisiNominal,
-          tip: 0,
+            percentage: assignment.percentage,
+            staffCommissionRate: getStaffRate(assignment.staffId),
+          })),
+          servicePrice: getEffectivePrice(item),
+          quantity: item.quantity,
+          commissionType: item.commissionType || "fixed",
+          commissionValue: Number(item.commissionValue || 0),
+          sourceType:
+            claim?.enabled && claim.customerPackageId
+              ? "package_redeem"
+              : "normal_sale",
         });
-      });
+
+        if (!splitResult.isValid) {
+          lineItemSplits[key] = {
+            splitCommissionMode,
+            staffAssignments: [],
+          };
+          return;
+        }
+
+        totalCommission += splitResult.totalCommission;
+
+        splitResult.assignments.forEach((assignment) => {
+          if (!perStaff[assignment.staffId]) {
+            perStaff[assignment.staffId] = {
+              staffId: assignment.staffId,
+              commission: 0,
+              tip: 0,
+            };
+          }
+          perStaff[assignment.staffId].commission += assignment.komisiNominal;
+
+          serviceLineAssignments.push({
+            staffId: assignment.staffId,
+            percentage: assignment.percentage,
+            porsiPersen: assignment.porsiPersen,
+            commission: assignment.komisiNominal,
+            komisiNominal: assignment.komisiNominal,
+            tip: 0,
+          });
+        });
+      } else {
+        // Komisi dimatikan — staff tetap tercatat, komisi = 0
+        serviceAssignments.forEach((assignment) => {
+          if (!perStaff[assignment.staffId]) {
+            perStaff[assignment.staffId] = {
+              staffId: assignment.staffId,
+              commission: 0,
+              tip: 0,
+            };
+          }
+          serviceLineAssignments.push({
+            staffId: assignment.staffId,
+            percentage: assignment.percentage,
+            porsiPersen: assignment.percentage,
+            commission: 0,
+            komisiNominal: 0,
+            tip: 0,
+          });
+        });
+      }
 
       lineItemSplits[key] = {
         splitCommissionMode,
@@ -1245,42 +1267,60 @@ export default function POSPage() {
           return;
         }
 
-        const splitResult = calculateSplitCommission({
-          splitMode: splitCommissionMode,
-          assignments: serviceAssignments.map((assignment) => ({
-            staffId: assignment.staffId,
-            percentage: assignment.percentage,
-            staffCommissionRate: getStaffRate(assignment.staffId),
-          })),
-          servicePrice: subItemPrice,
-          quantity: item.quantity,
-          commissionType: (bs.commissionType as "fixed" | "percentage") || "fixed",
-          commissionValue: Number(bs.commissionValue || 0),
-          sourceType: "normal_sale",
-        });
-
-        if (!splitResult.isValid) {
-          lineItemSplits[bsKey] = { splitCommissionMode, staffAssignments: [] };
-          return;
-        }
-
-        totalCommission += splitResult.totalCommission;
-
-        splitResult.assignments.forEach((assignment) => {
-          if (!perStaff[assignment.staffId]) {
-            perStaff[assignment.staffId] = { staffId: assignment.staffId, commission: 0, tip: 0 };
-          }
-          perStaff[assignment.staffId].commission += assignment.komisiNominal;
-
-          serviceLineAssignments.push({
-            staffId: assignment.staffId,
-            percentage: assignment.percentage,
-            porsiPersen: assignment.porsiPersen,
-            commission: assignment.komisiNominal,
-            komisiNominal: assignment.komisiNominal,
-            tip: 0,
+        if (settings.showCommissionInPOS) {
+          // Komisi aktif
+          const splitResult = calculateSplitCommission({
+            splitMode: splitCommissionMode,
+            assignments: serviceAssignments.map((assignment) => ({
+              staffId: assignment.staffId,
+              percentage: assignment.percentage,
+              staffCommissionRate: getStaffRate(assignment.staffId),
+            })),
+            servicePrice: subItemPrice,
+            quantity: item.quantity,
+            commissionType: (bs.commissionType as "fixed" | "percentage") || "fixed",
+            commissionValue: Number(bs.commissionValue || 0),
+            sourceType: "normal_sale",
           });
-        });
+
+          if (!splitResult.isValid) {
+            lineItemSplits[bsKey] = { splitCommissionMode, staffAssignments: [] };
+            return;
+          }
+
+          totalCommission += splitResult.totalCommission;
+
+          splitResult.assignments.forEach((assignment) => {
+            if (!perStaff[assignment.staffId]) {
+              perStaff[assignment.staffId] = { staffId: assignment.staffId, commission: 0, tip: 0 };
+            }
+            perStaff[assignment.staffId].commission += assignment.komisiNominal;
+
+            serviceLineAssignments.push({
+              staffId: assignment.staffId,
+              percentage: assignment.percentage,
+              porsiPersen: assignment.porsiPersen,
+              commission: assignment.komisiNominal,
+              komisiNominal: assignment.komisiNominal,
+              tip: 0,
+            });
+          });
+        } else {
+          // Komisi mati - staff tetap dicatat tapi komisi = 0
+          serviceAssignments.forEach((assignment) => {
+            if (!perStaff[assignment.staffId]) {
+              perStaff[assignment.staffId] = { staffId: assignment.staffId, commission: 0, tip: 0 };
+            }
+            serviceLineAssignments.push({
+              staffId: assignment.staffId,
+              percentage: assignment.percentage,
+              porsiPersen: assignment.percentage,
+              commission: 0,
+              komisiNominal: 0,
+              tip: 0,
+            });
+          });
+        }
 
         lineItemSplits[bsKey] = {
           splitCommissionMode,
@@ -1292,7 +1332,7 @@ export default function POSPage() {
     // Product & Package commission — single staff, no split
     cart.forEach((item) => {
       if (item.type !== "Product" && item.type !== "Package") return;
-      if (!item.commissionValue || Number(item.commissionValue) <= 0) return;
+      if (settings.showCommissionInPOS && (!item.commissionValue || Number(item.commissionValue) <= 0)) return;
 
       const key = getCartItemKey(item._id, item.type);
       const productStaffArr = serviceStaffAssignments[key];
@@ -1304,10 +1344,12 @@ export default function POSPage() {
       const qty = item.quantity;
 
       let komisi = 0;
-      if (commissionType === "percentage") {
-        komisi = getEffectivePrice(item) * qty * (commissionValue / 100);
-      } else {
-        komisi = commissionValue * qty;
+      if (settings.showCommissionInPOS) {
+        if (commissionType === "percentage") {
+          komisi = getEffectivePrice(item) * qty * (commissionValue / 100);
+        } else {
+          komisi = commissionValue * qty;
+        }
       }
 
       totalCommission += komisi;
@@ -1501,14 +1543,16 @@ export default function POSPage() {
           const commissionType = bs.commissionType || "fixed";
           const commissionValue = Number(bs.commissionValue || 0);
 
-          if (commissionType === "fixed" && commissionValue <= 0) {
-            alert(`Komisi service "${bs.serviceName}" dalam bundle "${item.name}" belum diisi. Isi Komisi Nominal lebih dari 0 terlebih dahulu di Master.`);
-            return;
-          }
+          if (settings.showCommissionInPOS) {
+            if (commissionType === "fixed" && commissionValue <= 0) {
+              alert(`Komisi service "${bs.serviceName}" dalam bundle "${item.name}" belum diisi. Isi Komisi Nominal lebih dari 0 terlebih dahulu di Master.`);
+              return;
+            }
 
-          if (commissionType === "percentage" && commissionValue <= 0) {
-            alert(`Komisi service "${bs.serviceName}" dalam bundle "${item.name}" belum diisi. Isi Komisi Persentase lebih dari 0 terlebih dahulu di Master.`);
-            return;
+            if (commissionType === "percentage" && commissionValue <= 0) {
+              alert(`Komisi service "${bs.serviceName}" dalam bundle "${item.name}" belum diisi. Isi Komisi Persentase lebih dari 0 terlebih dahulu di Master.`);
+              return;
+            }
           }
 
           if (itemAssignments.length === 0) {
@@ -1522,26 +1566,28 @@ export default function POSPage() {
             return;
           }
 
-          const proportion = totalOriginalPrice > 0 ? bs.servicePrice / totalOriginalPrice : 1 / item.bundleServices.length;
-          const itemPrice = Math.round(item.price * proportion);
+          if (settings.showCommissionInPOS) {
+            const proportion = totalOriginalPrice > 0 ? bs.servicePrice / totalOriginalPrice : 1 / item.bundleServices.length;
+            const itemPrice = Math.round(item.price * proportion);
 
-          const splitResult = calculateSplitCommission({
-            splitMode,
-            assignments: itemAssignments.map((assignment) => ({
-              staffId: assignment.staffId,
-              percentage: assignment.percentage,
-              staffCommissionRate: getStaffRate(assignment.staffId),
-            })),
-            servicePrice: itemPrice,
-            quantity: item.quantity,
-            commissionType: (commissionType as "fixed" | "percentage"),
-            commissionValue,
-            sourceType: "normal_sale",
-          });
+            const splitResult = calculateSplitCommission({
+              splitMode,
+              assignments: itemAssignments.map((assignment) => ({
+                staffId: assignment.staffId,
+                percentage: assignment.percentage,
+                staffCommissionRate: getStaffRate(assignment.staffId),
+              })),
+              servicePrice: itemPrice,
+              quantity: item.quantity,
+              commissionType: (commissionType as "fixed" | "percentage"),
+              commissionValue,
+              sourceType: "normal_sale",
+            });
 
-          if (!splitResult.isValid) {
-            alert(`${bs.serviceName} in ${item.name}: ${splitResult.errors[0] || "Split komisi tidak valid"}`);
-            return;
+            if (!splitResult.isValid) {
+              alert(`${bs.serviceName} in ${item.name}: ${splitResult.errors[0] || "Split komisi tidak valid"}`);
+              return;
+            }
           }
         }
         continue;
@@ -1557,18 +1603,20 @@ export default function POSPage() {
       const commissionType = item.commissionType || "fixed";
       const commissionValue = Number(item.commissionValue || 0);
 
-      if (commissionType === "fixed" && commissionValue <= 0) {
-        alert(
-          `Komisi service "${item.name}" belum diisi. Isi Komisi Nominal lebih dari 0 terlebih dahulu.`,
-        );
-        return;
-      }
+      if (settings.showCommissionInPOS) {
+        if (commissionType === "fixed" && commissionValue <= 0) {
+          alert(
+            `Komisi service "${item.name}" belum diisi. Isi Komisi Nominal lebih dari 0 terlebih dahulu.`,
+          );
+          return;
+        }
 
-      if (commissionType === "percentage" && commissionValue <= 0) {
-        alert(
-          `Komisi service "${item.name}" belum diisi. Isi Komisi Persentase lebih dari 0 terlebih dahulu.`,
-        );
-        return;
+        if (commissionType === "percentage" && commissionValue <= 0) {
+          alert(
+            `Komisi service "${item.name}" belum diisi. Isi Komisi Persentase lebih dari 0 terlebih dahulu.`,
+          );
+          return;
+        }
       }
 
       if (itemAssignments.length === 0) {
@@ -1582,27 +1630,29 @@ export default function POSPage() {
         return;
       }
 
-      const splitResult = calculateSplitCommission({
-        splitMode,
-        assignments: itemAssignments.map((assignment) => ({
-          staffId: assignment.staffId,
-          percentage: assignment.percentage,
-          staffCommissionRate: getStaffRate(assignment.staffId),
-        })),
-        servicePrice: item.price,
-        quantity: item.quantity,
-        commissionType,
-        commissionValue,
-        sourceType: packageClaims[key]?.enabled
-          ? "package_redeem"
-          : "normal_sale",
-      });
+      if (settings.showCommissionInPOS) {
+        const splitResult = calculateSplitCommission({
+          splitMode,
+          assignments: itemAssignments.map((assignment) => ({
+            staffId: assignment.staffId,
+            percentage: assignment.percentage,
+            staffCommissionRate: getStaffRate(assignment.staffId),
+          })),
+          servicePrice: item.price,
+          quantity: item.quantity,
+          commissionType,
+          commissionValue,
+          sourceType: packageClaims[key]?.enabled
+            ? "package_redeem"
+            : "normal_sale",
+        });
 
-      if (!splitResult.isValid) {
-        alert(
-          `${item.name}: ${splitResult.errors[0] || "Split komisi tidak valid"}`,
-        );
-        return;
+        if (!splitResult.isValid) {
+          alert(
+            `${item.name}: ${splitResult.errors[0] || "Split komisi tidak valid"}`,
+          );
+          return;
+        }
       }
 
       const claim = packageClaims[key];
@@ -2634,12 +2684,14 @@ export default function POSPage() {
                         {isExpanded && (
                           <div className="ml-8 mt-1 space-y-1.5 bg-slate-50 border border-slate-200 rounded-lg p-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-slate-600">{settings.showCommissionInPOS ? "Staff & Komisi" : "Staff"}</span>
+                              <span className="text-[10px] font-bold text-slate-600">Staff</span>
                               <div className="flex items-center gap-1.5">
-                                <div className="inline-flex rounded border border-slate-300 overflow-hidden text-[9px] font-bold">
-                                  <button type="button" onClick={() => updateServiceSplitMode(item._id, item.type, "auto")} className={`px-1.5 py-0.5 ${splitMode === "auto" ? "bg-slate-700 text-white" : "bg-white text-slate-500"}`}>Auto</button>
-                                  <button type="button" onClick={() => updateServiceSplitMode(item._id, item.type, "manual")} className={`px-1.5 py-0.5 ${splitMode === "manual" ? "bg-slate-700 text-white" : "bg-white text-slate-500"}`}>Manual</button>
-                                </div>
+                                {settings.showCommissionInPOS && (
+                                  <div className="inline-flex rounded border border-slate-300 overflow-hidden text-[9px] font-bold">
+                                    <button type="button" onClick={() => updateServiceSplitMode(item._id, item.type, "auto")} className={`px-1.5 py-0.5 ${splitMode === "auto" ? "bg-slate-700 text-white" : "bg-white text-slate-500"}`}>Auto</button>
+                                    <button type="button" onClick={() => updateServiceSplitMode(item._id, item.type, "manual")} className={`px-1.5 py-0.5 ${splitMode === "manual" ? "bg-slate-700 text-white" : "bg-white text-slate-500"}`}>Manual</button>
+                                  </div>
+                                )}
                                 <button type="button" onClick={() => setExpandedStaffKey(null)} className="p-0.5 text-gray-400 hover:text-gray-600 rounded">
                                   <X className="w-3 h-3" />
                                 </button>
@@ -2663,14 +2715,16 @@ export default function POSPage() {
                                     return (
                                       <div key={assignment.staffId} className="flex items-center gap-1 bg-white p-1 rounded border border-blue-100">
                                         <p className="text-[9px] font-bold text-gray-800 flex-1 truncate">{staff?.name}</p>
-                                        <div className="flex items-center gap-0.5 bg-blue-50 px-1 py-0.5 rounded border border-blue-200">
-                                          <input type="number" min="0" max="100" value={assignment.percentage} onChange={(e) => updateServiceStaffPercentage(item._id, item.type, assignment.staffId, parseFloat(e.target.value) || 0)} disabled={splitMode === "auto"} className={`w-10 text-right text-[11px] font-black border-0 bg-transparent focus:outline-none ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`} />
-                                          <span className="text-[9px] font-bold text-blue-700">%</span>
-                                        </div>
                                         {settings.showCommissionInPOS && (
-                                          <span className="text-[9px] font-bold text-emerald-700 min-w-[60px] text-right">
-                                            {settings.symbol}{(previewMap.get(assignment.staffId) || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
-                                          </span>
+                                          <>
+                                            <div className="flex items-center gap-0.5 bg-blue-50 px-1 py-0.5 rounded border border-blue-200">
+                                              <input type="number" min="0" max="100" value={assignment.percentage} onChange={(e) => updateServiceStaffPercentage(item._id, item.type, assignment.staffId, parseFloat(e.target.value) || 0)} disabled={splitMode === "auto"} className={`w-10 text-right text-[11px] font-black border-0 bg-transparent focus:outline-none ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`} />
+                                              <span className="text-[9px] font-bold text-blue-700">%</span>
+                                            </div>
+                                            <span className="text-[9px] font-bold text-emerald-700 min-w-[60px] text-right">
+                                              {settings.symbol}{(previewMap.get(assignment.staffId) || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                                            </span>
+                                          </>
                                         )}
                                         <button onClick={() => removeServiceStaffAssignment(item._id, item.type, assignment.staffId)} className="p-0.5 text-gray-400 hover:text-red-500 rounded">
                                           <Trash2 className="w-2.5 h-2.5" />
@@ -2753,42 +2807,42 @@ export default function POSPage() {
                               </span>
                             </div>
 
-                            {/* Auto/Manual Split Toggle */}
-                            <div className="flex items-center justify-between gap-1 bg-slate-50 border border-slate-200 rounded p-1.5 mb-1.5">
-                              <span className="text-[10px] font-bold text-slate-700">
-                                {settings.showCommissionInPOS ? "Split Komisi" : "Split Staff"}
-                              </span>
-                              <div className="inline-flex rounded border border-slate-300 overflow-hidden text-[10px] font-bold">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateServiceSplitMode(
-                                      item._id,
-                                      item.type,
-                                      "auto",
-                                      i,
-                                    )
-                                  }
-                                  className={`px-2 py-0.5 ${splitMode === "auto" ? "bg-slate-700 text-white" : "bg-white text-slate-600"}`}
-                                >
-                                  Auto
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateServiceSplitMode(
-                                      item._id,
-                                      item.type,
-                                      "manual",
-                                      i,
-                                    )
-                                  }
-                                  className={`px-2 py-0.5 ${splitMode === "manual" ? "bg-slate-700 text-white" : "bg-white text-slate-600"}`}
-                                >
-                                  Manual
-                                </button>
+                            {/* Auto/Manual Split Toggle — hanya tampil jika komisi aktif */}
+                            {settings.showCommissionInPOS && (
+                              <div className="flex items-center justify-between gap-1 bg-slate-50 border border-slate-200 rounded p-1.5 mb-1.5">
+                                <span className="text-[10px] font-bold text-slate-700">Split Komisi</span>
+                                <div className="inline-flex rounded border border-slate-300 overflow-hidden text-[10px] font-bold">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateServiceSplitMode(
+                                        item._id,
+                                        item.type,
+                                        "auto",
+                                        i,
+                                      )
+                                    }
+                                    className={`px-2 py-0.5 ${splitMode === "auto" ? "bg-slate-700 text-white" : "bg-white text-slate-600"}`}
+                                  >
+                                    Auto
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateServiceSplitMode(
+                                        item._id,
+                                        item.type,
+                                        "manual",
+                                        i,
+                                      )
+                                    }
+                                    className={`px-2 py-0.5 ${splitMode === "manual" ? "bg-slate-700 text-white" : "bg-white text-slate-600"}`}
+                                  >
+                                    Manual
+                                  </button>
+                                </div>
                               </div>
-                            </div>
+                            )}
 
                             <SearchableSelect
                               placeholder={`Assign staff untuk ${bs.serviceName}`}
@@ -2818,28 +2872,30 @@ export default function POSPage() {
                                       <p className="text-[9px] font-bold text-gray-800 flex-1 truncate">
                                         {staff?.name}
                                       </p>
-                                      <div className="flex items-center gap-1 bg-white px-1 py-0.5 rounded border border-blue-200">
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          max="100"
-                                          value={assignment.percentage}
-                                          onChange={(e) =>
-                                            updateServiceStaffPercentage(
-                                              item._id,
-                                              item.type,
-                                              assignment.staffId,
-                                              parseFloat(e.target.value) || 0,
-                                              i
-                                            )
-                                          }
-                                          disabled={splitMode === "auto"}
-                                          className={`w-12 md:w-14 text-right text-xs md:text-sm font-black border border-blue-200 bg-white rounded px-1 disabled:bg-gray-50 disabled:border-transparent focus:outline-none focus:border-blue-400 ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`}
-                                        />
-                                        <span className="text-[10px] md:text-xs font-bold text-blue-900">
-                                          %
-                                        </span>
-                                      </div>
+                                      {settings.showCommissionInPOS && (
+                                        <div className="flex items-center gap-1 bg-white px-1 py-0.5 rounded border border-blue-200">
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={assignment.percentage}
+                                            onChange={(e) =>
+                                              updateServiceStaffPercentage(
+                                                item._id,
+                                                item.type,
+                                                assignment.staffId,
+                                                parseFloat(e.target.value) || 0,
+                                                i
+                                              )
+                                            }
+                                            disabled={splitMode === "auto"}
+                                            className={`w-12 md:w-14 text-right text-xs md:text-sm font-black border border-blue-200 bg-white rounded px-1 disabled:bg-gray-50 disabled:border-transparent focus:outline-none focus:border-blue-400 ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`}
+                                          />
+                                          <span className="text-[10px] md:text-xs font-bold text-blue-900">
+                                            %
+                                          </span>
+                                        </div>
+                                      )}
                                       <button
                                         onClick={() =>
                                           removeServiceStaffAssignment(

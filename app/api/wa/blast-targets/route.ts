@@ -6,8 +6,11 @@ import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 
 import { checkPermissionWithSession } from '@/lib/rbac';
+import { normalizeIndonesianPhone } from '@/lib/phone';
 
-import { sendWhatsApp } from '@/lib/fonnte';
+import { validateWhatsAppNumber } from '@/lib/fonnte';
+import { decryptFonnteToken } from '@/lib/encryption';
+import { validateMessageContent } from '@/lib/messageValidator';
 
 /* ------------------------------------------------------------------ */
 /*  GET — Filter customers for blast preview                           */
@@ -29,7 +32,7 @@ export async function GET(request: NextRequest, props: any) {
 
     try {
         // Start with all active customers with phone
-        const customerQuery: any = { status: 'active' };
+        const customerQuery: any = { status: 'active', waNotifEnabled: true };
         if (hasPhone) {
             customerQuery.phone = { $exists: true, $ne: '' };
         }
@@ -106,12 +109,12 @@ export async function GET(request: NextRequest, props: any) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  POST — Send WA blast to selected customers                         */
+/*  POST — Queue WA blast to selected customers (async via scheduler)  */
 /* ------------------------------------------------------------------ */
 
 export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Customer, WaBlastLog, Settings } = await getTenantModels(tenantSlug);
+    const { Customer, WaCampaignQueue, Settings } = await getTenantModels(tenantSlug);
 
     // [B14 FIX] Gunakan checkPermissionWithSession — 1 auth() call
     const { error: permError, session } = await checkPermissionWithSession(request, 'customers', 'edit');
@@ -126,6 +129,10 @@ export async function POST(request: NextRequest, props: any) {
     if (!customerIds?.length) {
         return NextResponse.json({ success: false, error: 'No customers selected' }, { status: 400 });
     }
+
+    // Validate message content for spam risk
+    const validation = validateMessageContent(message);
+
     const customers = await Customer.find({
         _id: { $in: customerIds },
         phone: { $exists: true, $ne: '' },
@@ -134,80 +141,43 @@ export async function POST(request: NextRequest, props: any) {
         .select('name phone')
         .lean();
 
-    // Get tenant Fonnte token
-    const tenantSettings: any = await Settings.findOne({});
-    const fonnteToken = tenantSettings?.fonnteToken ? String(tenantSettings.fonnteToken).trim() : undefined;
+    if (customers.length === 0) {
+        return NextResponse.json({ success: false, error: 'Tidak ada customer yang memiliki nomor WA valid' }, { status: 400 });
+    }
 
-    const recipients: any[] = [];
-    let sentCount = 0;
-    let failedCount = 0;
-
-    // Safety check for manual sending
-    if (customers.length > 5) {
-        return NextResponse.json({ 
-            success: false, 
-            error: 'Manual blast dibatasi maksimal 5 orang demi keamanan nomor WA. Gunakan fitur "Schedule" untuk mengirim ke lebih banyak orang secara otomatis & aman.' 
+    // FLOW-08 FIX: Limit max target per campaign untuk hindari BSON size limit
+    const MAX_TARGETS = 500;
+    if (customers.length > MAX_TARGETS) {
+        return NextResponse.json({
+            success: false,
+            error: `Terlalu banyak target (${customers.length}). Maksimal ${MAX_TARGETS} per campaign. Silakan buat beberapa campaign terpisah.`
         }, { status: 400 });
     }
 
-    for (const customer of customers) {
-        const personalizedMsg = message
-            .replace(/{{nama_customer}}/gi, (customer as any).name || 'Pelanggan');
+    const targets = customers.map((c: any) => ({
+        customerId: c._id,
+        phone: normalizeIndonesianPhone(c.phone),
+        status: 'pending' as const,
+    }));
 
-        try {
-            const result = await sendWhatsApp((customer as any).phone, personalizedMsg, fonnteToken);
-            if (result.success) {
-                sentCount++;
-                recipients.push({
-                    customerId: (customer as any)._id,
-                    phone: (customer as any).phone,
-                    status: 'sent',
-                });
-            } else {
-                failedCount++;
-                recipients.push({
-                    customerId: (customer as any)._id,
-                    phone: (customer as any).phone,
-                    status: 'failed',
-                    error: result.error,
-                });
-            }
-        } catch (err: any) {
-            failedCount++;
-            recipients.push({
-                customerId: (customer as any)._id,
-                phone: (customer as any).phone,
-                status: 'failed',
-                error: err.message,
-            });
-        }
-
-        // Delay between messages to avoid rate limiting / WA suspension
-        // 30 seconds per message for safety in manual mode
-        if (sentCount + failedCount < customers.length) {
-            await new Promise((resolve) => setTimeout(resolve, 30000));
-        }
-    }
-
-    // Save blast log
-    await WaBlastLog.create({
+    // BLAST-01 FIX: Masukkan ke queue, bukan kirim langsung
+    // Scheduler akan pickup di tick berikutnya (~1 menit)
+    const campaign = await WaCampaignQueue.create({
         campaignName: campaignName || `Blast ${new Date().toLocaleDateString('id-ID')}`,
         message,
-        targetCount: customerIds.length,
-        sentCount,
-        failedCount,
+        scheduledAt: new Date(), // langsung eligible untuk diproses
         filters: filters || {},
-        recipients,
-        sentBy: session?.user?.id,
+        targets,
+        sentBy: (session as any)?.user?.id,
+        status: 'pending',
     });
 
     return NextResponse.json({
         success: true,
-        sent: sentCount,
-        failed: failedCount,
-        total: customers.length,
-        failedRecipients: recipients
-            .filter((r: any) => r.status === 'failed')
-            .map((r: any) => ({ phone: r.phone, error: r.error || 'Unknown error' })),
+        queued: true,
+        message: `${targets.length} pesan dijadwalkan. Akan dikirim otomatis dalam beberapa menit.`,
+        campaignId: campaign._id,
+        targetCount: targets.length,
+        contentWarnings: validation.warnings.length > 0 ? validation.warnings : undefined,
     });
 }

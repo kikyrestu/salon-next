@@ -26,6 +26,8 @@ if (!global.mongoose) {
   global.mongoose = cached;
 }
 
+let schedulerStarted = false;
+
 async function dbConnect(): Promise<typeof mongoose> {
   const mongoUri = getMongoUri();
 
@@ -55,6 +57,18 @@ async function dbConnect(): Promise<typeof mongoose> {
   try {
     cached.conn = await cached.promise;
     console.log('✅ MongoDB connected successfully');
+
+    // Auto-start scheduler if not started yet (fallback for instrumentation.ts)
+    if (!schedulerStarted && typeof process !== 'undefined' && process.env.NEXT_RUNTIME === 'nodejs') {
+      schedulerStarted = true;
+      try {
+        const { startWaScheduler } = require('./scheduler');
+        startWaScheduler();
+        console.log('✅ WA Scheduler started via DB Connection fallback');
+      } catch (err) {
+        console.error('⚠️ Failed to start WA Scheduler via fallback:', err);
+      }
+    }
   } catch (e: any) {
     cached.promise = null;
     console.error('❌ MongoDB connection failed:', e.message);

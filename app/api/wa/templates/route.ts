@@ -1,16 +1,17 @@
 import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
-import { checkPermission } from '@/lib/rbac';
-
+import { checkPermission, checkPermissionWithSession } from '@/lib/rbac';
 
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
     const { WaTemplate } = await getTenantModels(tenantSlug);
 
     try {
-        const posPermErr = await checkPermission(request, 'pos', 'view');
-        const waPermErr = await checkPermission(request, 'waTemplates', 'view');
-        if (posPermErr && waPermErr) return waPermErr;
+        const { error: posPermErr } = await checkPermissionWithSession(request, 'pos', 'view');
+        if (posPermErr) {
+            const { error: waPermErr } = await checkPermissionWithSession(request, 'waTemplates', 'view');
+            if (waPermErr) return waPermErr;
+        }
 
 
 

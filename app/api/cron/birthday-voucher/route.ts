@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 
 
+import { decryptFonnteToken } from '@/lib/encryption';
 import { sendWhatsApp } from "@/lib/fonnte";
+import { hasRunToday, markAsRun } from '@/lib/cronDedup';
 
 // GET /api/cron/birthday-voucher
 // Called daily by external cron (crontab / cron-job.org)
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest, props: any) {
     }
 
     // [B09 FIX] Ambil fonnteToken dari settings agar WA bisa terkirim
-    const fonnteToken = settings?.fonnteToken ? String(settings.fonnteToken).trim() : undefined;
+    const fonnteToken = settings?.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : undefined;
 
     const voucher = await Voucher.findById(settings.birthdayVoucherId);
     if (!voucher || !voucher.isActive) {
@@ -78,15 +80,22 @@ export async function GET(request: NextRequest, props: any) {
           (voucher.expiresAt ? `📅 Berlaku sampai: ${new Date(voucher.expiresAt).toLocaleDateString("id-ID")}\n` : "") +
           `\nTerima kasih sudah menjadi member premium kami! 💕\n- ${settings.storeName || "Salon"}`;
 
-        await sendWhatsApp(customer.phone, message, fonnteToken);
+        const result = await sendWhatsApp(customer.phone, message, fonnteToken);
 
-        // Mark as sent for this year
-        customer.birthdayVoucherSentYear = currentYear;
-        await customer.save();
-        sentCount++;
+        if (result.success) {
+          // Mark as sent for this year
+          customer.birthdayVoucherSentYear = currentYear;
+          await customer.save();
+          sentCount++;
+        } else {
+          errors.push(`${customer.name}: ${result.error}`);
+        }
       } catch (err: any) {
         errors.push(`${customer.name}: ${err.message}`);
       }
+
+      // BLOCK-01 FIX: Delay aman 8-15 detik antar pengiriman
+      await new Promise((r) => setTimeout(r, 8000 + Math.floor(Math.random() * 7000)));
     }
 
     return NextResponse.json({

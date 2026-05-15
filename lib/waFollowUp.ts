@@ -172,8 +172,6 @@ export async function scheduleFollowUp(transactionId: string | mongoose.Types.Ob
         serviceName?: string;
         scheduledAt: Date;
         status: 'pending';
-        repeatEveryValue: number;
-        repeatEveryUnit: 'minute' | 'hour' | 'day';
     };
 
     type FailedDoc = {
@@ -184,8 +182,6 @@ export async function scheduleFollowUp(transactionId: string | mongoose.Types.Ob
         serviceName?: string;
         scheduledAt: Date;
         status: 'failed';
-        repeatEveryValue: number;
-        repeatEveryUnit: 'minute' | 'hour' | 'day';
         sentAt: Date;
     };
 
@@ -198,8 +194,6 @@ export async function scheduleFollowUp(transactionId: string | mongoose.Types.Ob
             serviceName: selected.serviceName,
             scheduledAt: addDelay(createdAtBase, selected.firstDelayValue, selected.firstDelayUnit),
             status: 'pending',
-            repeatEveryValue: 0,
-            repeatEveryUnit: selected.firstDelayUnit,
         },
     ];
 
@@ -213,8 +207,6 @@ export async function scheduleFollowUp(transactionId: string | mongoose.Types.Ob
             serviceName: selected.serviceName,
             scheduledAt: addDelay(createdAtBase, selected.secondDelayValue, selected.secondDelayUnit || 'day'),
             status: 'pending',
-            repeatEveryValue: 0,
-            repeatEveryUnit: selected.secondDelayUnit || 'day',
         });
     }
 
@@ -228,8 +220,6 @@ export async function scheduleFollowUp(transactionId: string | mongoose.Types.Ob
         // Offset kecil agar scheduledAt unik dan tidak bentrok unique index
         scheduledAt: new Date(createdAtBase.getTime() + index + 1),
         status: 'failed',
-        repeatEveryValue: 0,
-        repeatEveryUnit: candidate.firstDelayUnit,
         sentAt: new Date(),
     }));
 

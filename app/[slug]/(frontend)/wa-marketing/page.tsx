@@ -132,10 +132,15 @@ export default function WAMarketingPage() {
   const [scheduledAt, setScheduledAt] = useState("");
   const [sending, setSending] = useState(false);
   const [blastResult, setBlastResult] = useState<{
-    sent: number;
-    failed: number;
-    total: number;
+    sent?: number;
+    failed?: number;
+    total?: number;
     failedRecipients?: { phone: string; error: string }[];
+    queued?: boolean;
+    targetCount?: number;
+    campaignId?: string;
+    message?: string;
+    contentWarnings?: string[];
   } | null>(null);
 
   // History & Queue
@@ -160,9 +165,18 @@ export default function WAMarketingPage() {
     isActive: true,
   });
 
-  // Campaign detail modal
+  // Detail Modal state (for queue tracking)
   const [detailCampaign, setDetailCampaign] = useState<CampaignQueue | null>(null);
   const [detailRefreshing, setDetailRefreshing] = useState(false);
+
+  // Realtime ticker for countdowns
+  const [nowMs, setNowMs] = useState(Date.now());
+  useEffect(() => {
+    if (detailCampaign) {
+      const timer = setInterval(() => setNowMs(Date.now()), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [detailCampaign]);
 
   // Services dropdown
   const [services, setServices] = useState<Service[]>([]);
@@ -174,6 +188,20 @@ export default function WAMarketingPage() {
         if (d.success) setServices(d.data || []);
       })
       .catch(console.error);
+  }, []);
+
+  // Auto-ping the scheduler API to force it to run.
+  // This bypasses the buggy Next.js local dev background threads
+  useEffect(() => {
+    // Ping immediately on mount
+    fetch('/api/wa/cron').catch(() => {});
+    
+    // Ping every 30 seconds
+    const cronPing = setInterval(() => {
+      fetch('/api/wa/cron').catch(() => {});
+    }, 30000);
+
+    return () => clearInterval(cronPing);
   }, []);
 
   /* ────── Fetch targets ────── */
@@ -310,10 +338,10 @@ export default function WAMarketingPage() {
       return;
     }
 
-    // Manual Send Now
+    // Send Now (via queue)
     if (
       !confirm(
-        `PERINGATAN: Mengirim sekarang (Manual) akan memakan waktu lama (3 detik/pesan). JANGAN tutup halaman ini selama proses berjalan. Lanjutkan kirim ke ${selectedIds.size} customer?`
+        `Kirim blast ke ${selectedIds.size} customer? Pesan akan masuk antrian dan dikirim otomatis oleh scheduler.`
       )
     )
       return;
@@ -336,6 +364,7 @@ export default function WAMarketingPage() {
       const data = await res.json();
       if (data.success) {
         setBlastResult(data);
+        fetchQueue(); // Auto-refresh campaign queue
       } else {
         alert(data.error || "Blast failed");
       }
@@ -689,10 +718,10 @@ export default function WAMarketingPage() {
                     </div>
                     
                     {sendMode === "now" && (
-                      <div className="bg-amber-50 text-amber-800 text-xs p-3 rounded-lg flex items-start gap-2 border border-amber-200">
+                      <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-lg flex items-start gap-2 border border-blue-200">
                         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                         <p>
-                          <strong>Kirim Sekarang (Manual)</strong> memakan waktu lama (3 detik per pesan) dan <strong>wajib membiarkan browser tetap terbuka</strong> sampai selesai. Untuk audiens besar, gunakan mode Jadwalkan.
+                          <strong>Kirim Sekarang</strong> — pesan akan masuk antrian dan dikirim otomatis oleh scheduler (20-40 detik per pesan). Pantau progress di tab Blast History.
                         </p>
                       </div>
                     )}
@@ -731,34 +760,35 @@ export default function WAMarketingPage() {
 
             {/* Blast result */}
             {blastResult && (
-              <div
-                className={`bg-white rounded-xl border shadow-sm overflow-hidden ${
-                  blastResult.failed > 0
-                    ? "border-amber-200"
-                    : "border-green-200"
-                }`}
-              >
-                <div
-                  className={`px-6 py-4 ${
-                    blastResult.failed > 0
-                      ? "bg-amber-50 border-b border-amber-100"
-                      : "bg-green-50 border-b border-green-100"
-                  }`}
-                >
+              <div className={`bg-white rounded-xl border shadow-sm overflow-hidden ${
+                blastResult.queued
+                  ? "border-blue-200"
+                  : (blastResult.failed ?? 0) > 0
+                  ? "border-amber-200"
+                  : "border-green-200"
+              }`}>
+                <div className={`px-6 py-4 border-b ${
+                  blastResult.queued
+                    ? "bg-blue-50 border-blue-100"
+                    : (blastResult.failed ?? 0) > 0
+                    ? "bg-amber-50 border-amber-100"
+                    : "bg-green-50 border-green-100"
+                }`}>
                   <h2 className="text-sm font-bold flex items-center gap-2">
-                    {blastResult.failed > 0 ? (
+                    {blastResult.queued ? (
+                      <>
+                        <CheckCircle2 className="w-5 h-5 text-blue-500" />
+                        <span className="text-blue-800">Campaign Berhasil Dijadwalkan!</span>
+                      </>
+                    ) : (blastResult.failed ?? 0) > 0 ? (
                       <>
                         <AlertTriangle className="w-5 h-5 text-amber-500" />
-                        <span className="text-amber-800">
-                          Partially Sent
-                        </span>
+                        <span className="text-amber-800">Partially Sent</span>
                       </>
                     ) : (
                       <>
                         <CheckCircle2 className="w-5 h-5 text-green-500" />
-                        <span className="text-green-800">
-                          Blast Sent Successfully!
-                        </span>
+                        <span className="text-green-800">Blast Sent Successfully!</span>
                       </>
                     )}
                   </h2>
@@ -766,42 +796,56 @@ export default function WAMarketingPage() {
                 <div className="p-6 grid grid-cols-3 gap-4">
                   <div className="bg-gray-50 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-gray-900">
-                      {blastResult.total}
+                      {blastResult.queued ? blastResult.targetCount : blastResult.total}
                     </p>
-                    <p className="text-xs text-gray-500 font-medium">
-                      Total Target
-                    </p>
+                    <p className="text-xs text-gray-500 font-medium">Total Target</p>
                   </div>
-                  <div className="bg-green-50 rounded-lg p-3 text-center">
-                    <p className="text-2xl font-bold text-green-700">
-                      {blastResult.sent}
-                    </p>
-                    <p className="text-xs text-green-600 font-medium">
-                      Sent
-                    </p>
-                  </div>
-                  <div
-                    className={`rounded-lg p-3 text-center ${
-                      blastResult.failed > 0 ? "bg-red-50" : "bg-gray-50"
-                    }`}
-                  >
-                    <p
-                      className={`text-2xl font-bold ${
-                        blastResult.failed > 0 ? "text-red-700" : "text-gray-400"
-                      }`}
-                    >
-                      {blastResult.failed}
-                    </p>
-                    <p
-                      className={`text-xs font-medium ${
-                        blastResult.failed > 0 ? "text-red-600" : "text-gray-400"
-                      }`}
-                    >
-                      Failed
-                    </p>
-                  </div>
+                  {blastResult.queued ? (
+                    <div className="col-span-2 bg-blue-50 rounded-lg p-3 flex items-center gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-blue-800">
+                          Pesan masuk antrian ✓
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Akan dikirim otomatis oleh scheduler dalam beberapa menit.
+                          Pantau progress di tab "Blast History".
+                        </p>
+                        {blastResult.campaignId && (
+                          <p className="text-xs text-blue-400 mt-1 font-mono">
+                            ID: {blastResult.campaignId}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="bg-green-50 rounded-lg p-3 text-center">
+                        <p className="text-2xl font-bold text-green-700">{blastResult.sent}</p>
+                        <p className="text-xs text-green-600 font-medium">Sent</p>
+                      </div>
+                      <div className={`rounded-lg p-3 text-center ${(blastResult.failed ?? 0) > 0 ? "bg-red-50" : "bg-gray-50"}`}>
+                        <p className={`text-2xl font-bold ${(blastResult.failed ?? 0) > 0 ? "text-red-700" : "text-gray-400"}`}>
+                          {blastResult.failed}
+                        </p>
+                        <p className={`text-xs font-medium ${(blastResult.failed ?? 0) > 0 ? "text-red-600" : "text-gray-400"}`}>
+                          Failed
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
-                {/* Show failed recipient details */}
+                {/* Content warnings */}
+                {blastResult.contentWarnings && blastResult.contentWarnings.length > 0 && (
+                  <div className="px-6 pb-4">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-amber-800 mb-1">⚠️ Peringatan Konten:</p>
+                      {blastResult.contentWarnings.map((w: string, i: number) => (
+                        <p key={i} className="text-xs text-amber-700">• {w}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Show failed recipient details (legacy direct-send) */}
                 {blastResult.failedRecipients && blastResult.failedRecipients.length > 0 && (
                   <div className="px-6 pb-4">
                     <details className="group">
@@ -1318,29 +1362,71 @@ export default function WAMarketingPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {(detailCampaign.targets || []).map((t: any, idx: number) => (
-                    <tr key={idx} className="hover:bg-gray-50/50">
-                      <td className="px-3 py-2 font-medium text-gray-800">
-                        {t.customerId?.name || "-"}
-                      </td>
-                      <td className="px-3 py-2 text-gray-500">{t.phone}</td>
-                      <td className="px-3 py-2 text-center">
-                        {t.status === "sent" ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">
-                            <CheckCircle2 className="w-3 h-3" /> Terkirim
-                          </span>
-                        ) : t.status === "failed" ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-bold" title={t.error || ""}>
-                            <XCircle className="w-3 h-3" /> Gagal
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">
-                            <Clock className="w-3 h-3" /> Menunggu
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {(() => {
+                    let pendingCount = 0;
+                    return (detailCampaign.targets || []).map((t: any, idx: number) => {
+                      let estimatedDisplay = "";
+                      if (t.status === "pending") {
+                        // Estimate: 1 target per second (unlimited mode)
+                        const waitSeconds = (pendingCount + 1) * 1;
+                        const targetTime = new Date(detailCampaign.scheduledAt || Date.now()).getTime() + (waitSeconds * 1000);
+                        const remainingSecs = Math.max(0, Math.floor((targetTime - nowMs) / 1000));
+                        
+                        const m = Math.floor(remainingSecs / 60);
+                        const s = remainingSecs % 60;
+                        estimatedDisplay = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                        
+                        pendingCount++;
+                      }
+                      
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50/50">
+                          <td className="px-3 py-2 font-medium text-gray-800 align-top">
+                            {t.customerId?.name || "-"}
+                          </td>
+                          <td className="px-3 py-2 text-gray-500 align-top">{t.phone}</td>
+                          <td className="px-3 py-2 text-center align-top">
+                            <div className="flex flex-col items-center gap-1">
+                              {t.status === "sent" ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold">
+                                  <CheckCircle2 className="w-3 h-3" /> Terkirim
+                                </span>
+                              ) : t.status === "failed" ? (
+                                <>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-bold" title={t.error || ""}>
+                                    <XCircle className="w-3 h-3" /> Gagal
+                                  </span>
+                                  {t.error && (
+                                    <div className="mt-1 w-full text-left bg-gray-900 text-green-400 text-[10px] p-2 rounded border border-gray-700 font-mono break-words max-w-[250px] mx-auto overflow-x-auto whitespace-pre-wrap shadow-inner">
+                                      <div className="text-gray-500 text-[8px] mb-1 uppercase tracking-wider select-none">Terminal Output</div>
+                                      {">"} {t.error}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">
+                                    <Loader2 className="w-3 h-3 animate-spin" /> Menunggu
+                                  </span>
+                                  <span className="text-[10px] text-amber-600/90 font-mono font-medium mt-0.5 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                    {estimatedDisplay}
+                                  </span>
+                                  <div className="mt-1 w-full text-left bg-gray-900 text-green-400 text-[10px] p-2 rounded border border-gray-700 font-mono break-words max-w-[250px] mx-auto overflow-x-auto whitespace-pre-wrap shadow-inner">
+                                    <div className="text-gray-500 text-[8px] mb-1 uppercase tracking-wider select-none">Terminal Output</div>
+                                    <div className="animate-pulse">
+                                      {">"} [SCHEDULER] Waiting in queue...<br/>
+                                      {">"} ETA: {estimatedDisplay}<br/>
+                                      {">"} <span className="opacity-70">Processing unlimited targets</span><span className="animate-bounce inline-block ml-1">_</span>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>
