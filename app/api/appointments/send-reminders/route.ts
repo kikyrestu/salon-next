@@ -79,6 +79,12 @@ export async function POST(request: NextRequest, props: any) {
                 continue;
             }
 
+            // [BE-06 FIX] Null-check untuk staff — bisa null jika staff sudah dihapus
+            if (!staff) {
+                errors.push({ appointmentId: appointment._id, error: "Staff not found (possibly deleted)" });
+                continue;
+            }
+
             const dateStr = format(new Date(appointment.date), 'MMMM dd, yyyy');
             const timeStr = appointment.startTime;
             const services = appointment.services.map((s: any) => s.name);

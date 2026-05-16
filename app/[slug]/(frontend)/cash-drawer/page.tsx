@@ -22,6 +22,7 @@ export default function CashDrawerPage() {
     const [balance, setBalance] = useState({ kasirBalance: 0, brankasBalance: 0, bankBalance: 0 });
     const [activeSession, setActiveSession] = useState<any>(null);
     const [logs, setLogs] = useState<any[]>([]);
+    const [logLimit, setLogLimit] = useState(20);
 
     const [openModal, setOpenModal] = useState<'open' | 'close' | 'transfer' | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
@@ -49,7 +50,7 @@ export default function CashDrawerPage() {
                 setActiveSession(data.data.activeSession);
             }
 
-            const logsRes = await fetch('/api/cash-drawer/logs?limit=20', { headers: { "x-store-slug": slug } });
+            const logsRes = await fetch(`/api/cash-drawer/logs?limit=${logLimit}`, { headers: { "x-store-slug": slug } });
             const logsData = await logsRes.json();
             if (logsData.success) {
                 setLogs(logsData.data);
@@ -63,7 +64,7 @@ export default function CashDrawerPage() {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [logLimit]);
 
     const handleSessionAction = async (action: 'open' | 'close') => {
         setActionLoading(true);
@@ -220,6 +221,16 @@ export default function CashDrawerPage() {
                         <h3 className="font-bold text-gray-900 flex items-center gap-2">
                             <History className="w-5 h-5 text-gray-500" /> Histori Pergerakan Kas (Immutable)
                         </h3>
+                        <select 
+                            value={logLimit} 
+                            onChange={e => setLogLimit(Number(e.target.value))}
+                            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:border-blue-600 focus:outline-none"
+                        >
+                            <option value="10">10 Entri</option>
+                            <option value="20">20 Entri</option>
+                            <option value="50">50 Entri</option>
+                            <option value="100">100 Entri</option>
+                        </select>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-left whitespace-nowrap">
@@ -329,13 +340,10 @@ export default function CashDrawerPage() {
                                         <div className="flex-1">
                                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ke</label>
                                             <select value={transferDestination} onChange={e => setTransferDestination(e.target.value)} className="w-full border-2 border-gray-300 rounded-xl px-3 py-2.5 font-bold focus:border-blue-600">
-                                                {transferSource === 'kasir' && <option value="brankas">Brankas</option>}
-                                                {transferSource === 'brankas' && (
-                                                    <>
-                                                        <option value="bank">Setor Bank</option>
-                                                        <option value="owner">Diambil Owner</option>
-                                                    </>
-                                                )}
+                                                <option value="kasir" disabled={transferSource === 'kasir'}>Laci Kasir</option>
+                                                <option value="brankas" disabled={transferSource === 'brankas'}>Brankas</option>
+                                                <option value="bank">Setor Bank</option>
+                                                <option value="owner">Diambil Owner</option>
                                             </select>
                                         </div>
                                     </div>

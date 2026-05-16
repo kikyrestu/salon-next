@@ -66,7 +66,7 @@ export async function POST(request: NextRequest, props: any) {
 
         // Validate and sanitize input
         const validation = validateAndSanitize(body, {
-            required: ['name', 'price', 'costPrice', 'stock'],
+            required: ['name', 'price', 'costPrice', 'stock', 'category'],
             numberRange: [
                 { field: 'price', min: 0 },
                 { field: 'costPrice', min: 0 },

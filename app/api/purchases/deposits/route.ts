@@ -1,6 +1,7 @@
 import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextResponse } from "next/server";
+import { checkPermission } from "@/lib/rbac";
 
 
 
@@ -10,7 +11,8 @@ export async function POST(request: Request, props: any) {
     const { PurchaseDeposit, Purchase } = await getTenantModels(tenantSlug);
 
     try {
-        
+        const permissionError = await checkPermission(request as any, 'purchases', 'create');
+        if (permissionError) return permissionError;
         
         const body = await request.json();
         const { purchase: purchaseId, amount, paymentMethod, notes, supplier } = body;
@@ -50,7 +52,8 @@ export async function GET(request: Request, props: any) {
     const { PurchaseDeposit, Purchase } = await getTenantModels(tenantSlug);
 
     try {
-        
+        const permissionError = await checkPermission(request as any, 'purchases', 'view');
+        if (permissionError) return permissionError;
         
         const { searchParams } = new URL(request.url);
         const purchaseId = searchParams.get("purchaseId");
@@ -64,3 +67,4 @@ export async function GET(request: Request, props: any) {
         return NextResponse.json({ success: false, error: "Failed to fetch purchase deposits" }, { status: 500 });
     }
 }
+

@@ -87,8 +87,8 @@ export default function PayrollPage() {
             if (filterYear) queryParams.append("year", filterYear);
 
             const [payrollRes, staffRes] = await Promise.all([
-                fetch(`/api/payroll?${queryParams.toString()}`),
-                fetch("/api/staff/payroll-list")
+                fetch(`/api/payroll?${queryParams.toString()}`, { headers: { "x-store-slug": slug } }),
+                fetch("/api/staff/payroll-list", { headers: { "x-store-slug": slug } })
             ]);
 
             const payrollData = await payrollRes.json();

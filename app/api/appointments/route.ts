@@ -119,19 +119,25 @@ export async function POST(request: NextRequest, props: any) {
         }
 
         // [U03 FIX] Cek konflik jadwal staff — tolak jika ada appointment lain di slot yang sama
+        // [BE-02 FIX] Konversi ke integer minutes untuk perbandingan yang robust (bukan string)
         if (body.staff && body.date && body.startTime && body.endTime) {
-            const conflictingAppointment = await Appointment.findOne({
+            const toMinutes = (t: string) => {
+                const [h, m] = t.split(':').map(Number);
+                return h * 60 + m;
+            };
+            const newStart = toMinutes(body.startTime);
+            const newEnd = toMinutes(body.endTime);
+
+            const sameDayAppointments = await Appointment.find({
                 staff: body.staff,
                 date: new Date(body.date),
                 status: { $nin: ['cancelled', 'no-show'] },
-                $or: [
-                    // Appointment baru mulai di tengah-tengah appointment lain
-                    { startTime: { $lte: body.startTime }, endTime: { $gt: body.startTime } },
-                    // Appointment baru berakhir di tengah-tengah appointment lain
-                    { startTime: { $lt: body.endTime }, endTime: { $gte: body.endTime } },
-                    // Appointment baru sepenuhnya menutupi appointment lain
-                    { startTime: { $gte: body.startTime }, endTime: { $lte: body.endTime } },
-                ]
+            });
+
+            const conflictingAppointment = sameDayAppointments.find((apt: any) => {
+                const aptStart = toMinutes(apt.startTime);
+                const aptEnd = toMinutes(apt.endTime);
+                return newStart < aptEnd && newEnd > aptStart;
             });
 
             if (conflictingAppointment) {
@@ -171,10 +177,11 @@ export async function POST(request: NextRequest, props: any) {
         // [B15 FIX] Hapus branch || !appointment.status — appointment tanpa status dianggap 'pending',
         // tidak boleh langsung dibuatkan invoice
         if (appointment.status === 'confirmed' || appointment.status === 'completed') {
-            // Atomic invoice number via MongoDB counter
-            const invoiceNumber = await generateInvoiceNumber(tenantSlug);
-
+            // [BE-08 FIX] generateInvoiceNumber dipindah ke dalam try-catch
+            // [BE-03 FIX] Counter di-rollback jika Invoice.create gagal
             try {
+                const invoiceNumber = await generateInvoiceNumber(tenantSlug);
+
                 const createdInvoice = await Invoice.create({
                     invoiceNumber,
                     customer: appointment.customer,
@@ -196,7 +203,7 @@ export async function POST(request: NextRequest, props: any) {
                     staffAssignments: appointment.staff ? [{
                         staff: appointment.staff,
                         percentage: 100,
-                        porsiPersen: 100,  // ✅ FIX
+                        porsiPersen: 100,
                         commission: commission || 0,
                         tip: 0
                     }] : [],
@@ -208,6 +215,15 @@ export async function POST(request: NextRequest, props: any) {
             } catch (invoiceError) {
                 // Rollback: hapus appointment yang sudah tersimpan
                 await Appointment.findByIdAndDelete(appointment._id);
+                // Rollback counter agar nomor invoice tidak bolong
+                try {
+                    const { Counter } = await getTenantModels(tenantSlug);
+                    const year = new Date().getFullYear();
+                    await (Counter as any).findOneAndUpdate(
+                        { _id: `INV-${year}` },
+                        { $inc: { seq: -1 } }
+                    );
+                } catch (_) { /* best-effort rollback */ }
                 throw invoiceError;
             }
         }

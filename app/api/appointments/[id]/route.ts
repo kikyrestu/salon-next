@@ -63,7 +63,7 @@ export async function PUT(request: NextRequest, props: any) {
             ? cleanBody.discount
             : (existingAppointment.discount || 0);
 
-        const subtotal = services.reduce((acc: number, s: any) => acc + s.price, 0);
+        const subtotal = services.reduce((acc: number, s: any) => acc + (s.price || 0), 0);
         const tax = subtotal * (taxRate / 100);
         const totalAmount = (subtotal + tax) - discount;
 
@@ -132,6 +132,28 @@ export async function PUT(request: NextRequest, props: any) {
                 existingInvoice.status !== 'paid'
             ) {
                 await Invoice.findByIdAndUpdate(existingInvoice._id, {
+                    items: appointment.services.map((s: any) => ({
+                        item: s.service,
+                        itemModel: 'Service',
+                        name: s.name,
+                        price: s.price || 0,
+                        quantity: 1,
+                        total: s.price || 0
+                    })),
+                    subtotal: appointment.subtotal,
+                    tax: appointment.tax,
+                    discount: appointment.discount || 0,
+                    totalAmount: appointment.totalAmount,
+                    commission: totalCommission,
+                    staffAssignments: appointment.staff
+                        ? [{
+                            staff: appointment.staff,
+                            percentage: 100,
+                            porsiPersen: 100,
+                            commission: totalCommission,
+                            tip: 0
+                        }]
+                        : [],
                     status: 'paid'
                 });
             }

@@ -23,14 +23,14 @@ interface Expense {
 }
 
 const EXPENSE_CATEGORIES = [
-    "Rent",
-    "Utilities",
-    "Salaries",
-    "Supplies",
-    "Marketing",
-    "Maintenance",
-    "Transportation",
-    "Other"
+    "Sewa (Rent)",
+    "Listrik & Air (Utilities)",
+    "Gaji (Salaries)",
+    "Bahan Baku (Supplies)",
+    "Pemasaran (Marketing)",
+    "Perawatan (Maintenance)",
+    "Transportasi",
+    "Lainnya"
 ];
 
 export default function ExpensesPage() {
@@ -61,7 +61,7 @@ export default function ExpensesPage() {
     const [formData, setFormData] = useState({
         title: "",
         amount: 0,
-        category: "Other",
+        category: "Lainnya",
         date: getCurrentDateInTimezone(settings.timezone),
         paymentMethod: "Cash",
         notes: ""
@@ -80,7 +80,7 @@ export default function ExpensesPage() {
             query.append("page", page.toString());
             query.append("limit", "10");
 
-            const res = await fetch(`/api/expenses?${query.toString()}`);
+            const res = await fetch(`/api/expenses?${query.toString()}`, { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setExpenses(data.data);
@@ -140,7 +140,7 @@ export default function ExpensesPage() {
             setFormData({
                 title: "",
                 amount: 0,
-                category: "Other",
+                category: "Lainnya",
                 date: getCurrentDateInTimezone(settings.timezone),
                 paymentMethod: "Cash",
                 notes: ""

@@ -11,7 +11,7 @@ import { getCurrencySymbol } from "@/lib/currency";
 export default function PrintInvoicePage() {
   const params = useParams();
   const slug = params.slug as string;
-    const { id } = useParams();
+  const id = params.id as string;
     const router = useTenantRouter();
     const [invoice, setInvoice] = useState<any>(null);
     const [settings, setSettings] = useState<any>(null);
@@ -24,7 +24,7 @@ export default function PrintInvoicePage() {
                 const [invRes, settingsRes, depositsRes] = await Promise.all([
                     fetch(`/api/invoices/${id}`, { headers: { "x-store-slug": slug } }),
                     fetch("/api/settings", { headers: { "x-store-slug": slug } }),
-                    fetch(`/api/deposits?invoiceId=${id}`)
+                    fetch(`/api/deposits?invoiceId=${id}`, { headers: { "x-store-slug": slug } })
                 ]);
                 const invData = await invRes.json();
                 const settingsData = await settingsRes.json();

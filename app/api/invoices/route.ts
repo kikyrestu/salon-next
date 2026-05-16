@@ -343,6 +343,20 @@ export async function POST(request: NextRequest, props: any) {
       const quantity = toNum(item.quantity ?? 1);
 
       try {
+        // Validasi stok sebelum mengurangi — cegah stok negatif
+        const currentProduct = await Product.findById(itemId);
+        if (!currentProduct) continue;
+
+        if (currentProduct.stock < quantity) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Stok "${currentProduct.name}" tidak mencukupi. Stok tersedia: ${currentProduct.stock}, dibutuhkan: ${quantity}.`,
+            },
+            { status: 400 },
+          );
+        }
+
         const updatedProduct = await Product.findByIdAndUpdate(
           itemId,
           { $inc: { stock: -quantity } },

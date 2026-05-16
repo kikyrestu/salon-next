@@ -9,7 +9,7 @@ import { checkPermission } from "@/lib/rbac";
 
 export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Purchase, Product, Supplier } = await getTenantModels(tenantSlug);
+    const { Purchase, Product, Supplier, Counter } = await getTenantModels(tenantSlug);
 
     try {
     const permissionErrorPOST = await checkPermission(request, 'purchases', 'create');
@@ -18,9 +18,15 @@ export async function POST(request: NextRequest, props: any) {
         
         const body = await request.json();
 
-        // Generate Purchase Number
-        const count = await Purchase.countDocuments();
-        const purchaseNumber = `PUR-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;
+        // Generate Purchase Number (Atomic)
+        const year = new Date().getFullYear();
+        const counterId = `PUR-${year}`;
+        const counter = await Counter.findByIdAndUpdate(
+            counterId,
+            { $inc: { seq: 1 } },
+            { new: true, upsert: true }
+        );
+        const purchaseNumber = `PUR-${year}-${(counter as any).seq.toString().padStart(5, '0')}`;
 
         const purchase = new Purchase({
             ...body,
@@ -56,7 +62,7 @@ export async function POST(request: NextRequest, props: any) {
 
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Purchase, Product, Supplier } = await getTenantModels(tenantSlug);
+    const { Purchase, Product, Supplier, Counter } = await getTenantModels(tenantSlug);
 
     try {
     const permissionErrorGET = await checkPermission(request, 'purchases', 'view');
@@ -114,3 +120,5 @@ export async function GET(request: NextRequest, props: any) {
         return NextResponse.json({ success: false, error: "Failed to fetch purchases" }, { status: 500 });
     }
 }
+
+

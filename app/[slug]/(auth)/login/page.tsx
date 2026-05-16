@@ -16,6 +16,7 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
     const [storeName, setStoreName] = useState('SalonNext');
     const [logo, setLogo] = useState('');
 
@@ -75,10 +76,7 @@ export default function LoginPage() {
         }
     };
 
-    const fillDemoCredentials = () => {
-        setEmail('admin@example.com');
-        setPassword('Admin123!');
-    };
+
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 p-4 relative overflow-hidden">
@@ -153,6 +151,8 @@ export default function LoginPage() {
                             <label className="flex items-center gap-2 text-xs text-blue-100 cursor-pointer hover:text-white transition-colors">
                                 <input
                                     type="checkbox"
+                                    checked={rememberMe}
+                                    onChange={(e) => setRememberMe(e.target.checked)}
                                     className="w-4 h-4 rounded border-2 border-white/40 bg-white/10 text-blue-500 focus:ring-blue-400 focus:ring-offset-0 cursor-pointer"
                                 />
                                 Remember me

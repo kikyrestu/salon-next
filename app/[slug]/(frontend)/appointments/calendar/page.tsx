@@ -67,7 +67,6 @@ export default function CalendarPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [availableSlots, setAvailableSlots] = useState<any[]>([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
-    const [taxRate, setTaxRate] = useState(0);
 
     const [formData, setFormData] = useState({
         customerId: "",
@@ -82,22 +81,26 @@ export default function CalendarPage() {
 
     useEffect(() => {
         fetchResources();
-        fetchSettings();
     }, []);
 
+    // [FE-03 FIX] AbortController untuk mencegah race condition slot
     useEffect(() => {
-        if (formData.staffId && formData.date && isModalOpen) {
-            fetchAvailableSlots();
-        } else {
+        if (!formData.staffId || !formData.date || !isModalOpen) {
             setAvailableSlots([]);
+            return;
         }
+
+        const controller = new AbortController();
+        fetchAvailableSlots(controller.signal);
+
+        return () => controller.abort();
     }, [formData.staffId, formData.date, isModalOpen]);
 
     const fetchResources = async () => {
         const [staffRes, serviceRes, customerRes] = await Promise.all([
             fetch("/api/staff/appointment-list", { headers: { "x-store-slug": slug } }),
             fetch("/api/services?limit=0", { headers: { "x-store-slug": slug } }),
-            fetch("/api/customers?limit=0")
+            fetch("/api/customers?limit=0", { headers: { "x-store-slug": slug } })
         ]);
         const staffData = await staffRes.json();
         const serviceData = await serviceRes.json();
@@ -108,23 +111,13 @@ export default function CalendarPage() {
         if (customerData.success) setCustomers(customerData.data);
     };
 
-    const fetchSettings = async () => {
-        try {
-            const res = await fetch("/api/settings", { headers: { "x-store-slug": slug } });
-            const data = await res.json();
-            if (data.success) {
-                setTaxRate(data.data.taxRate || 0);
-            }
-        } catch (error) {
-            console.error("Error fetching settings:", error);
-        }
-    };
 
-    const fetchAvailableSlots = async () => {
+
+    const fetchAvailableSlots = async (signal?: AbortSignal) => {
         setLoadingSlots(true);
         try {
             const excludeId = editingAppointment?._id || "";
-            const res = await fetch(`/api/staff-slots?staffId=${formData.staffId}&date=${formData.date}&excludeAppointmentId=${excludeId}`, { headers: { "x-store-slug": slug } });
+            const res = await fetch(`/api/staff-slots?staffId=${formData.staffId}&date=${formData.date}&excludeAppointmentId=${excludeId}`, { headers: { "x-store-slug": slug }, signal });
             const data = await res.json();
             if (data.success) {
                 const slots = data.data.availableSlotsForBooking || data.data.availableSlots || [];
@@ -310,6 +303,7 @@ export default function CalendarPage() {
 
             <div className="flex-1 overflow-auto bg-white p-3 sm:p-6">
                 <StaffCalendar
+                    slug={slug}
                     refreshTrigger={refreshTrigger}
                     onSelectEvent={onSelectEvent}
                 />
@@ -471,3 +465,6 @@ export default function CalendarPage() {
         </div>
     );
 }
+
+
+

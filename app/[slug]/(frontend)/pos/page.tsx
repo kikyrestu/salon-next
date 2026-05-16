@@ -436,11 +436,11 @@ export default function POSPage() {
 
         const amt =
           settings.referralDiscountType === "percentage"
-            ? (settings.referralDiscountValue || 0)
+            ? `${settings.referralDiscountValue || 0}% dari total`
             : (settings.referralDiscountValue || 0);
         setReferralValidated({
           referrerName: referrer.name,
-          discountAmount: amt, // Will be computed in calculateTotal if percentage
+          discountAmount: amt as any, // allow string or number to show in UI
         });
       } else {
         alert("Kode referral tidak valid atau tidak ditemukan");
@@ -724,11 +724,23 @@ export default function POSPage() {
         (i) => i._id === item._id && i.type === item.type,
       );
       if (existing) {
+        // Validasi stok untuk produk
+        if (item.type === "Product" && item.stock !== undefined) {
+          if (existing.quantity >= item.stock) {
+            alert(`Stok "${item.name}" tidak mencukupi. Sisa stok: ${item.stock}`);
+            return prev;
+          }
+        }
         return prev.map((i) =>
           i._id === item._id && i.type === item.type
             ? { ...i, quantity: i.quantity + 1 }
             : i,
         );
+      }
+      // Validasi stok untuk produk baru ditambahkan
+      if (item.type === "Product" && item.stock !== undefined && item.stock <= 0) {
+        alert(`Stok "${item.name}" habis (stok: ${item.stock}). Tidak bisa ditambahkan ke keranjang.`);
+        return prev;
       }
       return [...prev, { ...item, quantity: 1 }];
     });
@@ -811,7 +823,12 @@ export default function POSPage() {
           if (type === "Package") {
             return i;
           }
-          const newQty = Math.max(1, i.quantity + delta);
+          let newQty = Math.max(1, i.quantity + delta);
+          // Batasi quantity produk berdasarkan stok
+          if (type === "Product" && i.stock !== undefined) {
+            newQty = Math.min(newQty, i.stock);
+            if (newQty < 1) newQty = 1;
+          }
           return { ...i, quantity: newQty };
         }
         return i;
@@ -1427,6 +1444,30 @@ export default function POSPage() {
     };
   };
 
+  /**
+   * Reset semua state terkait transaksi setelah checkout selesai.
+   * Dipusatkan di sini agar tidak ada state yang terlewat di-reset.
+   */
+  const resetCheckoutState = () => {
+    setCart([]);
+    setDiscount(0);
+    setDiscountType("percentage");
+    setDiscountReason("");
+    setStaffTips({});
+    setSelectedCustomer("");
+    setFollowUpPhoneNumber("");
+    setServiceStaffAssignments({});
+    setServiceSplitModes({});
+    setPackageClaims({});
+    setSplitPayments([{ method: "", amount: "" }]);
+    setVoucherApplied(null);
+    setVoucherCode("");
+    setLoyaltyPointsToRedeem(0);
+    setCustomerLoyaltyPoints(0);
+    setReferralCode("");
+    setReferralValidated(null);
+  };
+
   const handleCheckout = async (nonQrisPaid?: boolean) => {
     if (submitting) return;
     if (referralCode.trim() && !referralValidated && isFirstTimer) {
@@ -1434,11 +1475,11 @@ export default function POSPage() {
       return;
     }
     if (!selectedCustomer) {
-      alert("Please select a customer");
+      alert("Harap pilih customer");
       return;
     }
     if (cart.length === 0) {
-      alert("Cart is empty");
+      alert("Keranjang masih kosong");
       return;
     }
     const serviceItems = cart.filter((item) => item.type === "Service");
@@ -1556,13 +1597,13 @@ export default function POSPage() {
           }
 
           if (itemAssignments.length === 0) {
-            alert(`Please assign at least 1 staff for service "${bs.serviceName}" in bundle "${item.name}"`);
+            alert(`Harap pilih minimal 1 staff untuk service "${bs.serviceName}" dalam bundle "${item.name}"`);
             return;
           }
 
           const ids = rawAssignments.map((assignment) => assignment.staffId);
           if (ids.length !== new Set(ids).size) {
-            alert(`Duplicate staff found in service "${bs.serviceName}" split across "${item.name}"`);
+            alert(`Terdapat staff yang duplikat pada service "${bs.serviceName}" di dalam bundle "${item.name}"`);
             return;
           }
 
@@ -1620,13 +1661,13 @@ export default function POSPage() {
       }
 
       if (itemAssignments.length === 0) {
-        alert(`Please assign at least 1 staff for service "${item.name}"`);
+        alert(`Harap pilih minimal 1 staff untuk service "${item.name}"`);
         return;
       }
 
       const ids = rawAssignments.map((assignment) => assignment.staffId);
       if (ids.length !== new Set(ids).size) {
-        alert(`Duplicate staff found in service "${item.name}" split`);
+        alert(`Terdapat staff yang duplikat pada service "${item.name}"`);
         return;
       }
 
@@ -1658,12 +1699,12 @@ export default function POSPage() {
       const claim = packageClaims[key];
       if (claim?.enabled) {
         if (!selectedCustomer || selectedCustomer === "walking-customer") {
-          alert("Package claim requires a registered customer");
+          alert("Klaim paket membutuhkan customer yang terdaftar");
           return;
         }
 
         if (!claim.customerPackageId) {
-          alert(`Please select package source for service "${item.name}"`);
+          alert(`Harap pilih sumber paket untuk service "${item.name}"`);
           return;
         }
 
@@ -1677,7 +1718,7 @@ export default function POSPage() {
           !quota ||
           Number(quota.remainingQuota) < Number(item.quantity || 0)
         ) {
-          alert(`Insufficient quota for service "${item.name}"`);
+          alert(`Kuota tidak mencukupi untuk service "${item.name}"`);
           return;
         }
       }
@@ -2028,18 +2069,7 @@ export default function POSPage() {
         // Remove manual loyalty point deduction logic (handled securely in POST /api/invoices)
         // Deduct loyalty points logic has been moved to backend POST handler.
 
-        // Auto-complete appointment if we have an appointmentId
-        if (appointmentId) {
-          try {
-            await fetch(`/api/appointments/${appointmentId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json", ...storeHeaders },
-              body: JSON.stringify({ status: "completed" }),
-            });
-          } catch (err) {
-            console.error("Failed to auto-complete appointment", err);
-          }
-        }
+
 
         if (redeemItems.length > 0 && customerId) {
           const redeemRes = await fetch("/api/customer-packages/redeem", {
@@ -2055,7 +2085,7 @@ export default function POSPage() {
 
           const redeemData = await redeemRes.json();
           if (!redeemData.success) {
-            alert(redeemData.error || "Failed to redeem package quota");
+            alert(redeemData.error || "Gagal menebus kuota paket");
             return;
           }
         }
@@ -2117,27 +2147,14 @@ export default function POSPage() {
           }
         }
 
-        setCart([]);
-        setDiscount(0);
-        setStaffTips({});
-        setSelectedCustomer("");
-        setFollowUpPhoneNumber("");
-        setServiceStaffAssignments({});
-        setServiceSplitModes({});
-        setPackageClaims({});
-        setSplitPayments([{ method: "", amount: "" }]);
-        setVoucherApplied(null);
-        setVoucherCode("");
-        setLoyaltyPointsToRedeem(0);
-        setCustomerLoyaltyPoints(0);
-        setReferralCode("");
+        resetCheckoutState();
         router.push(`/invoices/print/${data.data._id}`);
       } else {
-        alert(data.error || "Failed to create invoice");
+        alert(data.error || "Gagal membuat invoice");
       }
     } catch (error) {
       console.error(error);
-      alert("Error processing checkout");
+      alert("Terjadi kesalahan saat memproses checkout");
     } finally {
       setSubmitting(false);
     }
@@ -2380,7 +2397,7 @@ export default function POSPage() {
                     </h3>
                     <p className="text-blue-900 font-bold text-xs lg:text-sm">
                       {settings.symbol}
-                      {item.price}
+                      {item.price.toLocaleString("id-ID")}
                     </p>
                   </div>
                 ))}
@@ -3166,7 +3183,7 @@ export default function POSPage() {
                                 Math.min(
                                   val,
                                   customerLoyaltyPoints,
-                                  payableSubtotal,
+                                  Math.ceil(payableSubtotal / (settings.loyaltyPointValue || 1))
                                 ),
                               );
                             }}

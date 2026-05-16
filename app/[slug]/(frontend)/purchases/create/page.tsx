@@ -54,7 +54,7 @@ export default function CreatePurchasePage() {
         try {
             const [supRes, prodRes] = await Promise.all([
                 fetch('/api/suppliers/purchase-list', { headers: { "x-store-slug": slug } }),
-                fetch('/api/products/purchase-list')
+                fetch('/api/products/purchase-list', { headers: { "x-store-slug": slug } })
             ]);
             const supData = await supRes.json();
             const prodData = await prodRes.json();
@@ -449,3 +449,4 @@ export default function CreatePurchasePage() {
         </div>
     );
 }
+

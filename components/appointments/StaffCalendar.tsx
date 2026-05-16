@@ -28,9 +28,10 @@ interface Resource {
 interface StaffCalendarProps {
     onSelectEvent?: (event: any) => void;
     refreshTrigger?: number;
+    slug: string;
 }
 
-export default function StaffCalendar({ onSelectEvent, refreshTrigger }: StaffCalendarProps) {
+export default function StaffCalendar({ onSelectEvent, refreshTrigger, slug }: StaffCalendarProps) {
     const [events, setEvents] = useState<Event[]>([]);
     const [resources, setResources] = useState<Resource[]>([]);
     const [loading, setLoading] = useState(true);
@@ -40,7 +41,7 @@ export default function StaffCalendar({ onSelectEvent, refreshTrigger }: StaffCa
     // Fetch staff as resources
     const fetchResources = useCallback(async () => {
         try {
-            const res = await fetch("/api/staff?isActive=true");
+            const res = await fetch("/api/staff?isActive=true", { headers: { "x-store-slug": slug } });
             const data = await res.json();
             if (data.success) {
                 setResources(data.data.map((s: any) => ({
@@ -70,7 +71,7 @@ export default function StaffCalendar({ onSelectEvent, refreshTrigger }: StaffCa
             }
 
             const url = `/api/appointments?start=${start}&end=${end}&limit=1000`;
-            const res = await fetch(url);
+            const res = await fetch(url, { headers: { "x-store-slug": slug } });
             const data = await res.json();
 
             if (data.success) {
@@ -142,7 +143,7 @@ export default function StaffCalendar({ onSelectEvent, refreshTrigger }: StaffCa
         <div className="h-[650px] md:h-[800px] bg-white rounded-2xl shadow-xl border border-gray-100 p-3 md:p-6 flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
                 <div>
-                    <h2 className="text-lg md:text-xl font-bold text-gray-900 capitalize">{view}ly Schedule</h2>
+                    <h2 className="text-lg md:text-xl font-bold text-gray-900 capitalize">{{ day: 'Daily', week: 'Weekly', month: 'Monthly' }[view as string] || view} Schedule</h2>
                     <p className="text-xs md:text-sm text-gray-500">Manage appointments across staff members</p>
                 </div>
                 <button
@@ -341,3 +342,4 @@ export default function StaffCalendar({ onSelectEvent, refreshTrigger }: StaffCa
         </div>
     );
 }
+

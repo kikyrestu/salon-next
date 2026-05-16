@@ -1,11 +1,83 @@
-# Update Log - WA Module Audit Fixes
+# Update Log - Keseluruhan Sistem
 
 **Tanggal:** 2026-05-15  
-**Dikerjakan Oleh:** Antigravity (AI Assistant)
 
-Dokumen ini berisi riwayat perbaikan untuk isu-isu yang ditemukan pada `AUDIT-WA-MODULE.md` dan `WA_Bug_Analysis_Report.md`. Perbaikan difokuskan pada stabilitas, pencegahan pemblokiran WhatsApp, keamanan API, dan kualitas kode.
+Dokumen ini berisi riwayat perbaikan untuk isu-isu dari berbagai laporan audit (WA Module, POS, Inventory, dll). Perbaikan difokuskan pada stabilitas, pencegahan pemblokiran WhatsApp, keamanan API, dan kualitas kode.
 
 
+
+## [Baru] Modul Inventory (16 Mei 2026)
+
+### 1. BUG-01++: Cacat Logika Stok Minus di POS (Extra Finding)
+- **File:** pos/page.tsx & pi/invoices/route.ts
+- **Sebelumnya:** Kasir bisa checkout produk melebihi stok, membuat stok minus tanpa error.
+- **Sesudahnya:** Validasi ketat di frontend (UI di-blok) dan backend (API otomatis menolak transaksi jika stok tidak cukup).
+
+### 2. BUG-03: Duplikasi Nomor Purchase Order
+- **File:** pi/purchases/route.ts
+- **Sebelumnya:** Menggunakan count + 1 yang rawan duplikat jika dua kasir buat PO bersamaan.
+- **Sesudahnya:** Menggunakan Counter atomic di MongoDB (models/Counter.ts) untuk memastikan nomor unik 100%.
+
+### 3. BUG-04: Kebocoran Data Antar Cabang (Header x-store-slug)
+- **File:** products, purchases, usage-logs
+- **Sebelumnya:** etch API tidak mengirim header cabang.
+- **Sesudahnya:** Semua etch ke API diinjeksi header x-store-slug.
+
+### 4. BUG-07: Error Validasi Kategori Produk
+- **File:** pi/products/route.ts
+- **Sebelumnya:** Mengirim produk tanpa category memicu Error 500.
+- **Sesudahnya:** category ditambahkan ke validasi input wajib (equired), error pesan lebih jelas.
+
+### 5. BUG-09: Celah Keamanan Endpoint Deposit PO
+- **File:** pi/purchases/deposits/route.ts
+- **Sebelumnya:** API deposit terbuka untuk umum.
+- **Sesudahnya:** Dilindungi dengan middleware checkPermission('purchases').
+
+---
+
+
+### 6. BE-02: Conflict Detection Rapuh (String Comparison)
+- **File:** `api/appointments/route.ts`
+- **Sebelumnya:** Membandingkan waktu `HH:mm` sebagai string pakai operator MongoDB — gagal kalau melewati tengah malam.
+- **Sesudahnya:** Semua waktu dikonversi ke **integer menit** (misal `14:30` = `870`) dan dibandingkan secara aritmetika.
+
+### 7. BE-03/BE-08: Counter Invoice Tidak Di-rollback
+- **File:** `api/appointments/route.ts`
+- **Sebelumnya:** Jika `Invoice.create()` gagal, nomor invoice bolong. generateInvoiceNumber diluar try-catch.
+- **Sesudahnya:** Dipindah ke dalam try-catch. Counter otomatis di-rollback saat gagal.
+
+### 8. BE-06: Crash Reminder Saat Staff Dihapus
+- **File:** `api/appointments/send-reminders/route.ts`
+- **Sebelumnya:** Tidak ada null-check untuk staff — crash jika staff sudah dihapus.
+- **Sesudahnya:** Tambah pengecekan `if (!staff)` dengan continue dan log error.
+
+### 9. FE-05: Crash Halaman Saat totalAmount Null
+- **File:** `appointments/page.tsx`
+- **Sebelumnya:** `apt.totalAmount.toLocaleString()` crash jika null/NaN.
+- **Sesudahnya:** Menggunakan `(apt.totalAmount ?? 0).toLocaleString()` untuk null-safety.
+
+### 10. FE-06: Filter Status 'No-show' Tidak Tersedia
+- **File:** `appointments/page.tsx`
+- **Sebelumnya:** Dropdown status hanya 4 opsi.
+- **Sesudahnya:** Ditambahkan opsi `no-show` di filter dan form.
+
+### 11. FE-07: Dead Code timeSlots Dihapus
+- **File:** `appointments/page.tsx`
+- **Sesudahnya:** Array timeSlots yang tidak terpakai dihapus.
+
+### 12. FE-08: Dead Code taxRate Dihapus
+- **File:** `appointments/calendar/page.tsx`
+- **Sesudahnya:** State taxRate dan fetchSettings yang tidak terpakai dihapus — mengurangi 1 HTTP request sia-sia.
+
+### 13. FE-09: Typo 'Dayly Schedule'
+- **File:** `StaffCalendar.tsx`
+- **Sesudahnya:** Menggunakan label map (day=Daily, week=Weekly, month=Monthly).
+
+### 14. FE-10: fetchResources Tanpa Error Handling
+- **File:** `appointments/calendar/page.tsx`
+- **Sesudahnya:** Dibungkus try-catch.
+
+---
 ### 2m. Deduplikasi Scheduler vs Cron Routes (FLOW-04)
 - **File:** lib/cronDedup.ts, lib/scheduler.ts, dan semua pp/api/cron/*
 - **Sebelumnya:** Pesan bisa terkirim ganda jika 
@@ -211,3 +283,6 @@ ule.messageTemplate, fallback terakhir ke *hardcoded string*.
 ---
 
 *Dokumen ini terakhir diperbarui pada 2026-05-15.*
+
+
+

@@ -103,6 +103,7 @@ export default function AppointmentsPage() {
   });
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<any>({
@@ -160,20 +161,22 @@ export default function AppointmentsPage() {
     } else {
       setAvailableSlots([]);
     }
-  }, [formData.staffId, formData.date, isModalOpen]);
+  }, [formData.staffId, formData.date, formData.serviceIds, isModalOpen]);
 
   useEffect(() => {
     fetchAppointments();
-  }, [page, statusFilter, startDate, endDate]); // Re-fetch on filter change
+  }, [page, statusFilter, startDate, endDate, debouncedSearchTerm]); // Re-fetch on filter change
 
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
-      setPage(1);
-      fetchAppointments();
+      if (debouncedSearchTerm !== searchTerm) {
+        setPage(1);
+        setDebouncedSearchTerm(searchTerm);
+      }
     }, 500);
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [searchTerm, debouncedSearchTerm]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -189,22 +192,26 @@ export default function AppointmentsPage() {
   }, [activeDropdown]);
 
   const fetchResources = async () => {
-    const headers = { "x-store-slug": slug };
-    const [staffRes, serviceRes, customerRes] = await Promise.all([
-      fetch("/api/staff/appointment-list", { headers }),
-      fetch("/api/services?limit=0", { headers }),
-      fetch("/api/customers?limit=0", { headers }),
-    ]);
-    const staffData = await staffRes.json();
-    const serviceData = await serviceRes.json();
-    const customerData = await customerRes.json();
+    try {
+      const headers = { "x-store-slug": slug };
+      const [staffRes, serviceRes, customerRes] = await Promise.all([
+        fetch("/api/staff/appointment-list", { headers }),
+        fetch("/api/services?limit=0", { headers }),
+        fetch("/api/customers?limit=0", { headers }),
+      ]);
+      const staffData = await staffRes.json();
+      const serviceData = await serviceRes.json();
+      const customerData = await customerRes.json();
 
-    if (staffData.success) setStaffList(staffData.data);
-    if (serviceData.success) setServices(serviceData.data);
-    if (customerData.success) setCustomers(customerData.data);
+      if (staffData.success) setStaffList(staffData.data);
+      if (serviceData.success) setServices(serviceData.data);
+      if (customerData.success) setCustomers(customerData.data);
+    } catch (error) {
+      console.error("Failed to fetch resources:", error);
+    }
   };
 
-  const fetchAvailableSlots = async () => {
+  const fetchAvailableSlots = async (signal?: AbortSignal) => {
     if (!formData.staffId || !formData.date) {
       setAvailableSlots([]);
       return;
@@ -215,7 +222,7 @@ export default function AppointmentsPage() {
       const excludeId = editingAppointment?._id || "";
       const res = await fetch(
         `/api/staff-slots?staffId=${formData.staffId}&date=${formData.date}&excludeAppointmentId=${excludeId}`,
-        { headers: { "x-store-slug": slug } }
+        { headers: { "x-store-slug": slug }, signal }
       );
       const data = await res.json();
       if (data.success) {
@@ -239,7 +246,7 @@ export default function AppointmentsPage() {
 
   const fetchAppointments = async () => {
     setLoading(true);
-    let url = `/api/appointments?page=${page}&limit=10&search=${searchTerm}&status=${statusFilter}`;
+    let url = `/api/appointments?page=${page}&limit=10&search=${debouncedSearchTerm}&status=${statusFilter}`;
     if (startDate) url += `&start=${startDate}`;
     if (endDate) url += `&end=${endDate}`;
 
@@ -304,7 +311,11 @@ export default function AppointmentsPage() {
       let commission = 0;
       selectedServices.forEach((svc) => {
         const commValue = Number(svc.commissionValue || 0);
-        commission += commValue;
+        if (svc.commissionType === "percentage") {
+          commission += (svc.price * commValue) / 100;
+        } else {
+          commission += commValue;
+        }
       });
 
       // Calculate endTime
@@ -432,11 +443,7 @@ export default function AppointmentsPage() {
     });
   };
 
-  const timeSlots: string[] = [];
-  for (let i = 9; i <= 20; i++) {
-    timeSlots.push(`${i.toString().padStart(2, "0")}:00`);
-    timeSlots.push(`${i.toString().padStart(2, "0")}:30`);
-  }
+  // [FE-07 FIX] Dead code timeSlots dihapus — sudah diganti dengan availableSlots dari API
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col h-screen overflow-hidden">
@@ -497,6 +504,7 @@ export default function AppointmentsPage() {
         <div className="p-6 space-y-6">
           {view === "calendar" ? (
             <StaffCalendar
+              slug={slug}
               refreshTrigger={refreshTrigger}
               onSelectEvent={async (event) => {
                 try {
@@ -561,6 +569,7 @@ export default function AppointmentsPage() {
                       <option value="confirmed">Confirmed</option>
                       <option value="completed">Completed</option>
                       <option value="cancelled">Cancelled</option>
+                      <option value="no-show">No-show</option>
                     </select>
                   </div>
                   <button
@@ -676,7 +685,7 @@ export default function AppointmentsPage() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className="text-sm font-bold text-gray-900">
                               {settings.symbol}
-                              {apt.totalAmount.toLocaleString("id-ID", {
+                              {(apt.totalAmount ?? 0).toLocaleString("id-ID", {
                                 maximumFractionDigits: 0,
                               })}
                             </span>
@@ -910,7 +919,7 @@ export default function AppointmentsPage() {
                             </p>
                             <span className="text-lg font-black text-gray-900">
                               {settings.symbol}
-                              {apt.totalAmount.toLocaleString("id-ID", {
+                              {(apt.totalAmount ?? 0).toLocaleString("id-ID", {
                                 maximumFractionDigits: 0,
                               })}
                             </span>
@@ -1167,6 +1176,7 @@ export default function AppointmentsPage() {
                 { value: "confirmed", label: "Confirmed" },
                 { value: "completed", label: "Completed" },
                 { value: "cancelled", label: "Cancelled" },
+                { value: "no-show", label: "No-show" },
               ]}
             />
             <FormInput
@@ -1231,3 +1241,5 @@ export default function AppointmentsPage() {
     </div>
   );
 }
+
+
