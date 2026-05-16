@@ -18,6 +18,10 @@ const getFormatter = (
 ) => {
     const cacheKey = `${timezone}-${JSON.stringify(options)}`;
     if (!formatterCache.has(cacheKey)) {
+        if (formatterCache.size >= 100) {
+            const firstKey = formatterCache.keys().next().value;
+            if (firstKey) formatterCache.delete(firstKey);
+        }
         formatterCache.set(cacheKey, new Intl.DateTimeFormat("en-US", {
             timeZone: timezone,
             hour12: false,

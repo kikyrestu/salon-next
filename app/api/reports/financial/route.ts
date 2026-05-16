@@ -11,7 +11,7 @@ import { checkPermission } from "@/lib/rbac";
 
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Purchase, Invoice, Expense, Settings } = await getTenantModels(tenantSlug);
+    const { Purchase, Invoice, Expense, Settings, Payroll } = await getTenantModels(tenantSlug);
 
     try {
     const permissionErrorGET = await checkPermission(request, 'reports', 'view');
@@ -34,6 +34,11 @@ export async function GET(request: NextRequest, props: any) {
 
         const query: any = {
             date: { $gte: start, $lte: end }
+        };
+        
+        const payrollQuery: any = {
+            paidDate: { $gte: start, $lte: end },
+            status: 'paid'
         };
 
         // Calculate Totals
@@ -80,13 +85,26 @@ export async function GET(request: NextRequest, props: any) {
                 }
             }
         ]);
+        
+        // 4. Payroll
+        const payrollStats = await Payroll.aggregate([
+            { $match: payrollQuery },
+            {
+                $group: {
+                    _id: null,
+                    totalPayroll: { $sum: "$totalAmount" },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
 
         const sales = invoiceStats[0] || { totalSales: 0, totalCollected: 0, count: 0 };
         const purchases = purchaseStats[0] || { totalPurchases: 0, totalPaid: 0, count: 0 };
         const expenses = expenseStats[0] || { totalExpenses: 0, count: 0 };
+        const payroll = payrollStats[0] || { totalPayroll: 0, count: 0 };
 
-        const netProfit = sales.totalSales - purchases.totalPurchases - expenses.totalExpenses;
-        const cashFlow = sales.totalCollected - purchases.totalPaid - expenses.totalExpenses; // Assuming expenses are paid immediately or we track expense payment separately (Expense model has amount, assume paid)
+        const netProfit = sales.totalSales - purchases.totalPurchases - expenses.totalExpenses - payroll.totalPayroll;
+        const cashFlow = sales.totalCollected - purchases.totalPaid - expenses.totalExpenses - payroll.totalPayroll; // Assuming expenses are paid immediately or we track expense payment separately (Expense model has amount, assume paid)
 
         return NextResponse.json({
             success: true,
@@ -94,6 +112,7 @@ export async function GET(request: NextRequest, props: any) {
                 sales,
                 purchases,
                 expenses,
+                payroll,
                 netProfit,
                 cashFlow
             }

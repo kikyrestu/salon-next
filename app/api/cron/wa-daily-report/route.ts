@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { decryptFonnteToken } from '@/lib/encryption';
 import { sendWhatsApp } from '@/lib/fonnte';
 import { hasRunToday, markAsRun } from '@/lib/cronDedup';
+import { getCurrentDateInTimezone, getUtcRangeForDateRange } from '@/lib/dateUtils';
 
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
@@ -49,17 +50,9 @@ export async function GET(request: NextRequest, props: any) {
         }
 
         // Get today's date range
-        const tz = 'Asia/Jakarta';
-        const today = new Date();
-        const year = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric' }).format(today);
-        const month = new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'numeric' }).format(today);
-        const day = new Intl.DateTimeFormat('en-US', { timeZone: tz, day: 'numeric' }).format(today);
-        
-        // Create full dates using timezone formatting
-        const startOfDayStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00.000+07:00`;
-        const startOfDay = new Date(startOfDayStr);
-        const endOfDayStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T23:59:59.999+07:00`;
-        const endOfDay = new Date(endOfDayStr);
+        const tz = settings?.timezone || 'Asia/Jakarta';
+        const todayStr = getCurrentDateInTimezone(tz);
+        const { start: startOfDay, end: endOfDay } = getUtcRangeForDateRange(todayStr, todayStr, tz);
 
         // Query today's paid invoices
         const invoices = await Invoice.find({
@@ -87,16 +80,17 @@ export async function GET(request: NextRequest, props: any) {
             }
         }
 
-        // Format day name in Indonesian
-        // Use the startOfDay WIB to correctly get day
-        const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-        const dayName = dayNames[startOfDay.getDay()];
-        const dateStr = startOfDay.toLocaleDateString('id-ID', {
-            timeZone: 'Asia/Jakarta',
+        // Format day name in Indonesian based on timezone
+        const now = new Date();
+        const formatterDay = new Intl.DateTimeFormat('id-ID', { timeZone: tz, weekday: 'long' });
+        const formatterDate = new Intl.DateTimeFormat('id-ID', {
+            timeZone: tz,
             day: 'numeric',
             month: 'long',
             year: 'numeric',
         });
+        const dayName = formatterDay.format(now);
+        const dateStr = formatterDate.format(now);
 
         const fmt = (n: number) => `Rp${n.toLocaleString('id-ID')}`;
 

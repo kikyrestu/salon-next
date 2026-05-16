@@ -1,5 +1,6 @@
 import { getTenantModels } from "@/lib/tenantDb";
 
+import mongoose from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 
 
@@ -32,20 +33,30 @@ export async function GET(request: NextRequest, props: any) {
         switch (type) {
             case "sales":
                 // Sales Report: Invoices breakdown with optional staff/service filter
-                const salesQuery: any = { date: { $gte: start, $lte: end } };
-                const staffFilter = searchParams.get("staffId");
-                const serviceFilter = searchParams.get("serviceId");
+                const salesQuery: any = { date: { $gte: start, $lte: end }, status: { $nin: ['cancelled', 'voided'] } };
+                const rawStaffFilter = searchParams.get("staffId");
+                const rawServiceFilter = searchParams.get("serviceId");
 
-                if (staffFilter) {
-                    salesQuery.$or = [
-                        { staff: staffFilter },
-                        { 'staffAssignments.staff': staffFilter },
-                        { 'items.staffAssignments.staff': staffFilter },
-                    ];
+                if (rawStaffFilter) {
+                    try {
+                        const staffObjectId = new mongoose.Types.ObjectId(rawStaffFilter);
+                        salesQuery.$or = [
+                            { staff: staffObjectId },
+                            { 'staffAssignments.staff': staffObjectId },
+                            { 'items.staffAssignments.staff': staffObjectId },
+                        ];
+                    } catch (err) {
+                        // Ignore invalid ObjectId
+                    }
                 }
-                if (serviceFilter) {
-                    salesQuery['items.item'] = serviceFilter;
-                    salesQuery['items.itemModel'] = 'Service';
+                if (rawServiceFilter) {
+                    try {
+                        const serviceObjectId = new mongoose.Types.ObjectId(rawServiceFilter);
+                        salesQuery['items.item'] = serviceObjectId;
+                        salesQuery['items.itemModel'] = 'Service';
+                    } catch (err) {
+                        // Ignore invalid ObjectId
+                    }
                 }
 
                 data = await Invoice.find(salesQuery).populate('customer staff').populate('items.staffAssignments.staff', 'name').populate('staffAssignments.staff', 'name').lean();
@@ -54,7 +65,8 @@ export async function GET(request: NextRequest, props: any) {
             case "services":
                 // Service Report: Revenue per service
                 const invoices = await Invoice.find({
-                    date: { $gte: start, $lte: end }
+                    date: { $gte: start, $lte: end },
+                    status: { $nin: ['cancelled', 'voided'] }
                 }).lean();
                 const serviceStats: any = {};
 
@@ -76,7 +88,8 @@ export async function GET(request: NextRequest, props: any) {
             case "products":
                 // Product Report: Revenue per product
                 const productInvoices = await Invoice.find({
-                    date: { $gte: start, $lte: end }
+                    date: { $gte: start, $lte: end },
+                    status: { $nin: ['cancelled', 'voided'] }
                 }).lean();
                 const productStats: any = {};
 
@@ -98,7 +111,8 @@ export async function GET(request: NextRequest, props: any) {
             case "staff":
                 // Staff Performance: Account for multi-staff assignments
                 const staffInvoices = await Invoice.find({
-                    date: { $gte: start, $lte: end }
+                    date: { $gte: start, $lte: end },
+                    status: { $nin: ['cancelled', 'voided'] }
                 })
                     .populate('staff staffAssignments.staff')
                     .populate({ path: 'appointment', populate: { path: 'staff' } })
@@ -117,9 +131,10 @@ export async function GET(request: NextRequest, props: any) {
                                     staffStats[id] = { name: s.name, appointments: 0, sales: 0, commission: 0, revenue: 0 };
                                 }
                                 staffStats[id].sales += 1;
-                                // For revenue, we could either give full credit to everyone or split it.
-                                // Typically, for performance reporting, we give 'sales credit' to everyone involved.
-                                staffStats[id].revenue += inv.totalAmount;
+                                if (inv.appointment) staffStats[id].appointments += 1;
+                                // Split revenue proportionally among all assigned staff to avoid double-counting
+                                const staffCount = inv.staffAssignments.length;
+                                staffStats[id].revenue += inv.totalAmount / staffCount;
                                 staffStats[id].commission += (assignment.commission || 0);
                             }
                         });
@@ -131,6 +146,7 @@ export async function GET(request: NextRequest, props: any) {
                             staffStats[id] = { name: s.name, appointments: 0, sales: 0, commission: 0, revenue: 0 };
                         }
                         staffStats[id].sales += 1;
+                        if (inv.appointment) staffStats[id].appointments += 1;
                         staffStats[id].revenue += inv.totalAmount;
                         staffStats[id].commission += (inv.commission || 0);
                     } else if ((inv as any).appointment?.staff) {
@@ -142,17 +158,19 @@ export async function GET(request: NextRequest, props: any) {
                             staffStats[id] = { name: s.name, appointments: 0, sales: 0, commission: 0, revenue: 0 };
                         }
                         staffStats[id].sales += 1;
+                        if (inv.appointment) staffStats[id].appointments += 1;
                         staffStats[id].revenue += inv.totalAmount;
                         staffStats[id].commission += ((inv as any).commission || apt.commission || 0);
                     }
                 });
-                data = Object.values(staffStats).sort((a: any, b: any) => b.revenue - a.revenue);
+                data = Object.entries(staffStats).map(([id, stats]: [string, any]) => ({ _id: id, ...stats })).sort((a: any, b: any) => b.revenue - a.revenue);
                 break;
 
             case "customers":
                 // Top Customer by Spending
                 const customerInvoices = await Invoice.find({
-                    date: { $gte: start, $lte: end }
+                    date: { $gte: start, $lte: end },
+                    status: { $nin: ['cancelled', 'voided'] }
                 }).populate('customer').lean();
                 
                 const customerStats: any = {};
@@ -191,9 +209,9 @@ export async function GET(request: NextRequest, props: any) {
             case "profit":
                 // Profit Report: Revenue vs Expenses vs Payroll vs Purchases - Optimized to Promise.all
                 const [revInvoices, expExpenses, payPayroll, purPurchases] = await Promise.all([
-                    Invoice.find({ date: { $gte: start, $lte: end } }).lean(),
+                    Invoice.find({ date: { $gte: start, $lte: end }, status: { $nin: ['cancelled', 'voided'] } }).lean(),
                     Expense.find({ date: { $gte: start, $lte: end } }).lean(),
-                    Payroll.find({ createdAt: { $gte: start, $lte: end } }).lean(),
+                    Payroll.find({ paidDate: { $gte: start, $lte: end }, status: 'paid' }).lean(),
                     Purchase.find({ date: { $gte: start, $lte: end }, status: { $ne: 'cancelled' } }).lean()
                 ]);
 
@@ -214,7 +232,8 @@ export async function GET(request: NextRequest, props: any) {
             case "daily":
                 // Daily Closing Report
                 const dailyInvoices = await Invoice.find({
-                    date: { $gte: start, $lte: end }
+                    date: { $gte: start, $lte: end },
+                    status: { $nin: ['cancelled', 'voided'] }
                 }).lean();
 
                 const dailyExpenses = await Expense.find({
@@ -236,7 +255,7 @@ export async function GET(request: NextRequest, props: any) {
 
                 data = {
                     totalSales: dailyInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
-                    totalCollected: dailyInvoices.reduce((sum, inv) => sum + inv.amountPaid, 0),
+                    totalCollected: dailyInvoices.reduce((sum, inv) => sum + (inv.amountPaid || 0), 0),
                     payments,
                     totalExpenses: dailyExpenses.reduce((sum, exp) => sum + exp.amount, 0),
                     invoiceCount: dailyInvoices.length

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         // For filter dropdowns - return minimal data
         if (dataType === 'lists') {
             const [staff, services] = await Promise.all([
-                Staff.find({ status: 'active' }).select("_id name").sort({ name: 1 }),
+                Staff.find({ isActive: true }).select("_id name").sort({ name: 1 }),
                 Service.find({ status: 'active' }).select("_id name").sort({ name: 1 })
             ]);
 
@@ -48,13 +48,13 @@ export async function GET(request: NextRequest) {
             Expense.find(startDate && endDate ? { date: dateFilter.date } : {})
                 .sort({ date: -1 }),
             Appointment.find(startDate && endDate ? {
-                start: { $gte: new Date(startDate), $lte: new Date(endDate) }
+                date: { $gte: new Date(startDate), $lte: new Date(endDate) }
             } : {})
                 .populate('customer')
                 .populate('staff')
                 .populate('service'),
-            Customer.find().select("_id name phone email totalPurchases membershipTier"),
-            Product.find().select("_id name stock alertQuantity price"),
+            Customer.find().select("_id name phone email totalPurchases membershipTier").limit(500),
+            Product.find().select("_id name stock alertQuantity price").limit(500),
             Purchase.find(startDate && endDate ? { date: dateFilter.date } : {})
                 .populate('supplier')
                 .sort({ date: -1 })

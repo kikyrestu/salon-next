@@ -21,8 +21,12 @@ export async function GET(request: NextRequest, props: any) {
         const limit = parseInt(searchParams.get('limit') || '50');
         const skip = (page - 1) * limit;
 
-        const total = await ActivityLog.countDocuments();
-        const logs = await ActivityLog.find()
+        const query: any = {};
+        const actionFilter = searchParams.get('action');
+        if (actionFilter) query.action = actionFilter;
+
+        const total = await ActivityLog.countDocuments(query);
+        const logs = await ActivityLog.find(query)
             .populate('user', 'name email')
             .sort({ createdAt: -1 })
             .skip(skip)

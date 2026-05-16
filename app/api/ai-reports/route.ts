@@ -61,7 +61,7 @@ export async function POST(request: NextRequest, props: any) {
         });
 
         // Low Stock
-        const lowStock = await Product.find({ stock: { $lte: 10 } }).limit(5).select('name stock');
+        const lowStock = await Product.find({ $expr: { $lte: ['$stock', '$alertQuantity'] } }).limit(5).select('name stock alertQuantity');
 
         // Context for AI
         const context = {
@@ -135,6 +135,13 @@ export async function POST(request: NextRequest, props: any) {
                 success: false,
                 error: aiData.error?.message || "Failed to communicate with OpenAI"
             }, { status: response.status });
+        }
+
+        if (!aiData.choices || !aiData.choices[0]?.message?.content) {
+            return NextResponse.json({
+                success: false,
+                error: "AI returned an empty or unexpected response. Please try again."
+            }, { status: 502 });
         }
 
         return NextResponse.json({

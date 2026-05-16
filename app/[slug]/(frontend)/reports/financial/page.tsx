@@ -16,6 +16,7 @@ export default function FinancialReportPage() {
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState(() => getMonthDateRangeInTimezone(settings.timezone || "UTC"));
     const [data, setData] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         setDateRange(getMonthDateRangeInTimezone(settings.timezone || "UTC"));
@@ -27,15 +28,19 @@ export default function FinancialReportPage() {
 
     const fetchReport = async () => {
         setLoading(true);
+        setError(null);
         try {
             const query = new URLSearchParams(dateRange);
             const res = await fetch(`/api/reports/financial?${query.toString()}`, { headers: { "x-store-slug": slug } });
             const json = await res.json();
             if (json.success) {
                 setData(json.data);
+            } else {
+                setError(json.error || "Failed to fetch financial data");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
+            setError(error.message || "An unexpected error occurred");
         } finally {
             setLoading(false);
         }
@@ -185,9 +190,16 @@ export default function FinancialReportPage() {
                             </div>
                         </div>
                     </div>
+                ) : error ? (
+                    <div className="bg-red-50 text-red-600 p-8 rounded-xl border border-red-200 flex flex-col items-center justify-center space-y-4">
+                        <div className="text-lg font-semibold">{error}</div>
+                        <button onClick={fetchReport} className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
+                            Try Again
+                        </button>
+                    </div>
                 ) : (
                     <div className="text-center py-20 text-gray-500">
-                        Failed to load data
+                        No financial data available for this period.
                     </div>
                 )}
             </div>

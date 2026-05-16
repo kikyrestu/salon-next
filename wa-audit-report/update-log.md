@@ -26,7 +26,8 @@ Dokumen ini berisi riwayat perbaikan untuk isu-isu dari berbagai laporan audit (
 ### 4. BUG-07: Error Validasi Kategori Produk
 - **File:** pi/products/route.ts
 - **Sebelumnya:** Mengirim produk tanpa category memicu Error 500.
-- **Sesudahnya:** category ditambahkan ke validasi input wajib (equired), error pesan lebih jelas.
+- **Sesudahnya:** category ditambahkan ke validasi input wajib (
+equired), error pesan lebih jelas.
 
 ### 5. BUG-09: Celah Keamanan Endpoint Deposit PO
 - **File:** pi/purchases/deposits/route.ts
@@ -38,7 +39,7 @@ Dokumen ini berisi riwayat perbaikan untuk isu-isu dari berbagai laporan audit (
 
 ### 6. BE-02: Conflict Detection Rapuh (String Comparison)
 - **File:** `api/appointments/route.ts`
-- **Sebelumnya:** Membandingkan waktu `HH:mm` sebagai string pakai operator MongoDB � gagal kalau melewati tengah malam.
+- **Sebelumnya:** Membandingkan waktu `HH:mm` sebagai string pakai operator MongoDB Ã¯Â¿Â½ gagal kalau melewati tengah malam.
 - **Sesudahnya:** Semua waktu dikonversi ke **integer menit** (misal `14:30` = `870`) dan dibandingkan secara aritmetika.
 
 ### 7. BE-03/BE-08: Counter Invoice Tidak Di-rollback
@@ -48,7 +49,7 @@ Dokumen ini berisi riwayat perbaikan untuk isu-isu dari berbagai laporan audit (
 
 ### 8. BE-06: Crash Reminder Saat Staff Dihapus
 - **File:** `api/appointments/send-reminders/route.ts`
-- **Sebelumnya:** Tidak ada null-check untuk staff � crash jika staff sudah dihapus.
+- **Sebelumnya:** Tidak ada null-check untuk staff Ã¯Â¿Â½ crash jika staff sudah dihapus.
 - **Sesudahnya:** Tambah pengecekan `if (!staff)` dengan continue dan log error.
 
 ### 9. FE-05: Crash Halaman Saat totalAmount Null
@@ -67,7 +68,7 @@ Dokumen ini berisi riwayat perbaikan untuk isu-isu dari berbagai laporan audit (
 
 ### 12. FE-08: Dead Code taxRate Dihapus
 - **File:** `appointments/calendar/page.tsx`
-- **Sesudahnya:** State taxRate dan fetchSettings yang tidak terpakai dihapus � mengurangi 1 HTTP request sia-sia.
+- **Sesudahnya:** State taxRate dan fetchSettings yang tidak terpakai dihapus Ã¯Â¿Â½ mengurangi 1 HTTP request sia-sia.
 
 ### 13. FE-09: Typo 'Dayly Schedule'
 - **File:** `StaffCalendar.tsx`
@@ -78,6 +79,91 @@ Dokumen ini berisi riwayat perbaikan untuk isu-isu dari berbagai laporan audit (
 - **Sesudahnya:** Dibungkus try-catch.
 
 ---
+
+## Modul Financial Reports (16 Mei 2026)
+
+### 15. BE-F01: Filter Staff Sales Tidak Berfungsi `[16 Mei 2026 - 15:50 WIB]`
+- **File:** `api/reports/route.ts`
+- **Fix:** Cast `staffId` dan `serviceId` ke `ObjectId` sebelum query. Filter sales per staff kini berfungsi. 
+
+### 16. BE-F02: Net Profit Tidak Potong Gaji Karyawan `[16 Mei 2026 - 15:50 WIB]`
+- **File:** `api/reports/financial/route.ts`
+- **Fix:** Tambah agregasi `Payroll` ke kalkulasi `netProfit` dan `cashFlow`. Profit kini realistis.
+
+---
+
+### 17. BE-F03: Invoice Batal Masuk Laporan `[16 Mei 2026 - 15:56 WIB]`
+- **File:** `api/reports/route.ts`
+- **Fix:** Tambah filter `status: { $nin: ['cancelled', 'voided'] }` di 7 jenis laporan. Revenue tidak lagi terdistorsi.
+
+### 18. BE-F04: Jumlah Appointment Staf Selalu 0 `[16 Mei 2026 - 15:56 WIB]`
+- **File:** `api/reports/route.ts`
+- **Fix:** Tambah increment `staffStats[id].appointments += 1` di 3 blok staf. Rapor kinerja staf kini akurat.
+
+---
+
+### 19. FE-F01: Kartu Statistik Tidak Render Trend `[16 Mei 2026 - 16:09 WIB]`
+- **File:** `reports/page.tsx`
+- **Fix:** Ganti import dari `dashboard/StatCard` ke `reports/StatCard`, ubah prop `trend` dari string ke object.
+
+### 20. BE-F06: Laporan Harian Tampil NaN `[16 Mei 2026 - 16:09 WIB]`
+- **File:** `api/reports/route.ts`
+- **Fix:** Tambah fallback `(inv.amountPaid || 0)` di kalkulasi `totalCollected`. Aman dari data lama yang kosong.
+
+---
+
+### 21. BE-F05: Revenue Staf Dihitung Ganda `[16 Mei 2026 - 16:27 WIB]`
+- **File:** `api/reports/route.ts`
+- **Fix:** Revenue di-split rata ke semua staf yang terlibat (`inv.totalAmount / staffCount`). Sebelumnya setiap staf dapat kredit penuh, total jadi 3x lipat.
+
+### 22. BE-F07: Payroll Pakai Tanggal Pembuatan, Bukan Tanggal Bayar `[16 Mei 2026 - 16:27 WIB]`
+- **File:** `api/reports/route.ts`, `api/reports/financial/route.ts`
+- **Fix:** Ganti filter `createdAt` → `paidDate` + tambah `status: 'paid'`. Payroll kini masuk laporan sesuai tanggal pembayaran aktual.
+
+### 23. FE-F02: Sort Tabel Kacau untuk Mata Uang Indonesia `[16 Mei 2026 - 16:27 WIB]`
+- **File:** `reports/page.tsx`
+- **Fix:** Ganti regex parser `[^0-9.-]+` → `[^0-9-]+`. Format `Rp 1.500.000` sebelumnya di-parse jadi `1.5`, sekarang benar jadi `1500000`.
+
+
+### 24. FE-F03: Export Wallet & Daily Menghasilkan Data Mentah `[16 Mei 2026 - 16:33 WIB]`
+- **File:** `reports/page.tsx`
+- **Fix:** Tambah handler export untuk tab `wallet`, `daily`, `expenses`, dan `inventory`. Data kini terformat rapi di XLSX.
+
+### 25. FE-F04: Staff Drilldown Salah Jika Nama Sama `[16 Mei 2026 - 16:33 WIB]`
+- **File:** `reports/page.tsx`, `api/reports/route.ts`
+- **Fix:** Backend kini menyertakan `_id` di output staff report. Frontend langsung pakai `_id` untuk fetch drilldown, bukan name-matching.
+
+
+### 26. FE-F05: Preset Range Bisa Undefined `[16 Mei 2026 - 16:40 WIB]`
+- **File:** `reports/page.tsx`
+- **Fix:** Tambah `default` case di switch `setPresetRange` → fallback ke bulan ini. Mencegah `start`/`end` undefined.
+
+### 27. BE-F09: AI Report Crash Jika OpenAI Response Kosong `[16 Mei 2026 - 16:41 WIB]`
+- **File:** `api/ai-reports/route.ts`
+- **Fix:** Tambah null-check `aiData.choices[0]?.message?.content` sebelum akses. Return error 502 jika kosong.
+
+### 28. BE-F10: Low Stock AI Hardcode Threshold 10 `[16 Mei 2026 - 16:41 WIB]`
+- **File:** `api/ai-reports/route.ts`
+- **Fix:** Ganti `{ stock: { $lte: 10 } }` → `{ $expr: { $lte: ['$stock', '$alertQuantity'] } }`. Sekarang pakai threshold per produk.
+
+### 29. FE-F08: Dead Code SalesChart di Reports `[16 Mei 2026 - 16:41 WIB]`
+- **File:** `components/reports/SalesChart.tsx`
+- **Fix:** File dihapus. Tidak pernah diimport oleh halaman manapun. Versi aktif ada di `components/dashboard/SalesChart.tsx`.
+
+
+### 30. FE-F06: Commission Staff Drilldown Di-Kalkulasi Ulang Setiap Render `[16 Mei 2026 - 16:52 WIB]`
+- **File:** `reports/page.tsx`
+- **Fix:** Menggunakan `useMemo` untuk melakukan kalkulasi total komisi dan revenue pada Staff Drilldown Modal. Mencegah O(n*m*k) execution di setiap re-render.
+
+### 31. FE-F07: Silent Failure di Halaman Financial Reports `[16 Mei 2026 - 16:52 WIB]`
+- **File:** `reports/financial/page.tsx`
+- **Fix:** Menambahkan `error` state dan error UI ketika API mengembalikan respons gagal atau terjadi kesalahan pada `fetchReport`.
+
+
+### 32. BE-F12: WA Daily Report Hardcode Timezone Asia/Jakarta `[16 Mei 2026 - 16:56 WIB]`
+- **File:** `api/cron/wa-daily-report/route.ts`
+- **Fix:** Mengganti hardcoded `Asia/Jakarta` dan offset `+07:00` dengan fungsi `getCurrentDateInTimezone` dan `getUtcRangeForDateRange` dari `dateUtils`, serta mengacu pada `settings.timezone`.
+
 ### 2m. Deduplikasi Scheduler vs Cron Routes (FLOW-04)
 - **File:** lib/cronDedup.ts, lib/scheduler.ts, dan semua pp/api/cron/*
 - **Sebelumnya:** Pesan bisa terkirim ganda jika 
@@ -86,7 +172,7 @@ ode-cron dan eksternal cron berjalan bersamaan.
 - **Alasan:** Menyelesaikan masalah duplikasi pesan kronik pada environment VPS tanpa perlu mematikan salah satu mekanisme secara sepihak.
 
 
-## Batch 3 — Final Enhancements & Security (Selesai)
+## Batch 3 Ã¢â‚¬â€ Final Enhancements & Security (Selesai)
 
 ### 3a. Verifikasi Signature Webhook Fonnte (SEC-02 / BUG-11)
 - **File:** pp/api/fonnte/webhook/route.ts
@@ -116,7 +202,7 @@ ule.messageTemplate, fallback terakhir ke *hardcoded string*.
 
 ---
 
-## Batch 1 — Priority CRITICAL (Selesai)
+## Batch 1 Ã¢â‚¬â€ Priority CRITICAL (Selesai)
 
 ### 1a. Delay Campaign Blast (BUG-02 / BLOCK-01)
 - **File:** `lib/scheduler.ts`
@@ -138,14 +224,14 @@ ule.messageTemplate, fallback terakhir ke *hardcoded string*.
 
 ### 1d. Exponential Backoff & Auto-Pause (BLOCK-06)
 - **File:** `lib/scheduler.ts`
-- **Sebelumnya:** Error → lanjut target berikutnya dengan delay standar
-- **Sesudahnya:** Error → delay 30-60 detik. 3 error berturut → campaign `paused`
+- **Sebelumnya:** Error Ã¢â€ â€™ lanjut target berikutnya dengan delay standar
+- **Sesudahnya:** Error Ã¢â€ â€™ delay 30-60 detik. 3 error berturut Ã¢â€ â€™ campaign `paused`
 - **Alasan:** Memaksa kirim saat API down hanya memperburuk penalti akun.
 
 ### 1e. Deduplikasi Reaktif (BUG-01)
 - **File:** `lib/scheduler.ts`
 - **Sebelumnya:** Cek `WaBlastLog` dikomentari (disabled untuk testing)
-- **Sesudahnya:** Cek diaktifkan kembali — skip jika nomor sudah menerima blast dalam 24 jam
+- **Sesudahnya:** Cek diaktifkan kembali Ã¢â‚¬â€ skip jika nomor sudah menerima blast dalam 24 jam
 - **Alasan:** Menghindari spam ke pelanggan yang sama, mencegah Report Spam.
 
 ### 1f. Autentikasi Cron Endpoint (BUG-09 / SEC-01)
@@ -156,29 +242,29 @@ ule.messageTemplate, fallback terakhir ke *hardcoded string*.
 
 ---
 
-## Batch 2 — Priority HIGH & MEDIUM (Selesai)
+## Batch 2 Ã¢â‚¬â€ Priority HIGH & MEDIUM (Selesai)
 
 ### 2a. Timezone Daily Volume Count (BUG-05)
 - **File:** `lib/scheduler.ts`
-- **Sebelumnya:** `todayStart.setHours(0,0,0,0)` → pakai UTC server
-- **Sesudahnya:** `Intl.DateTimeFormat` dengan `timeZone: 'Asia/Jakarta'` → WIB midnight
+- **Sebelumnya:** `todayStart.setHours(0,0,0,0)` Ã¢â€ â€™ pakai UTC server
+- **Sesudahnya:** `Intl.DateTimeFormat` dengan `timeZone: 'Asia/Jakarta'` Ã¢â€ â€™ WIB midnight
 - **Alasan:** Di cloud (UTC), daily count dihitung dari 07:00 WIB bukan 00:00 WIB.
 
 ### 2b. Birthday Automation Timezone (BUG-06)
 - **File:** `lib/scheduler.ts`
-- **Sebelumnya:** `now.getMonth() + 1` / `now.getDate()` → pakai UTC
+- **Sebelumnya:** `now.getMonth() + 1` / `now.getDate()` Ã¢â€ â€™ pakai UTC
 - **Sesudahnya:** `Intl.DateTimeFormat` WIB-aware untuk month dan day
 - **Alasan:** Antara 00:00-07:00 WIB, getDate() mengembalikan tanggal kemarin di server UTC.
 
 ### 2c. Automation PUT Field Whitelist (BUG-08 / SEC-04)
 - **File:** `app/api/wa/automations/[id]/route.ts`
-- **Sebelumnya:** `findByIdAndUpdate(id, body)` → menerima raw body
+- **Sebelumnya:** `findByIdAndUpdate(id, body)` Ã¢â€ â€™ menerima raw body
 - **Sesudahnya:** Whitelist: `name, category, targetRole, frequency, scheduleDays, scheduleTime, daysBefore, messageTemplate, isActive`. Validasi format `scheduleTime` (HH:MM).
 - **Alasan:** Mencegah injection field internal (`lastRunDate`, `_id`, `createdAt`).
 
 ### 2d. TTL Index WaGreetingLog (BUG-03 / FLOW-07)
 - **File:** `models/WaGreetingLog.ts`
-- **Sebelumnya:** Tidak ada TTL — log greeting selamanya tersimpan
+- **Sebelumnya:** Tidak ada TTL Ã¢â‚¬â€ log greeting selamanya tersimpan
 - **Sesudahnya:** `index({ firstMessageAt: 1 }, { expireAfterSeconds: 30 * 24 * 3600 })`
 - **Alasan:** Customer lama yang kembali setelah 30 hari bisa dapat greeting ulang. Koleksi tidak membengkak tanpa batas.
 
@@ -198,12 +284,12 @@ ule.messageTemplate, fallback terakhir ke *hardcoded string*.
 - **File:** `app/api/cron/birthday-voucher/route.ts`
 - **Sebelumnya:** 0 detik delay
 - **Sesudahnya:** 8-15 detik random delay
-- **Alasan:** Tidak ada delay sama sekali → semua WA dikirim serentak.
+- **Alasan:** Tidak ada delay sama sekali Ã¢â€ â€™ semua WA dikirim serentak.
 
 ### 2h. Double checkPermission Fix (BUG-10 dari WA_Bug_Analysis)
 - **File:** `app/api/wa/templates/route.ts`
-- **Sebelumnya:** 2x `checkPermission()` → 2x `auth()` call
-- **Sesudahnya:** `checkPermissionWithSession()` → 1x auth, reuse session
+- **Sebelumnya:** 2x `checkPermission()` Ã¢â€ â€™ 2x `auth()` call
+- **Sesudahnya:** `checkPermissionWithSession()` Ã¢â€ â€™ 1x auth, reuse session
 - **Alasan:** Mengurangi overhead latency pada endpoint yang sering dipanggil.
 
 ### 2i. Scheduler Interval (FLOW-02)
@@ -220,14 +306,14 @@ ule.messageTemplate, fallback terakhir ke *hardcoded string*.
 
 ### 2k. Max Target Per Campaign (FLOW-08)
 - **File:** `app/api/wa/blast-targets/route.ts` dan `app/api/wa/campaigns/route.ts`
-- **Sebelumnya:** Tidak ada limit → ribuan target bisa masuk 1 dokumen
+- **Sebelumnya:** Tidak ada limit Ã¢â€ â€™ ribuan target bisa masuk 1 dokumen
 - **Sesudahnya:** Maksimal 500 target per campaign
 - **Alasan:** Mencegah BSON 16MB limit dan scheduler stuck pada campaign terlalu besar.
 
 ### 2l. Message Validator di Scheduler (BUG-10)
 - **File:** `lib/scheduler.ts`
 - **Sebelumnya:** `validateMessageContent()` hanya dipanggil saat queue (warning saja)
-- **Sesudahnya:** Juga dipanggil di scheduler sebelum kirim — log warning jika unsafe
+- **Sesudahnya:** Juga dipanggil di scheduler sebelum kirim Ã¢â‚¬â€ log warning jika unsafe
 - **Alasan:** Deteksi dini konten berisiko spam sebelum pesan benar-benar dikirim ke WhatsApp.
 
 ---
@@ -236,53 +322,56 @@ ule.messageTemplate, fallback terakhir ke *hardcoded string*.
 
 | Kode Issue | Deskripsi | Status |
 |---|---|---|
-| BUG-01 | Dedup check disabled | ✅ Fixed |
-| BUG-02 | Campaign delay 1 detik | ✅ Fixed |
-| BUG-03 | GreetingLog no TTL | ✅ Fixed |
-| BUG-04 | Blast log hilang saat crash | ✅ Fixed (incremental save per-target) |
-| BUG-05 | Timezone daily volume | ✅ Fixed |
-| BUG-06 | Birthday timezone | ✅ Fixed |
-| BUG-07 | Campaign claim cross-tenant | ⚪ Safe (DB per tenant) |
-| BUG-08 | Automation PUT no validation | ✅ Fixed |
-| BUG-09 | Cron no auth | ✅ Fixed |
-| BUG-10 | Validator tidak di scheduler | ✅ Fixed |
-| BUG-11 | Webhook no signature | ✅ Fixed |
-| BUG-12 | Appointment reminder no delay | ✅ Fixed |
-| FLOW-01 | Campaign resend setelah crash | ✅ Mitigated (per-target save) |
-| FLOW-02 | Scheduler tiap menit | ✅ Fixed (5 menit) |
-| FLOW-03 | Template duplikasi | ✅ Fixed |
-| FLOW-04 | Duplikasi scheduler+cron | ✅ Fixed (Shared CronDedup) |
-| FLOW-05 | Warm-up limit configurable | ⚠️ Enhancement |
-| FLOW-06 | Follow-up 1 service only | ⚪ By design |
-| FLOW-07 | Greeting no reset | ✅ Fixed (TTL 30 hari) |
-| FLOW-08 | No max target limit | ✅ Fixed (500 max) |
-| FLOW-09 | 1 campaign per tick | ⚪ Acceptable |
-| BLOCK-01 | Delay tidak konsisten | ✅ Fixed (semua 8-15s) |
-| BLOCK-02 | Invisible chars | ✅ Fixed (dihapus) |
-| BLOCK-03 | No hourly rate limit | ✅ Fixed |
-| BLOCK-04 | Nomor tidak divalidasi | ✅ Fixed |
-| BLOCK-05 | No warm-up tracking | ⚠️ Enhancement |
-| BLOCK-06 | No backoff setelah error | ✅ Fixed |
-| BLOCK-07 | Variasi pesan lemah | ✅ Fixed |
-| BLOCK-08 | No opt-out mechanism | ✅ Fixed |
-| SEC-01 | Cron tanpa auth | ✅ Fixed |
-| SEC-02 | Webhook no signature | ✅ Fixed |
-| SEC-03 | Token plain text | ✅ Fixed |
-| SEC-04 | Automation raw body | ✅ Fixed |
-| SEC-05 | WA_TRIGGER_SECRET kosong | ⚪ Acceptable |
-| RACE-01 | Campaign overlap | ⚪ Mitigated (atomic claim) |
-| RACE-02 | Webhook greeting dup | ⚪ Safe (atomic upsert) |
-| RACE-03 | Multi scheduler instance | ⚪ Mitigated (flag + atomic) |
-| RACE-04 | Follow-up dup | ⚪ Safe (ordered:false + dedup) |
+| BUG-01 | Dedup check disabled | Ã¢Å“â€¦ Fixed |
+| BUG-02 | Campaign delay 1 detik | Ã¢Å“â€¦ Fixed |
+| BUG-03 | GreetingLog no TTL | Ã¢Å“â€¦ Fixed |
+| BUG-04 | Blast log hilang saat crash | Ã¢Å“â€¦ Fixed (incremental save per-target) |
+| BUG-05 | Timezone daily volume | Ã¢Å“â€¦ Fixed |
+| BUG-06 | Birthday timezone | Ã¢Å“â€¦ Fixed |
+| BUG-07 | Campaign claim cross-tenant | Ã¢Å¡Âª Safe (DB per tenant) |
+| BUG-08 | Automation PUT no validation | Ã¢Å“â€¦ Fixed |
+| BUG-09 | Cron no auth | Ã¢Å“â€¦ Fixed |
+| BUG-10 | Validator tidak di scheduler | Ã¢Å“â€¦ Fixed |
+| BUG-11 | Webhook no signature | Ã¢Å“â€¦ Fixed |
+| BUG-12 | Appointment reminder no delay | Ã¢Å“â€¦ Fixed |
+| FLOW-01 | Campaign resend setelah crash | Ã¢Å“â€¦ Mitigated (per-target save) |
+| FLOW-02 | Scheduler tiap menit | Ã¢Å“â€¦ Fixed (5 menit) |
+| FLOW-03 | Template duplikasi | Ã¢Å“â€¦ Fixed |
+| FLOW-04 | Duplikasi scheduler+cron | Ã¢Å“â€¦ Fixed (Shared CronDedup) |
+| FLOW-05 | Warm-up limit configurable | Ã¢Å¡Â Ã¯Â¸Â Enhancement |
+| FLOW-06 | Follow-up 1 service only | Ã¢Å¡Âª By design |
+| FLOW-07 | Greeting no reset | Ã¢Å“â€¦ Fixed (TTL 30 hari) |
+| FLOW-08 | No max target limit | Ã¢Å“â€¦ Fixed (500 max) |
+| FLOW-09 | 1 campaign per tick | Ã¢Å¡Âª Acceptable |
+| BLOCK-01 | Delay tidak konsisten | Ã¢Å“â€¦ Fixed (semua 8-15s) |
+| BLOCK-02 | Invisible chars | Ã¢Å“â€¦ Fixed (dihapus) |
+| BLOCK-03 | No hourly rate limit | Ã¢Å“â€¦ Fixed |
+| BLOCK-04 | Nomor tidak divalidasi | Ã¢Å“â€¦ Fixed |
+| BLOCK-05 | No warm-up tracking | Ã¢Å¡Â Ã¯Â¸Â Enhancement |
+| BLOCK-06 | No backoff setelah error | Ã¢Å“â€¦ Fixed |
+| BLOCK-07 | Variasi pesan lemah | Ã¢Å“â€¦ Fixed |
+| BLOCK-08 | No opt-out mechanism | Ã¢Å“â€¦ Fixed |
+| SEC-01 | Cron tanpa auth | Ã¢Å“â€¦ Fixed |
+| SEC-02 | Webhook no signature | Ã¢Å“â€¦ Fixed |
+| SEC-03 | Token plain text | Ã¢Å“â€¦ Fixed |
+| SEC-04 | Automation raw body | Ã¢Å“â€¦ Fixed |
+| SEC-05 | WA_TRIGGER_SECRET kosong | Ã¢Å¡Âª Acceptable |
+| RACE-01 | Campaign overlap | Ã¢Å¡Âª Mitigated (atomic claim) |
+| RACE-02 | Webhook greeting dup | Ã¢Å¡Âª Safe (atomic upsert) |
+| RACE-03 | Multi scheduler instance | Ã¢Å¡Âª Mitigated (flag + atomic) |
+| RACE-04 | Follow-up dup | Ã¢Å¡Âª Safe (ordered:false + dedup) |
 
 **Legenda:**
-- ✅ Fixed — sudah diperbaiki
-- ⚠️ Deferred/Enhancement — ditunda atau butuh keputusan arsitektur
-- ⚪ Safe/Acceptable — aman atau by design
+- Ã¢Å“â€¦ Fixed Ã¢â‚¬â€ sudah diperbaiki
+- Ã¢Å¡Â Ã¯Â¸Â Deferred/Enhancement Ã¢â‚¬â€ ditunda atau butuh keputusan arsitektur
+- Ã¢Å¡Âª Safe/Acceptable Ã¢â‚¬â€ aman atau by design
 
 ---
 
 *Dokumen ini terakhir diperbarui pada 2026-05-15.*
+
+
+
 
 
 

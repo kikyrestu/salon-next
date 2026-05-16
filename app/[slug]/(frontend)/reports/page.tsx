@@ -3,7 +3,7 @@
 
 
 import { useParams } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import * as XLSX from "xlsx";
 import {
     BarChart3,
@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { format, subMonths, isValid } from "date-fns";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
-import StatCard from "@/components/dashboard/StatCard";
+import StatCard from "@/components/reports/StatCard";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { getCurrentDateInTimezone, getMonthDateRangeInTimezone } from "@/lib/dateUtils";
 import { useSession } from "next-auth/react";
@@ -62,6 +62,22 @@ export default function ReportsPage() {
     const [drillDownStaff, setDrillDownStaff] = useState<any>(null);
     const [drillDownData, setDrillDownData] = useState<any[]>([]);
     const [drillDownLoading, setDrillDownLoading] = useState(false);
+
+    const drillDownTotals = useMemo(() => {
+        if (!drillDownStaff || !drillDownData.length) return { commission: 0, revenue: 0 };
+        const staffMatch = staffList.find(sf => sf.name === drillDownStaff);
+        const sid = staffMatch?._id;
+        let commission = 0;
+        let revenue = 0;
+        drillDownData.forEach((inv: any) => {
+            revenue += (inv.totalAmount || 0);
+            let c = 0;
+            (inv.staffAssignments || []).forEach((sa: any) => { if (String(sa.staff?._id || sa.staff || sa.staffId) === String(sid)) c += (sa.komisiNominal || sa.commission || 0); });
+            (inv.items || []).forEach((item: any) => { (item.staffAssignments || []).forEach((sa: any) => { if (String(sa.staff?._id || sa.staff || sa.staffId) === String(sid)) c += (sa.komisiNominal || sa.commission || 0); }); });
+            commission += c;
+        });
+        return { commission, revenue };
+    }, [drillDownData, drillDownStaff, staffList]);
 
     // Invoice preview modal (for sales report)
     const [previewInvoice, setPreviewInvoice] = useState<any>(null);
@@ -161,7 +177,7 @@ export default function ReportsPage() {
                     if (staffFilter) url += `&staffId=${staffFilter}`;
                     if (serviceFilter) url += `&serviceId=${serviceFilter}`;
                 }
-                const res = await fetch(url);
+                const res = await fetch(url, { headers: { "x-store-slug": slug } });
                 const data = await res.json();
                 if (data.success) {
                     setReportData(data.data);
@@ -193,6 +209,9 @@ export default function ReportsPage() {
             case 'last3Months':
                 start = getMonthDateRangeInTimezone(settings.timezone || "UTC", subMonths(now, 2)).startDate;
                 end = getMonthDateRangeInTimezone(settings.timezone || "UTC", now).endDate;
+                break;
+            default:
+                ({ startDate: start, endDate: end } = getMonthDateRangeInTimezone(settings.timezone || "UTC", now));
                 break;
         }
 
@@ -246,32 +265,28 @@ export default function ReportsPage() {
                     value={formatCurrency(reportData?.totalRevenue)}
                     icon={DollarSign}
                     color="green"
-                    trend="Revenue"
-                    trendUp={true}
+                    trend={{ value: 0, label: "Revenue", positive: true }}
                 />
                 <StatCard
                     title="Total Expenses"
                     value={formatCurrency(reportData?.totalExpenses)}
                     icon={TrendingUp}
                     color="red"
-                    trend="Outgoings"
-                    trendUp={false}
+                    trend={{ value: 0, label: "Outgoings", positive: false }}
                 />
                 <StatCard
                     title="Net Profit"
                     value={formatCurrency(reportData?.netProfit)}
                     icon={BarChart3}
                     color="blue"
-                    trend="Earnings"
-                    trendUp={reportData?.netProfit >= 0}
+                    trend={{ value: 0, label: "Earnings", positive: reportData?.netProfit >= 0 }}
                 />
                 <StatCard
                     title="Appointments"
                     value={reportData?.totalAppointments || 0}
                     icon={Calendar}
                     color="purple"
-                    trend="Bookings"
-                    trendUp={true}
+                    trend={{ value: 0, label: "Bookings", positive: true }}
                 />
             </div>
 
@@ -390,6 +405,39 @@ export default function ReportsPage() {
                 'Stock Purchases': reportData.totalPurchases,
                 'Final Net Profit': reportData.netProfit
             }];
+        } else if (activeTab === 'wallet') {
+            exportData = (reportData.transactions || []).map((tx: any) => ({
+                'Date': formatSafeDate(tx.createdAt),
+                'Customer': tx.customer?.name || '-',
+                'Type': tx.type,
+                'Amount': tx.amount,
+                'Description': tx.description || '-'
+            }));
+        } else if (activeTab === 'daily') {
+            const paymentsArr = reportData.payments ? Object.entries(reportData.payments).map(([method, amount]) => `${method}: ${amount}`) : [];
+            exportData = [{
+                'Total Sales': reportData.totalSales,
+                'Total Collected': reportData.totalCollected,
+                'Total Expenses': reportData.totalExpenses,
+                'Invoice Count': reportData.invoiceCount,
+                'Payment Breakdown': paymentsArr.join(' | ')
+            }];
+        } else if (activeTab === 'expenses') {
+            exportData = (Array.isArray(reportData) ? reportData : []).map((e: any) => ({
+                'Date': formatSafeDate(e.date),
+                'Title': e.title || '-',
+                'Amount': e.amount,
+                'Category': e.category || '-',
+                'Notes': e.notes || '-'
+            }));
+        } else if (activeTab === 'inventory') {
+            exportData = (Array.isArray(reportData) ? reportData : []).map((p: any) => ({
+                'Product Name': p.name,
+                'Stock': p.stock,
+                'Alert Qty': p.alertQuantity,
+                'Price': p.price,
+                'Category': p.category || '-'
+            }));
         }
 
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -409,11 +457,11 @@ export default function ReportsPage() {
             if (typeof bVal === 'object' && bVal?.props?.children) bVal = bVal.props.children;
 
             if (typeof aVal === 'string') {
-                const cleaned = aVal.replace(/[^0-9.-]+/g, "");
+                const cleaned = aVal.replace(/[^0-9-]+/g, "");
                 if (cleaned !== "" && !isNaN(Number(cleaned)) && (aVal.includes(settings.symbol) || aVal.includes('Rp'))) aVal = Number(cleaned);
             }
             if (typeof bVal === 'string') {
-                const cleaned = bVal.replace(/[^0-9.-]+/g, "");
+                const cleaned = bVal.replace(/[^0-9-]+/g, "");
                 if (cleaned !== "" && !isNaN(Number(cleaned)) && (bVal.includes(settings.symbol) || bVal.includes('Rp'))) bVal = Number(cleaned);
             }
 
@@ -633,14 +681,14 @@ export default function ReportsPage() {
             case 'staff':
                 if (!Array.isArray(reportData)) return null;
 
-                const handleStaffDrillDown = async (staffName: string) => {
+                const handleStaffDrillDown = async (staffName: string, staffId?: string) => {
                     setDrillDownStaff(staffName);
                     setDrillDownLoading(true);
                     try {
-                        // Find the staff ID from list by matching name
-                        const match = staffList.find(s => s.name === staffName);
-                        if (!match) { setDrillDownData([]); return; }
-                        const res = await fetch(`/api/reports?type=sales&startDate=${dateRange.start}&endDate=${dateRange.end}&staffId=${match._id}`, { headers: { "x-store-slug": slug } });
+                        // Use staff ID directly if available, otherwise fallback to name matching
+                        const id = staffId || staffList.find(s => s.name === staffName)?._id;
+                        if (!id) { setDrillDownData([]); return; }
+                        const res = await fetch(`/api/reports?type=sales&startDate=${dateRange.start}&endDate=${dateRange.end}&staffId=${id}`, { headers: { "x-store-slug": slug } });
                         const data = await res.json();
                         setDrillDownData(data.success ? data.data : []);
                     } catch { setDrillDownData([]); } finally { setDrillDownLoading(false); }
@@ -663,7 +711,7 @@ export default function ReportsPage() {
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
                                         {reportData.map((s: any, i: number) => (
-                                            <tr key={i} className="hover:bg-blue-50/50 transition-colors cursor-pointer" onClick={() => handleStaffDrillDown(s.name)}>
+                                            <tr key={s._id || i} className="hover:bg-blue-50/50 transition-colors cursor-pointer" onClick={() => handleStaffDrillDown(s.name, s._id)}>
                                                 <td className="px-6 py-4 text-sm font-bold text-gray-900">{s.name}</td>
                                                 <td className="px-6 py-4 text-sm font-medium text-gray-700">{s.sales}</td>
                                                 <td className="px-6 py-4 text-sm font-medium text-green-700">{formatCurrency(s.revenue)}</td>
@@ -755,14 +803,7 @@ export default function ReportsPage() {
                                         )}
                                     </div>
                                     <div className="px-6 py-3 border-t border-gray-100 text-xs text-gray-500 shrink-0">
-                                        Total: {drillDownData.length} invoice(s) | Commission: {formatCurrency(drillDownData.reduce((s: number, inv: any) => {
-                                            const staffMatch = staffList.find(sf => sf.name === drillDownStaff);
-                                            const sid = staffMatch?._id;
-                                            let c = 0;
-                                            (inv.staffAssignments || []).forEach((sa: any) => { if (String(sa.staff?._id || sa.staff || sa.staffId) === String(sid)) c += (sa.komisiNominal || sa.commission || 0); });
-                                            (inv.items || []).forEach((item: any) => { (item.staffAssignments || []).forEach((sa: any) => { if (String(sa.staff?._id || sa.staff || sa.staffId) === String(sid)) c += (sa.komisiNominal || sa.commission || 0); }); });
-                                            return s + c;
-                                        }, 0))} | Revenue: {formatCurrency(drillDownData.reduce((s: number, inv: any) => s + (inv.totalAmount || 0), 0))}
+                                        Total: {drillDownData.length} invoice(s) | Commission: {formatCurrency(drillDownTotals.commission)} | Revenue: {formatCurrency(drillDownTotals.revenue)}
                                     </div>
                                 </div>
                             </div>
