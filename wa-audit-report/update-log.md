@@ -164,6 +164,11 @@ equired), error pesan lebih jelas.
 - **File:** `api/cron/wa-daily-report/route.ts`
 - **Fix:** Mengganti hardcoded `Asia/Jakarta` dan offset `+07:00` dengan fungsi `getCurrentDateInTimezone` dan `getUtcRangeForDateRange` dari `dateUtils`, serta mengacu pada `settings.timezone`.
 
+
+### 33. Feature Request: Customer Filter di Sales Report `[16 Mei 2026 - 17:11 WIB]`
+- **File:** `reports/page.tsx`
+- **Fix:** Menambahkan fitur filter *Customer* pada halaman Sales Report sesuai *request* klien. *Customer list* diekstrak secara dinamis dari data transaksi (`reportData`) menggunakan `useMemo` agar optimal, lalu diaplikasikan ke *filter logic* di sisi *client*.
+
 ### 2m. Deduplikasi Scheduler vs Cron Routes (FLOW-04)
 - **File:** lib/cronDedup.ts, lib/scheduler.ts, dan semua pp/api/cron/*
 - **Sebelumnya:** Pesan bisa terkirim ganda jika 

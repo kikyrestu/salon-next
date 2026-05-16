@@ -55,8 +55,25 @@ export default function ReportsPage() {
     // Staff & Service filters for Sales tab
     const [staffFilter, setStaffFilter] = useState('');
     const [serviceFilter, setServiceFilter] = useState('');
+    const [customerFilter, setCustomerFilter] = useState('');
     const [staffList, setStaffList] = useState<any[]>([]);
     const [serviceList, setServiceList] = useState<any[]>([]);
+
+    const customerList = useMemo(() => {
+        if (activeTab !== 'sales' || !Array.isArray(reportData)) return [];
+        const uniqueCustomers = new Map();
+        reportData.forEach((inv: any) => {
+            const name = inv.customerName || 'Walk-in';
+            let id = 'walk-in';
+            if (inv.customer) {
+                id = typeof inv.customer === 'object' ? String(inv.customer._id || inv.customer) : String(inv.customer);
+            }
+            if (!uniqueCustomers.has(id)) {
+                uniqueCustomers.set(id, name);
+            }
+        });
+        return Array.from(uniqueCustomers.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    }, [reportData, activeTab]);
 
     // Staff drill-down modal
     const [drillDownStaff, setDrillDownStaff] = useState<any>(null);
@@ -525,14 +542,27 @@ export default function ReportsPage() {
                 return renderSummary();
             case 'sales':
                 if (!Array.isArray(reportData)) return null;
-                const filteredSales = paymentFilter === 'all'
-                    ? reportData
-                    : reportData.filter((inv: any) => {
+                const filteredSales = reportData.filter((inv: any) => {
+                    let matchPayment = true;
+                    if (paymentFilter !== 'all') {
                         if (inv.paymentMethods && inv.paymentMethods.length > 0) {
-                            return inv.paymentMethods.some((pm: any) => (pm.method || '').toLowerCase() === paymentFilter.toLowerCase());
+                            matchPayment = inv.paymentMethods.some((pm: any) => (pm.method || '').toLowerCase() === paymentFilter.toLowerCase());
+                        } else {
+                            matchPayment = (inv.paymentMethod || '').toLowerCase() === paymentFilter.toLowerCase();
                         }
-                        return (inv.paymentMethod || '').toLowerCase() === paymentFilter.toLowerCase();
-                    });
+                    }
+
+                    let matchCustomer = true;
+                    if (customerFilter) {
+                        let cid = 'walk-in';
+                        if (inv.customer) {
+                            cid = typeof inv.customer === 'object' ? String(inv.customer._id || inv.customer) : String(inv.customer);
+                        }
+                        matchCustomer = cid === customerFilter;
+                    }
+
+                    return matchPayment && matchCustomer;
+                });
 
                 const salesSummary = filteredSales.reduce((acc: any, inv: any) => ({
                     count: acc.count + 1,
@@ -560,8 +590,12 @@ export default function ReportsPage() {
                                 <option value="credit card">Credit Card</option>
                                 <option value="qris">QRIS</option>
                             </select>
-                            {(staffFilter || serviceFilter || paymentFilter !== 'all') && (
-                                <button onClick={() => { setStaffFilter(''); setServiceFilter(''); setPaymentFilter('all'); }} className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1 px-2 py-1 bg-red-50 rounded-lg border border-red-200">
+                            <select value={customerFilter} onChange={e => setCustomerFilter(e.target.value)} className="border-2 border-gray-400 bg-white text-sm font-bold text-gray-900 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600">
+                                <option value="">All Customers</option>
+                                {customerList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                            {(staffFilter || serviceFilter || paymentFilter !== 'all' || customerFilter) && (
+                                <button onClick={() => { setStaffFilter(''); setServiceFilter(''); setPaymentFilter('all'); setCustomerFilter(''); }} className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1 px-2 py-1 bg-red-50 rounded-lg border border-red-200">
                                     <X className="w-3 h-3" /> Reset
                                 </button>
                             )}
