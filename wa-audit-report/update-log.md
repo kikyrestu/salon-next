@@ -169,6 +169,11 @@ equired), error pesan lebih jelas.
 - **File:** `reports/page.tsx`
 - **Fix:** Menambahkan fitur filter *Customer* pada halaman Sales Report sesuai *request* klien. *Customer list* diekstrak secara dinamis dari data transaksi (`reportData`) menggunakan `useMemo` agar optimal, lalu diaplikasikan ke *filter logic* di sisi *client*.
 
+
+### 34. Hotfix: Customer Filter Menampilkan "Walk-in" Semua `[16 Mei 2026 - 17:29 WIB]`
+- **File:** `reports/page.tsx`
+- **Fix:** Memperbaiki logika ekstraksi nama customer di `customerList`. Sebelumnya memakai field `customerName` (yang undefined), sekarang diubah untuk mengambil nama dari object `customer` yang sudah di-*populate* oleh backend (`inv.customer.name`).
+
 ### 2m. Deduplikasi Scheduler vs Cron Routes (FLOW-04)
 - **File:** lib/cronDedup.ts, lib/scheduler.ts, dan semua pp/api/cron/*
 - **Sebelumnya:** Pesan bisa terkirim ganda jika 

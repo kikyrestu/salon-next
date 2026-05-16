@@ -63,11 +63,19 @@ export default function ReportsPage() {
         if (activeTab !== 'sales' || !Array.isArray(reportData)) return [];
         const uniqueCustomers = new Map();
         reportData.forEach((inv: any) => {
-            const name = inv.customerName || 'Walk-in';
             let id = 'walk-in';
+            let name = 'Walk-in Customer';
+            
             if (inv.customer) {
-                id = typeof inv.customer === 'object' ? String(inv.customer._id || inv.customer) : String(inv.customer);
+                if (typeof inv.customer === 'object') {
+                    id = String(inv.customer._id || inv.customer);
+                    name = inv.customer.name || 'Unknown Customer';
+                } else {
+                    id = String(inv.customer);
+                    name = inv.customerName || 'Customer';
+                }
             }
+            
             if (!uniqueCustomers.has(id)) {
                 uniqueCustomers.set(id, name);
             }
