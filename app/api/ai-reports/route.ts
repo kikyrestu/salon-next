@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, props: any) {
         if (permissionError) return permissionError;
 
         // Rate Limiting (AI is expensive) — reuse session dari atas
-        const ratelimit = checkRateLimit(session?.user?.id || 'anonymous', 60000 * 60, 10); // 10 requests per hour
+        const ratelimit = await checkRateLimit(session?.user?.id || 'anonymous', 60000 * 60, 10); // 10 requests per hour
         if (!ratelimit.allowed) {
             return NextResponse.json({
                 success: false,

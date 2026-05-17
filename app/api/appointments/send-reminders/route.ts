@@ -13,6 +13,7 @@ import {
 } from "@/lib/notifications";
 import { decryptFonnteToken } from '@/lib/encryption';
 import { sendWhatsApp } from "@/lib/fonnte";
+import { normalizeIndonesianPhone } from '@/lib/phone';
 
 // POST /api/appointments/send-reminders - Send reminders for upcoming appointments
 export async function POST(request: NextRequest, props: any) {
@@ -106,7 +107,12 @@ export async function POST(request: NextRequest, props: any) {
                     `Mohon datang tepat waktu. Jika ingin membatalkan/reschedule, silakan hubungi kami.\n` +
                     `Terima kasih!`;
                 
-                const result = await sendWhatsApp(customer.phone, waMessage, fonnteToken);
+                const normalizedPhone = normalizeIndonesianPhone(customer.phone);
+                if (!normalizedPhone) {
+                    errors.push({ appointmentId: appointment._id, error: "Invalid phone number" });
+                    continue;
+                }
+                const result = await sendWhatsApp(normalizedPhone, waMessage, fonnteToken);
                 waSent = result.success;
 
                 // BLOCK-01 FIX: Delay 8-15 detik antar pengiriman WA

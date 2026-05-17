@@ -28,6 +28,7 @@ export async function GET(request: NextRequest, props: any) {
     const serviceId = searchParams.get('serviceId');
     const membershipTier = searchParams.get('membershipTier');
     const birthdayMonth = searchParams.get('birthdayMonth');
+    const search = searchParams.get('search');
     const hasPhone = searchParams.get('hasPhone') !== 'false'; // default true
 
     try {
@@ -38,6 +39,12 @@ export async function GET(request: NextRequest, props: any) {
         }
         if (membershipTier) {
             customerQuery.membershipTier = membershipTier;
+        }
+        if (search) {
+            customerQuery.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { phone: { $regex: search, $options: 'i' } }
+            ];
         }
 
         let customerIds: string[] | null = null;
@@ -95,7 +102,6 @@ export async function GET(request: NextRequest, props: any) {
         const customers = await Customer.find(customerQuery)
             .select('name email phone membershipTier birthday waNotifEnabled')
             .sort({ name: 1 })
-            .limit(500)
             .lean();
 
         return NextResponse.json({
@@ -145,15 +151,8 @@ export async function POST(request: NextRequest, props: any) {
         return NextResponse.json({ success: false, error: 'Tidak ada customer yang memiliki nomor WA valid' }, { status: 400 });
     }
 
-    // FLOW-08 FIX: Limit max target per campaign untuk hindari BSON size limit
-    const MAX_TARGETS = 500;
-    if (customers.length > MAX_TARGETS) {
-        return NextResponse.json({
-            success: false,
-            error: `Terlalu banyak target (${customers.length}). Maksimal ${MAX_TARGETS} per campaign. Silakan buat beberapa campaign terpisah.`
-        }, { status: 400 });
-    }
-
+    // Limit restriction removed to allow unlimited targets
+    
     const targets = customers.map((c: any) => ({
         customerId: c._id,
         phone: normalizeIndonesianPhone(c.phone),

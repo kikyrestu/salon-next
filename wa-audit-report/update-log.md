@@ -174,6 +174,23 @@ equired), error pesan lebih jelas.
 - **File:** `reports/page.tsx`
 - **Fix:** Memperbaiki logika ekstraksi nama customer di `customerList`. Sebelumnya memakai field `customerName` (yang undefined), sekarang diubah untuk mengambil nama dari object `customer` yang sudah di-*populate* oleh backend (`inv.customer.name`).
 
+
+### 35. Remediasi WA Engine Ronde 2 (P0, P1, P2) `[17 Mei 2026 - 09:48 WIB]`
+- **Kategori:** Backend Stability & Bugfixes
+- **File:** `lib/scheduler.ts`, `lib/encryption.ts`, `lib/tenantDb.ts`, `lib/rateLimiter.ts`, `app/api/appointments/send-reminders/route.ts`, `app/api/cron/birthday-voucher/route.ts`, `models/WaSchedule.ts`
+- **Fix:** 
+  - (BUG-N01) `getTenantFonnteToken` kini mendecrypt token dengan `decryptFonnteToken` sebelum mengirim WA.
+  - (BUG-N02) Menambahkan status `processing` di enum Mongoose `WaSchedule` untuk mengizinkan atomic claim berjalan sukses.
+  - (BUG-N03) Mencegah infinite loop pada scheduler saat 3 error berturut-turut dengan merubah status menjadi `failed` (bukan `paused`).
+  - (BUG-N04) Memperbaiki fallback `ENCRYPTION_KEY` default menjadi 32-byte hex yang valid agar aplikasi tidak *crash* di environment tanpa env file.
+  - (BUG-N05 & BUG-N11) Unifikasi sistem deduplikasi cron route dan automations menggunakan fitur `CronDedup`.
+  - (BUG-N06 & BUG-N07) Memastikan sinkronisasi Timezone (WIB - `Asia/Jakarta`) pada atomic claim scheduler dan filter tanggal ulang tahun MongoDB `$month`.
+  - (BUG-N08) Kuota limit pengiriman scheduler harian dan perjam kini diambil secara akurat langsung dari koleksi `WaCampaignQueue`, bukan `WaBlastLog` yang terlambat.
+  - (BUG-N09) Menambahkan `normalizeIndonesianPhone` pada saat API `send-reminders` digunakan untuk mengonversi prefiks lokal.
+  - (BUG-N10) Fungsi `getTenantConnection` di `lib/tenantDb.ts` kini memverifikasi apakah `readyState === 1` sebelum melempar koneksi Mongo dari Map cache, mencegah *server stall* 10 detik.
+  - (BUG-N12) Migrasi *Rate Limiter* in-memory `lib/rateLimiter.ts` ke arsitektur *serverless-compatible* menggunakan MongoDB dengan Index TTL `expires`.
+  - (BUG-N13) Menghapus pemanggilan duplikat untuk koleksi `Settings` pada saat loop `processPendingCampaigns` dan `processAutomations`.
+
 ### 2m. Deduplikasi Scheduler vs Cron Routes (FLOW-04)
 - **File:** lib/cronDedup.ts, lib/scheduler.ts, dan semua pp/api/cron/*
 - **Sebelumnya:** Pesan bisa terkirim ganda jika 

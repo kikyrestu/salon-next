@@ -6,8 +6,14 @@ import dbConnect from './mongodb';
 const tenantConnections = new Map<string, mongoose.Connection>();
 
 export async function getTenantConnection(slug: string): Promise<mongoose.Connection> {
-    if (tenantConnections.has(slug)) {
-        return tenantConnections.get(slug)!;
+    const existing = tenantConnections.get(slug);
+    if (existing && existing.readyState === 1) {
+        return existing;
+    }
+    
+    // If it exists but is disconnected, remove it from cache
+    if (existing) {
+        tenantConnections.delete(slug);
     }
 
     // 1. Get Master Models

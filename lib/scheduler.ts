@@ -69,10 +69,9 @@ export async function processPendingCampaigns(now: Date = new Date()) {
         try {
             const models = await getTenantModels(slug);
             const { WaCampaignQueue, WaBlastLog, Customer, Settings } = models;
-            const token = await getTenantFonnteToken(slug);
-
             // Load settings for operational hours and daily limits
             const settings: any = await Settings.findOne() || {};
+            const token = settings.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : String(process.env.FONNTE_TOKEN || '').trim();
             const opStart = settings.waOperationalHoursStart ?? 8;
             const opEnd = settings.waOperationalHoursEnd ?? 20;
 
@@ -353,10 +352,9 @@ export async function processAutomations(now: Date = new Date()) {
         try {
             const models = await getTenantModels(slug);
             const { WaAutomation, Settings, Customer, Product, Invoice, CustomerPackage } = models;
-            const token = await getTenantFonnteToken(slug);
-
             const activeRules = await WaAutomation.find({ isActive: true });
             const settings: any = await Settings.findOne() || {};
+            const token = settings.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : String(process.env.FONNTE_TOKEN || '').trim();
 
             for (const rule of activeRules) {
                 // Check if rule already ran today (in memory first)
@@ -418,6 +416,13 @@ export async function processAutomations(now: Date = new Date()) {
                             continue;
                         }
 
+                        // BUG-N11 FIX: Cek deduplikasi agar sinkron dengan rute cron
+                        if (await hasRunToday('daily_report', slug)) {
+                            console.log(`[AUTOMATION:daily_report] Already run today for tenant ${slug}. Skipping.`);
+                            ruleSuccess = true;
+                            continue;
+                        }
+
                         const tz = 'Asia/Jakarta';
                         const year = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric' }).format(now);
                         const month = new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'numeric' }).format(now);
@@ -461,6 +466,7 @@ export async function processAutomations(now: Date = new Date()) {
 
                         if (allSuccess) {
                             ruleSuccess = true;
+                            await markAsRun('daily_report', slug, 'scheduler');
                         }
 
                     }

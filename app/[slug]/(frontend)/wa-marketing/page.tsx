@@ -118,6 +118,7 @@ export default function WAMarketingPage() {
   const [serviceId, setServiceId] = useState("");
   const [membershipTier, setMembershipTier] = useState("");
   const [birthdayMonth, setBirthdayMonth] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(true);
 
   // Target list
@@ -214,6 +215,7 @@ export default function WAMarketingPage() {
       if (serviceId) params.set("serviceId", serviceId);
       if (membershipTier) params.set("membershipTier", membershipTier);
       if (birthdayMonth) params.set("birthdayMonth", birthdayMonth);
+      if (searchQuery) params.set("search", searchQuery);
 
       const res = await fetch(`/api/wa/blast-targets?${params}`, { headers: { "x-store-slug": slug } });
       const data = await res.json();
@@ -558,7 +560,17 @@ export default function WAMarketingPage() {
                       </select>
                     </div>
                   </div>
-                  <div className="mt-4 flex justify-end">
+                  <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col sm:flex-row justify-between gap-4">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Cari nama atau nomor HP..."
+                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
                     <button
                       onClick={fetchTargets}
                       disabled={loading}
