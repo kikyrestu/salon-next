@@ -1,6 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
-export type WaScheduleStatus = 'pending' | 'sent' | 'failed';
+export type WaScheduleStatus = 'pending' | 'processing' | 'sent' | 'failed';
 
 export interface IWaSchedule extends Document {
     customerId: mongoose.Types.ObjectId;
@@ -11,6 +11,7 @@ export interface IWaSchedule extends Document {
     scheduledAt: Date;
     status: WaScheduleStatus;
     sentAt?: Date;
+    processedAt?: Date;
 }
 
 const waScheduleSchema = new Schema<IWaSchedule>(
@@ -45,11 +46,14 @@ const waScheduleSchema = new Schema<IWaSchedule>(
         },
         status: {
             type: String,
-            enum: ['pending', 'sent', 'failed'],
+            enum: ['pending', 'processing', 'sent', 'failed'],
             default: 'pending',
             required: true,
         },
         sentAt: {
+            type: Date,
+        },
+        processedAt: {
             type: Date,
         },
     },
@@ -61,7 +65,7 @@ waScheduleSchema.index({ status: 1, scheduledAt: 1 });
 // tapi izinkan sent/failed (retry scenario tidak terblokir).
 waScheduleSchema.index(
     { transactionId: 1, templateId: 1 },
-    { unique: true, partialFilterExpression: { status: 'pending' } }
+    { unique: true, partialFilterExpression: { status: { $in: ['pending', 'processing'] } } }
 );
 
 export default mongoose.models.WaSchedule || mongoose.model<IWaSchedule>('WaSchedule', waScheduleSchema);

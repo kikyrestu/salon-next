@@ -45,7 +45,7 @@ async function getTenantFonnteToken(slug: string): Promise<string> {
         const models = await getTenantModels(slug);
         const settings: any = await models.Settings.findOne({});
         if (settings?.fonnteToken) {
-            return String(settings.fonnteToken).trim();
+            return decryptFonnteToken(String(settings.fonnteToken).trim());
         }
     } catch (e) {
         console.error(`Failed to get fonnteToken for tenant "${slug}":`, e);
@@ -88,17 +88,27 @@ export async function processPendingCampaigns(now: Date = new Date()) {
             const day = new Intl.DateTimeFormat('en-US', { timeZone: tz, day: 'numeric' }).format(now);
             const todayStart = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00.000+07:00`);
 
-            const sentTodayAgg = await WaBlastLog.aggregate([
-                { $match: { createdAt: { $gte: todayStart } } },
-                { $group: { _id: null, total: { $sum: '$sentCount' } } }
+            const sentTodayAgg = await WaCampaignQueue.aggregate([
+                { $match: { 
+                    createdAt: { $gte: todayStart },
+                    status: { $in: ['processing', 'completed', 'partially_failed'] }
+                }},
+                { $unwind: '$targets' },
+                { $match: { 'targets.status': 'sent' }},
+                { $group: { _id: null, total: { $sum: 1 } }}
             ]);
             const totalSentToday = sentTodayAgg[0]?.total || 0;
 
             const hourStart = new Date(now);
             hourStart.setMinutes(0, 0, 0);
-            const sentHourAgg = await WaBlastLog.aggregate([
-                { $match: { createdAt: { $gte: hourStart } } },
-                { $group: { _id: null, total: { $sum: '$sentCount' } } }
+            const sentHourAgg = await WaCampaignQueue.aggregate([
+                { $match: { 
+                    createdAt: { $gte: hourStart },
+                    status: { $in: ['processing', 'completed', 'partially_failed'] }
+                }},
+                { $unwind: '$targets' },
+                { $match: { 'targets.status': 'sent' }},
+                { $group: { _id: null, total: { $sum: 1 } }}
             ]);
             const totalSentThisHour = sentHourAgg[0]?.total || 0;
             const hourlyLimit = 50; // Max 50 per hour per tenant
@@ -281,7 +291,7 @@ export async function processPendingCampaigns(now: Date = new Date()) {
 
                 if (consecutiveErrors >= 3) {
                     console.error(`[CAMPAIGN:${slug}] 3 consecutive errors. Stopping campaign ${campaign._id}`);
-                    campaign.status = 'paused';
+                    campaign.status = 'failed';
                     await campaign.save();
                     break;
                 }
@@ -375,8 +385,11 @@ export async function processAutomations(now: Date = new Date()) {
                 if (rule.scheduleTime && !validTimeSlots.has(rule.scheduleTime)) continue;
 
                 // Atomic Claim to prevent race conditions across PM2 instances or manual triggers
-                const startOfToday = new Date(now);
-                startOfToday.setHours(0, 0, 0, 0); // basic start of day, enough for atomic check
+                const tzWib = 'Asia/Jakarta';
+                const yearWib = new Intl.DateTimeFormat('en-US', { timeZone: tzWib, year: 'numeric' }).format(now);
+                const monthWib = new Intl.DateTimeFormat('en-US', { timeZone: tzWib, month: 'numeric' }).format(now);
+                const dayWib = new Intl.DateTimeFormat('en-US', { timeZone: tzWib, day: 'numeric' }).format(now);
+                const startOfToday = new Date(`${yearWib}-${monthWib.padStart(2, '0')}-${dayWib.padStart(2, '0')}T00:00:00.000+07:00`);
 
                 const lockedRule = await WaAutomation.findOneAndUpdate(
                     {
@@ -564,8 +577,8 @@ export async function processAutomations(now: Date = new Date()) {
                             birthday: { $exists: true, $ne: null },
                             $expr: {
                                 $and: [
-                                    { $eq: [{ $month: '$birthday' }, month] },
-                                    { $eq: [{ $dayOfMonth: '$birthday' }, day] }
+                                    { $eq: [{ $month: { date: '$birthday', timezone: 'Asia/Jakarta' } }, month] },
+                                    { $eq: [{ $dayOfMonth: { date: '$birthday', timezone: 'Asia/Jakarta' } }, day] }
                                 ]
                             }
                         }).lean();

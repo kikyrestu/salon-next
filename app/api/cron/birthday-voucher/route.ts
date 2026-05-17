@@ -20,7 +20,13 @@ export async function GET(request: NextRequest, props: any) {
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-
+    if (await hasRunToday('birthday_voucher', tenantSlug)) {
+      return NextResponse.json({
+        success: true,
+        message: 'Birthday voucher already processed today',
+        skipped: true, sent: 0
+      });
+    }
 
 
     const settings = await Settings.findOne();
@@ -96,6 +102,10 @@ export async function GET(request: NextRequest, props: any) {
 
       // BLOCK-01 FIX: Delay aman 8-15 detik antar pengiriman
       await new Promise((r) => setTimeout(r, 8000 + Math.floor(Math.random() * 7000)));
+    }
+
+    if (sentCount > 0 || birthdayCustomers.length === 0) {
+      await markAsRun('birthday_voucher', tenantSlug, 'cron_route');
     }
 
     return NextResponse.json({

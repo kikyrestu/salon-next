@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 
 // The key should be 32 bytes (64 hex characters)
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || '64_hex_characters_should_be_here_in_env_file';
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || '0'.repeat(64);
 const IV_LENGTH = 16; // For AES, this is always 16
 
 // Encrypt data
