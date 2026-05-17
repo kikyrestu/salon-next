@@ -230,7 +230,7 @@ export default function WAMarketingPage() {
     } finally {
       setLoading(false);
     }
-  }, [lastVisitSince, serviceId, membershipTier, birthdayMonth]);
+  }, [lastVisitSince, serviceId, membershipTier, birthdayMonth, searchQuery]);
 
   const fetchHistory = useCallback(async () => {
     setHistoryLoading(true);
