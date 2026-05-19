@@ -1,3 +1,5 @@
+import { decryptFonnteToken } from './encryption';
+
 export interface SendWhatsAppResult {
     success: boolean;
     data?: unknown;
@@ -15,7 +17,21 @@ export async function sendWhatsApp(
     message: string,
     fonnteToken?: string
 ): Promise<SendWhatsAppResult> {
-    const token = (fonnteToken || process.env.FONNTE_TOKEN || '').trim();
+    let token = (fonnteToken ?? '').trim();
+
+    // If caller passed a token, use it as-is (caller is responsible for decrypting).
+    // Only attempt decrypt if falling back to FONNTE_TOKEN env var.
+    if (!token) {
+        const envToken = (process.env.FONNTE_TOKEN || '').trim();
+        if (envToken) {
+            try {
+                token = decryptFonnteToken(envToken);
+            } catch (decryptErr: any) {
+                console.error('[FONNTE] Env token decrypt failed, using raw:', decryptErr.message);
+                token = envToken; // Fallback to raw env token
+            }
+        }
+    }
 
     if (!token) {
         return { success: false, error: 'FONNTE_TOKEN is not configured. Pass token or set env variable.' };

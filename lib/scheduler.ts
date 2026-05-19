@@ -4,7 +4,7 @@ import { getTenantModels } from './tenantDb';
 import { sendWhatsApp } from '@/lib/fonnte';
 import { addMessageVariation } from '@/lib/messageVariation';
 import { validateMessageContent } from '@/lib/messageValidator';
-import { hasRunToday, markAsRun } from '@/lib/cronDedup';
+// cronDedup removed — atomic lock via lastRunDate is sufficient
 
 let schedulerStarted = false;
 
@@ -138,11 +138,17 @@ export async function processPendingCampaigns(now: Date = new Date()) {
                 continue;
             }
 
-            const remainingQuota = Math.min(dailyLimit - totalSentToday, hourlyLimit - totalSentThisHour);
+            let currentSentToday = totalSentToday;
+            let currentSentThisHour = totalSentThisHour;
 
-            // BLAST-06: Atomic claim — prevent tick overlap
-            console.log(`[CAMPAIGN:${slug}] Looking for pending campaigns <= ${now.toISOString()}`);
-            const campaign = await WaCampaignQueue.findOneAndUpdate(
+            const MAX_CAMPAIGNS_PER_TICK = 3; // FIX B-11
+            for (let campaignIndex = 0; campaignIndex < MAX_CAMPAIGNS_PER_TICK; campaignIndex++) {
+                const remainingQuota = Math.min(dailyLimit - currentSentToday, hourlyLimit - currentSentThisHour);
+                if (remainingQuota <= 0) break;
+
+                // BLAST-06: Atomic claim — prevent tick overlap
+                console.log(`[CAMPAIGN:${slug}] Looking for pending campaigns <= ${now.toISOString()}`);
+                const campaign = await WaCampaignQueue.findOneAndUpdate(
                 {
                     $or: [
                         { status: 'pending', scheduledAt: { $lte: now } },
@@ -230,23 +236,21 @@ export async function processPendingCampaigns(now: Date = new Date()) {
             const customerMap = new Map(customers.map((c: any) => [String(c._id), c.name]));
 
             let consecutiveErrors = 0;
+            let loopSent = 0;
 
             for (const target of pendingTargets) {
-                // BLAST-04: Dedup check
-                const recentBlast = await WaBlastLog.findOne({
-                    'recipients.phone': target.phone,
-                    'recipients.status': 'sent',
-                    createdAt: { $gte: new Date(now.getTime() - 24 * 60 * 60_000) }
-                });
-                if (recentBlast) {
-                    target.status = 'failed';
-                    target.error = 'Already received blast within 24h';
-                    console.log(`[CAMPAIGN:${slug}] Dedup: skipped ${target.phone}`);
-                    continue;
-                }
+                // BLAST-04: Dedup check has been REMOVED as per user requirement.
+                // Every scheduled campaign target will be processed without 24h limits.
 
                 const customerName = customerMap.get(String(target.customerId)) || 'Pelanggan';
-                let personalizedMsg = campaign.message.replace(/{{nama_customer}}/gi, customerName);
+                // BUG-02 FIX: Replace semua variabel yang dikenal, bukan hanya nama_customer
+                const campaignDateStr = new Intl.DateTimeFormat('id-ID', {
+                    timeZone: 'Asia/Jakarta', dateStyle: 'long'
+                }).format(now);
+                let personalizedMsg = campaign.message
+                    .replace(/{{nama_customer}}|{{customerName}}/gi, customerName)
+                    .replace(/{{storeName}}/gi, settings.storeName || 'Salon')
+                    .replace(/{{date}}/gi, campaignDateStr);
 
                 // Add message variation to avoid identical-content spam detection
                 personalizedMsg = addMessageVariation(personalizedMsg);
@@ -262,6 +266,7 @@ export async function processPendingCampaigns(now: Date = new Date()) {
                     if (result.success) {
                         target.status = 'sent';
                         consecutiveErrors = 0; // reset
+                        loopSent++;
                         console.log(`[CAMPAIGN:${slug}] ✅ Sent to ${target.phone}`);
                     } else {
                         target.status = 'failed';
@@ -322,31 +327,23 @@ export async function processPendingCampaigns(now: Date = new Date()) {
                     console.log(`[CAMPAIGN:${slug}] Campaign ${campaign._id} finished processing (${updatedCampaign.status})`);
                 }
             }
+                
+            currentSentToday += loopSent;
+            currentSentThisHour += loopSent;
+        }
         } catch (e) {
             console.error(`processPendingCampaigns error for tenant "${slug}":`, e);
         }
     }
 }
 
-export async function processAutomations(now: Date = new Date()) {
-    const slugs = await getAllTenantSlugs();
+export async function processAutomations(now: Date = new Date(), targetSlug?: string) {
+    const slugs = targetSlug ? [targetSlug] : await getAllTenantSlugs();
 
     const todayStr = now.toLocaleDateString('en-US', { timeZone: DEFAULT_SCHEDULER_TIMEZONE });
 
-    // Bangun set semua HH:MM dalam window ±5 menit dari sekarang
-    // supaya scheduler tidak miss kalau server restart di menit kritis.
-    const timeWindowMinutes = 5;
-    const validTimeSlots = new Set<string>();
-    for (let offset = -timeWindowMinutes; offset <= 0; offset++) {
-        const t = new Date(now.getTime() + offset * 60_000);
-        const hhmm = t.toLocaleTimeString('en-US', {
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit',
-            timeZone: DEFAULT_SCHEDULER_TIMEZONE,
-        }).replace(/^24:/, '00:'); // fix edge case Node midnight '24:xx'
-        validTimeSlots.add(hhmm);
-    }
+    // FLOW-09 FIX (B-04): Time Window tidak lagi berbasis 60-min window substring match.
+    // Mengecek apakah tzNow >= ruleTime. Waktu eksekusi telat tidak masalah karena ada lastRunDate.
 
     for (const slug of slugs) {
         try {
@@ -354,6 +351,11 @@ export async function processAutomations(now: Date = new Date()) {
             const { WaAutomation, Settings, Customer, Product, Invoice, CustomerPackage } = models;
             const activeRules = await WaAutomation.find({ isActive: true });
             const settings: any = await Settings.findOne() || {};
+
+            // === OPERATIONAL HOURS CHECK REMOVED ===
+            // Rules have their own `scheduleTime` that need to execute regardless of WA Blast operational boundaries
+            
+
             const token = settings.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : String(process.env.FONNTE_TOKEN || '').trim();
 
             for (const rule of activeRules) {
@@ -366,11 +368,15 @@ export async function processAutomations(now: Date = new Date()) {
                 const scheduleDays: number[] = rule.scheduleDays || [];
 
                 if (freq === 'weekly' && scheduleDays.length > 0) {
-                    const jsDay = now.getDay();
-                    const isoDay = jsDay === 0 ? 7 : jsDay;
+                    const tz = 'Asia/Jakarta';
+                    // Intl.DateTimeFormat 'short' for weekday returns 'Mon', 'Tue', etc.
+                    const dayStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(now);
+                    const daysMap: Record<string, number> = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 7 };
+                    const isoDay = daysMap[dayStr] || 1;
                     if (!scheduleDays.includes(isoDay)) continue;
                 } else if (freq === 'monthly' && scheduleDays.length > 0) {
-                    const dayOfMonth = now.getDate();
+                    const tz = 'Asia/Jakarta';
+                    const dayOfMonth = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: tz, day: 'numeric' }).format(now));
                     if (!scheduleDays.includes(dayOfMonth)) continue;
                 }
 
@@ -379,8 +385,23 @@ export async function processAutomations(now: Date = new Date()) {
                 if (rule.targetRole === 'owner' && settings.waOwnerNumber) targetPhones.push(settings.waOwnerNumber);
                 if (rule.targetRole === 'admin' && settings.waAdminNumber) targetPhones.push(settings.waAdminNumber);
 
-                // Time check — cocok kalau scheduleTime ada dalam window ±5 menit ke belakang
-                if (rule.scheduleTime && !validTimeSlots.has(rule.scheduleTime)) continue;
+                // BUG-C3 FIX: Keluar awal jika setting nomor (owner/admin) kosong
+                const needsPhoneTarget = ['daily_report', 'stock_alert'].includes(rule.category);
+                if (needsPhoneTarget && targetPhones.length === 0) {
+                    console.warn(`[AUTOMATION:${rule.category}][${slug}] Skipping: Owner/Admin phone missing in Settings. Lock skipped.`);
+                    continue; // Skip without locking so it retries later when phone is configured
+                }
+
+                // Time check — date >= scheduled time for today (B-04)
+                if (rule.scheduleTime) {
+                    const [hh, mm] = rule.scheduleTime.split(':').map(Number);
+                    const tzNowStr = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+                    const ruleTime = new Date(tzNowStr);
+                    ruleTime.setHours(hh, mm, 0, 0);
+                    if (tzNowStr.getTime() < ruleTime.getTime()) {
+                        continue; // Not yet time to run today
+                    }
+                }
 
                 // Atomic Claim to prevent race conditions across PM2 instances or manual triggers
                 const tzWib = 'Asia/Jakarta';
@@ -411,17 +432,8 @@ export async function processAutomations(now: Date = new Date()) {
 
                 try {
                     if (rule.category === 'daily_report') {
-                        if (targetPhones.length === 0) {
-                            ruleSuccess = true;
-                            continue;
-                        }
 
-                        // BUG-N11 FIX: Cek deduplikasi agar sinkron dengan rute cron
-                        if (await hasRunToday('daily_report', slug)) {
-                            console.log(`[AUTOMATION:daily_report] Already run today for tenant ${slug}. Skipping.`);
-                            ruleSuccess = true;
-                            continue;
-                        }
+
 
                         const tz = 'Asia/Jakarta';
                         const year = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric' }).format(now);
@@ -443,15 +455,19 @@ export async function processAutomations(now: Date = new Date()) {
                         const totalCustomers = new Set(invoices.map((inv: any) => String(inv.customer))).size;
 
 
-                        const formattedRevenue = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(totalRevenue);
+                        // BUG-03 FIX: Format angka murni tanpa prefix "Rp" untuk hindari double "RpRp"
+                        const formattedRevenue = new Intl.NumberFormat('id-ID').format(totalRevenue);
                         
-                        // FLOW-03 FIX: Prioritaskan template dari Settings, fallback ke Automation rule, fallback ke default string
-                        const templateStr = settings.waTemplateDailyReport || rule.messageTemplate || `Halo, ini laporan harian. Pendapatan hari ini: {{total_revenue}} ({{total_transactions}} transaksi).`;
+                        // FLOW-03 FIX: Selalu memprioritaskan messageTemplate dari Automation Rule yang ada di page baru
+                        const templateStr = rule.messageTemplate || `Halo, ini laporan harian. Pendapatan hari ini: {{total_revenue}} ({{total_transactions}} transaksi).`;
                         
+                        const dateStr = new Intl.DateTimeFormat('id-ID', { timeZone: tz, dateStyle: 'long' }).format(now);
                         const message = templateStr
-                            .replace(/{{total_revenue}}/gi, formattedRevenue)
-                            .replace(/{{total_transactions?}}/gi, String(totalTransactions))
-                            .replace(/{{total_customers?}}/gi, String(totalCustomers));
+                            .replace(/{{total_revenue}}|{{totalAmount}}/gi, formattedRevenue)
+                            .replace(/{{total_transactions?}}|{{totalTransactions}}/gi, String(totalTransactions))
+                            .replace(/{{total_customers?}}|{{totalCustomers}}/gi, String(totalCustomers))
+                            .replace(/{{storeName}}/gi, settings.storeName || 'Salon')
+                            .replace(/{{date}}/gi, dateStr);
 
 
                         let allSuccess = true;
@@ -466,12 +482,11 @@ export async function processAutomations(now: Date = new Date()) {
 
                         if (allSuccess) {
                             ruleSuccess = true;
-                            await markAsRun('daily_report', slug, 'scheduler');
                         }
 
                     }
                     else if (rule.category === 'stock_alert') {
-                        if (targetPhones.length === 0) continue;
+
 
                         const products = await Product.find({
                             status: 'active',
@@ -486,7 +501,10 @@ export async function processAutomations(now: Date = new Date()) {
 
 
                         const itemList = products.map((p: any) => `- ${p.name} (Sisa: ${p.stock})`).join('\n');
-                        const message = rule.messageTemplate.replace(/{{items}}/gi, itemList);
+                        const message = rule.messageTemplate
+                            .replace(/{{items}}|{{productList}}/gi, itemList)
+                            .replace(/{{storeName}}/gi, settings.storeName || 'Salon')
+                            .replace(/{{count}}/gi, String(products.length));
 
                         let sent = false;
                         for (const phone of targetPhones) {
@@ -505,13 +523,18 @@ export async function processAutomations(now: Date = new Date()) {
                     }
                     else if (rule.category === 'membership_expiry' && rule.targetRole === 'customer') {
                         const daysBefore = rule.daysBefore || 0;
-                        const targetDate = new Date(now);
-                        targetDate.setDate(targetDate.getDate() + daysBefore);
+                        
+                        // FIX B-12: Timezone aware expiration dates
+                        const tzWib = 'Asia/Jakarta';
+                        const yearWib = new Intl.DateTimeFormat('en-US', { timeZone: tzWib, year: 'numeric' }).format(now);
+                        const monthWib = new Intl.DateTimeFormat('en-US', { timeZone: tzWib, month: 'numeric' }).format(now);
+                        const dayWib = new Intl.DateTimeFormat('en-US', { timeZone: tzWib, day: 'numeric' }).format(now);
+                        
+                        const baseDate = new Date(`${yearWib}-${monthWib.padStart(2, '0')}-${dayWib.padStart(2, '0')}T00:00:00+07:00`);
+                        baseDate.setDate(baseDate.getDate() + daysBefore);
 
-                        const startOfTarget = new Date(targetDate);
-                        startOfTarget.setHours(0, 0, 0, 0);
-                        const endOfTarget = new Date(targetDate);
-                        endOfTarget.setHours(23, 59, 59, 999);
+                        const startOfTarget = new Date(baseDate);
+                        const endOfTarget = new Date(baseDate.getTime() + (23 * 3600_000) + (59 * 60_000) + 59_000); // end of day
 
                         const customers = await Customer.find({
                             membershipExpiry: { $gte: startOfTarget, $lte: endOfTarget },
@@ -521,7 +544,12 @@ export async function processAutomations(now: Date = new Date()) {
 
                         let memberSentCount = 0;
                         for (const customer of customers) {
-                            const msg = rule.messageTemplate.replace(/{{nama_customer}}/gi, customer.name);
+                            const msg = rule.messageTemplate
+                                .replace(/{{nama_customer}}|{{customerName}}/gi, customer.name)
+                                .replace(/{{membershipTier}}/gi, customer.membershipTier || '')
+                                .replace(/{{storeName}}/gi, settings.storeName || 'Salon')
+                                .replace(/{{daysLeft}}/gi, String(daysBefore))
+                                .replace(/{{expiryDate}}/gi, customer.membershipExpiry ? new Date(customer.membershipExpiry).toLocaleDateString('id-ID') : '');
                             const result = await sendWhatsApp(customer.phone, msg, token);
                             if (result.success) {
                                 memberSentCount++;
@@ -537,13 +565,18 @@ export async function processAutomations(now: Date = new Date()) {
                     }
                     else if (rule.category === 'package_expiry' && rule.targetRole === 'customer') {
                         const daysBefore = rule.daysBefore || 0;
-                        const targetDate = new Date(now);
-                        targetDate.setDate(targetDate.getDate() + daysBefore);
+                        
+                        // FIX B-12: Timezone aware expiration dates
+                        const tzWib = 'Asia/Jakarta';
+                        const yearWib = new Intl.DateTimeFormat('en-US', { timeZone: tzWib, year: 'numeric' }).format(now);
+                        const monthWib = new Intl.DateTimeFormat('en-US', { timeZone: tzWib, month: 'numeric' }).format(now);
+                        const dayWib = new Intl.DateTimeFormat('en-US', { timeZone: tzWib, day: 'numeric' }).format(now);
+                        
+                        const baseDate = new Date(`${yearWib}-${monthWib.padStart(2, '0')}-${dayWib.padStart(2, '0')}T00:00:00+07:00`);
+                        baseDate.setDate(baseDate.getDate() + daysBefore);
 
-                        const startOfTarget = new Date(targetDate);
-                        startOfTarget.setHours(0, 0, 0, 0);
-                        const endOfTarget = new Date(targetDate);
-                        endOfTarget.setHours(23, 59, 59, 999);
+                        const startOfTarget = new Date(baseDate);
+                        const endOfTarget = new Date(baseDate.getTime() + (23 * 3600_000) + (59 * 60_000) + 59_000); // end of day
 
                         const expiringPackages = await CustomerPackage.find({
                             status: 'active',
@@ -557,7 +590,13 @@ export async function processAutomations(now: Date = new Date()) {
                             if (!customer || !customer.phone || !customer.waNotifEnabled) continue;
                             pkgTotal++;
 
-                            const msg = rule.messageTemplate.replace(/{{nama_customer}}/gi, customer.name);
+                            const msg = rule.messageTemplate
+                                .replace(/{{nama_customer}}|{{customerName}}/gi, customer.name)
+                                .replace(/{{packageName}}/gi, pkg.packageSnapshot?.name || 'Paket')
+                                .replace(/{{storeName}}/gi, settings.storeName || 'Salon')
+                                .replace(/{{daysLeft}}/gi, String(daysBefore))
+                                .replace(/{{expiryDate}}/gi, pkg.expiresAt ? new Date(pkg.expiresAt).toLocaleDateString('id-ID') : '')
+                                .replace(/{{remainingQuota}}/gi, String(pkg.remainingCount || 0));
                             const result = await sendWhatsApp(customer.phone, msg, token);
                             if (result.success) {
                                 pkgSentCount++;
@@ -591,7 +630,10 @@ export async function processAutomations(now: Date = new Date()) {
 
                         let bdaySentCount = 0;
                         for (const customer of birthdayCustomers) {
-                            const msg = rule.messageTemplate.replace(/{{nama_customer}}/gi, customer.name);
+                            // BUG-06 FIX: Replace semua variabel termasuk storeName
+                            const msg = rule.messageTemplate
+                                .replace(/{{nama_customer}}|{{customerName}}/gi, customer.name)
+                                .replace(/{{storeName}}/gi, settings.storeName || 'Salon');
                             const result = await sendWhatsApp(customer.phone, msg, token);
                             if (result.success) {
                                 bdaySentCount++;
@@ -612,9 +654,13 @@ export async function processAutomations(now: Date = new Date()) {
                         console.log(`[AUTOMATION] Rule ${rule.category} failed, lock removed for retry.`);
                     }
 
-                } catch (e) {
-                    await WaAutomation.findByIdAndUpdate(rule._id, { $unset: { lastRunDate: 1 } });
-                    console.error('Automation error:', e);
+                } catch (e: any) {
+                    try {
+                        await WaAutomation.findByIdAndUpdate(rule._id, { $unset: { lastRunDate: 1 } });
+                    } catch (rollbackErr: any) {
+                        console.error(`[AUTOMATION] Failed to rollback lock for rule ${rule._id}:`, rollbackErr.message);
+                    }
+                    console.error(`[AUTOMATION:${rule.category}][${slug}] Error:`, e.message);
                 }
             }
         } catch (e) {

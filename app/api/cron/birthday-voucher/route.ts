@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { decryptFonnteToken } from '@/lib/encryption';
 import { sendWhatsApp } from "@/lib/fonnte";
-import { hasRunToday, markAsRun } from '@/lib/cronDedup';
+
 
 // GET /api/cron/birthday-voucher
 // Called daily by external cron (crontab / cron-job.org)
@@ -20,16 +20,36 @@ export async function GET(request: NextRequest, props: any) {
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    if (await hasRunToday('birthday_voucher', tenantSlug)) {
-      return NextResponse.json({
-        success: true,
-        message: 'Birthday voucher already processed today',
-        skipped: true, sent: 0
-      });
-    }
+
 
 
     const settings = await Settings.findOne();
+
+    // === OPERATIONAL HOURS CHECK (dynamic dari DB) ===
+    const { checkOperationalHours, checkScheduleTime } = await import('@/lib/waOperationalHours');
+    const opCheck = checkOperationalHours(settings || {});
+    if (!opCheck.allowed) {
+        return NextResponse.json({
+            success: true,
+            message: `Skipped: ${opCheck.reason}`,
+            sent: 0,
+            skipped: true,
+        });
+    }
+
+    // === SCHEDULE TIME CHECK ===
+    const bdayTime = settings?.waBirthdayNotifTime || '08:00';
+    const schedCheck = checkScheduleTime(bdayTime);
+    if (!schedCheck.ready) {
+        return NextResponse.json({
+            success: true,
+            message: `Skipped: ${schedCheck.reason}`,
+            sent: 0,
+            skipped: true,
+        });
+    }
+    // === END CHECK ===
+
     if (!settings?.birthdayVoucherId) {
       return NextResponse.json({
         success: true,
@@ -104,9 +124,7 @@ export async function GET(request: NextRequest, props: any) {
       await new Promise((r) => setTimeout(r, 8000 + Math.floor(Math.random() * 7000)));
     }
 
-    if (sentCount > 0 || birthdayCustomers.length === 0) {
-      await markAsRun('birthday_voucher', tenantSlug, 'cron_route');
-    }
+
 
     return NextResponse.json({
       success: true,

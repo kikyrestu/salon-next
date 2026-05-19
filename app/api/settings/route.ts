@@ -103,6 +103,32 @@ export async function PUT(request: NextRequest, props: any) {
 
         const body = await request.json();
 
+        const ALLOWED_FIELDS = [
+            'storeName', 'address', 'phone', 'email', 'website', 'taxId', 'currency', 'timezone',
+            'taxRate', 'logoUrl', 'businessHours', 'receiptFooter', 'showStaffOnReceipt',
+            'showTaxAndTaxableAmountOnReceipt', 'showCommissionInPOS', 'walletBonusTiers',
+            'walletIncludedServices', 'walletIncludedProducts', 'walletIncludedBundles',
+            'termsAndConditions', 'membershipPrice', 'membershipDurationDays', 'birthdayVoucherId',
+            'memberDiscountType', 'memberDiscountValue', 'memberIncludedServices',
+            'memberIncludedProducts', 'memberIncludedBundles', 'loyaltyPointPerSpend',
+            'loyaltyPointValue', 'referralRewardPoints', 'referralDiscountType', 'referralDiscountValue',
+            'fonnteToken', 'waBlastNumber', 'waAdminNumber', 'waOwnerNumber', 'greetingEnabled',
+            'membershipExpiryReminderDays', 'packageExpiryReminderDays', 'dailyReportTime',
+            'waMembershipReminderTime', 'waPackageReminderTime', 'waStockAlertTime', 'waBirthdayNotifTime',
+            'waTemplateStockAlert', 'waTemplateDailyReport', 'waTemplateMembershipExpiry',
+            'waTemplatePackageExpiry', 'waOperationalHoursStart', 'waOperationalHoursEnd',
+            'fonnteMaxDailyMessages', 'fonnteDeviceRegisteredAt', 'smsEnabled', 'twilioAccountSid',
+            'twilioAuthToken', 'twilioPhoneNumber', 'emailEnabled', 'smtpHost', 'smtpPort',
+            'smtpSecure', 'smtpUser', 'smtpPassword', 'smtpFrom', 'reminderDaysBefore',
+            'reminderMethod', 'aiEnabled', 'openaiApiKey', 'openaiModel'
+        ];
+
+        Object.keys(body).forEach(key => {
+            if (!ALLOWED_FIELDS.includes(key)) {
+                delete body[key];
+            }
+        });
+
         // Sanitize Mongoose ObjectIds that might be sent as empty strings
         if (body.fonnteToken) {
             body.fonnteToken = encryptFonnteToken(body.fonnteToken);

@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { decryptFonnteToken } from '@/lib/encryption';
 import { sendWhatsApp } from '@/lib/fonnte';
-import { hasRunToday, markAsRun } from '@/lib/cronDedup';
+
 
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
@@ -23,6 +23,32 @@ export async function GET(request: NextRequest, props: any) {
 
         
         const settings = await Settings.findOne();
+
+        // === OPERATIONAL HOURS CHECK (dynamic dari DB) ===
+        const { checkOperationalHours, checkScheduleTime } = await import('@/lib/waOperationalHours');
+        const opCheck = checkOperationalHours(settings || {});
+        if (!opCheck.allowed) {
+            return NextResponse.json({
+                success: true,
+                message: `Skipped: ${opCheck.reason}`,
+                sent: 0,
+                skipped: true,
+            });
+        }
+
+        // === SCHEDULE TIME CHECK ===
+        const stockTime = settings?.waStockAlertTime || '08:00';
+        const schedCheck = checkScheduleTime(stockTime);
+        if (!schedCheck.ready) {
+            return NextResponse.json({
+                success: true,
+                message: `Skipped: ${schedCheck.reason}`,
+                sent: 0,
+                skipped: true,
+            });
+        }
+        // === END CHECK ===
+
         const adminPhone = settings?.waAdminNumber;
         const fonnteToken = settings?.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : undefined;
 

@@ -144,6 +144,22 @@ const SettingsSchema = new mongoose.Schema({
         type: String,
         default: '21:00'
     },
+    waMembershipReminderTime: {
+        type: String,
+        default: '09:00'
+    },
+    waPackageReminderTime: {
+        type: String,
+        default: '09:30'
+    },
+    waStockAlertTime: {
+        type: String,
+        default: '08:00'
+    },
+    waBirthdayNotifTime: {
+        type: String,
+        default: '08:00'
+    },
     // WA Message Templates
     waTemplateStockAlert: {
         type: String,

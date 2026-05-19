@@ -17,10 +17,9 @@ export async function GET(req: Request) {
 
         await connectToDB();
         
-        // Run both scheduler tasks without awaiting so the API responds quickly
-        // and doesn't block the frontend ping.
-        processPendingCampaigns().catch(console.error);
-        processAutomations().catch(console.error);
+        // WAJIB await agar proses tidak terputus
+        await processPendingCampaigns();
+        await processAutomations();
 
         return NextResponse.json({ success: true, message: 'Scheduler triggered successfully' });
     } catch (error: any) {

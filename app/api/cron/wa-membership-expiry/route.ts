@@ -23,6 +23,32 @@ export async function GET(request: NextRequest, props: any) {
         
 
         const settings = await Settings.findOne();
+
+        // === OPERATIONAL HOURS CHECK (dynamic dari DB) ===
+        const { checkOperationalHours, checkScheduleTime } = await import('@/lib/waOperationalHours');
+        const opCheck = checkOperationalHours(settings || {});
+        if (!opCheck.allowed) {
+            return NextResponse.json({
+                success: true,
+                message: `Skipped: ${opCheck.reason}`,
+                sent: 0,
+                skipped: true,
+            });
+        }
+
+        // === SCHEDULE TIME CHECK ===
+        const memberTime = settings?.waMembershipReminderTime || '09:00';
+        const schedCheck = checkScheduleTime(memberTime);
+        if (!schedCheck.ready) {
+            return NextResponse.json({
+                success: true,
+                message: `Skipped: ${schedCheck.reason}`,
+                sent: 0,
+                skipped: true,
+            });
+        }
+        // === END CHECK ===
+
         const reminderDays = settings?.membershipExpiryReminderDays || 30;
         const storeName = settings?.storeName || 'Salon';
         const loyaltyPointValue = settings?.loyaltyPointValue || 0;

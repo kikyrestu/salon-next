@@ -165,6 +165,7 @@ export default function WAMarketingPage() {
     messageTemplate: "",
     isActive: true,
   });
+  const [editingAutomationId, setEditingAutomationId] = useState<string | null>(null);
 
   // Detail Modal state (for queue tracking)
   const [detailCampaign, setDetailCampaign] = useState<CampaignQueue | null>(null);
@@ -191,19 +192,24 @@ export default function WAMarketingPage() {
       .catch(console.error);
   }, []);
 
-  // Auto-ping the scheduler API to force it to run.
-  // This bypasses the buggy Next.js local dev background threads
-  useEffect(() => {
-    // Ping immediately on mount
-    fetch('/api/wa/cron').catch(() => {});
-    
-    // Ping every 30 seconds
-    const cronPing = setInterval(() => {
-      fetch('/api/wa/cron').catch(() => {});
-    }, 30000);
+  // Fonnte & Setting states
+  const [fonnteStatus, setFonnteStatus] = useState<'checking' | 'ok' | 'error' | 'unconfigured'>('checking');
+  const [hasOwnerPhone, setHasOwnerPhone] = useState<boolean | null>(null);
 
-    return () => clearInterval(cronPing);
-  }, []);
+  useEffect(() => {
+    fetch('/api/settings', { headers: { 'x-store-slug': slug } })
+      .then((r) => r.json())
+      .then((data) => {
+        const d = data.data || {};
+        if (!d.fonnteToken) setFonnteStatus('unconfigured');
+        else setFonnteStatus('ok');
+        setHasOwnerPhone(!!(d.waOwnerNumber));
+      })
+      .catch(() => {
+        setFonnteStatus('error');
+        setHasOwnerPhone(null);
+      });
+  }, [slug]);
 
   /* ────── Fetch targets ────── */
   const fetchTargets = useCallback(async () => {
@@ -230,7 +236,7 @@ export default function WAMarketingPage() {
     } finally {
       setLoading(false);
     }
-  }, [lastVisitSince, serviceId, membershipTier, birthdayMonth, searchQuery]);
+  }, [lastVisitSince, serviceId, membershipTier, birthdayMonth, searchQuery, slug]);
 
   const fetchHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -243,7 +249,7 @@ export default function WAMarketingPage() {
     } finally {
       setHistoryLoading(false);
     }
-  }, []);
+  }, [slug]);
 
   /* ────── Fetch upcoming queue ────── */
   const fetchQueue = useCallback(async () => {
@@ -257,7 +263,7 @@ export default function WAMarketingPage() {
     } finally {
       setQueueLoading(false);
     }
-  }, []);
+  }, [slug]);
 
   /* ────── Fetch automations ────── */
   const fetchAutomations = useCallback(async () => {
@@ -271,7 +277,7 @@ export default function WAMarketingPage() {
     } finally {
       setAutomationsLoading(false);
     }
-  }, []);
+  }, [slug]);
 
   useEffect(() => {
     if (activeTab === "history") {
@@ -295,7 +301,7 @@ export default function WAMarketingPage() {
     } finally {
       setDetailRefreshing(false);
     }
-  }, []);
+  }, [slug]);
 
   /* ────── Send blast ────── */
   const handleBlast = async () => {
@@ -381,9 +387,14 @@ export default function WAMarketingPage() {
     if (!confirm("Batalkan jadwal campaign ini?")) return;
     try {
       const res = await fetch(`/api/wa/campaigns?id=${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
-      if (res.ok) fetchQueue();
-    } catch (e) {
-      console.error(e);
+      if (res.ok) {
+        fetchQueue();
+      } else {
+        const d = await res.json().catch(()=>({}));
+        alert(d.error || "Gagal membatalkan campaign");
+      }
+    } catch (e: any) {
+      alert(e.message || "Gagal membatalkan campaign");
     }
   };
 
@@ -397,15 +408,15 @@ export default function WAMarketingPage() {
     });
   };
 
+  const enabledTargets = targets.filter((t) => t.waNotifEnabled !== false);
+
   const selectAll = () => {
-    if (selectedIds.size === targets.length) {
+    if (selectedIds.size === enabledTargets.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(targets.map((t) => t._id)));
+      setSelectedIds(new Set(enabledTargets.map((t) => t._id)));
     }
   };
-
-  const enabledTargets = targets.filter((t) => t.waNotifEnabled !== false);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -416,7 +427,29 @@ export default function WAMarketingPage() {
             <div className="p-2.5 bg-gradient-to-br from-green-500 to-emerald-700 rounded-xl shadow-lg shadow-green-500/20">
               <MessageSquare className="w-6 h-6 text-white" />
             </div>
-            WA Marketing
+            <div className="flex flex-col">
+              <span>WA Marketing</span>
+              <div className="flex items-center gap-2 mt-1 text-xs font-normal">
+                {fonnteStatus === 'ok' && (
+                  <span className="flex items-center gap-1 text-green-600 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-green-500 inline-block animate-pulse"></span>
+                    Fonnte terhubung
+                  </span>
+                )}
+                {fonnteStatus === 'unconfigured' && (
+                  <span className="flex items-center gap-1 text-amber-600 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                    Token Fonnte belum diisi (Pesan mati)
+                  </span>
+                )}
+                {fonnteStatus === 'error' && (
+                  <span className="flex items-center gap-1 text-red-600 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+                    Gagal cek status Fonnte
+                  </span>
+                )}
+              </div>
+            </div>
           </h1>
           <p className="text-sm text-gray-500 mt-1.5 ml-[52px]">
             Blast WA marketing & automated notifications to your customers
@@ -1011,10 +1044,10 @@ export default function WAMarketingPage() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-gray-900 truncate">
-                          {log.campaignName}
+                          {log.campaignName || `Campaign Blast - ${new Date(log.createdAt).toLocaleDateString("id-ID")}`}
                         </p>
                         <p className="text-xs text-gray-400 line-clamp-1 mt-0.5">
-                          {log.message}
+                          {log.message || "Pesan otomatis dari sistem (No Message Data)"}
                         </p>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
@@ -1055,6 +1088,13 @@ export default function WAMarketingPage() {
         {/* ────── AUTOMATIONS TAB ────── */}
         {activeTab === "automations" && (
           <div className="space-y-6">
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              <span>
+                Scheduler berjalan otomatis di server setiap 5 menit.
+                Aturan aktif akan dieksekusi sesuai jadwal tanpa perlu halaman ini terbuka.
+              </span>
+            </div>
             <div className="flex justify-between items-center bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
               <div>
                 <h2 className="text-indigo-900 font-bold flex items-center gap-2">
@@ -1064,7 +1104,18 @@ export default function WAMarketingPage() {
                 <p className="text-xs text-indigo-700 mt-1">Sistem akan mengeksekusi aturan ini secara otomatis di background.</p>
               </div>
               <button
-                onClick={() => setShowAddAutomation(!showAddAutomation)}
+                onClick={() => {
+                  if (showAddAutomation) {
+                    setShowAddAutomation(false);
+                    setEditingAutomationId(null);
+                    setAutoForm({
+                      name: "", category: "daily_report", targetRole: "owner", frequency: "daily",
+                      scheduleDays: [], scheduleTime: "09:00", daysBefore: 0, messageTemplate: "", isActive: true
+                    });
+                  } else {
+                    setShowAddAutomation(true);
+                  }
+                }}
                 className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm"
               >
                 {showAddAutomation ? <XCircle className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
@@ -1074,7 +1125,7 @@ export default function WAMarketingPage() {
 
             {showAddAutomation && (
               <div className="bg-white p-6 rounded-xl border border-indigo-200 shadow-lg mb-6">
-                <h3 className="font-bold text-gray-900 mb-4 border-b pb-2">Buat Aturan Automasi Baru</h3>
+                <h3 className="font-bold text-gray-900 mb-4 border-b pb-2">{editingAutomationId ? "Edit Aturan Automasi" : "Buat Aturan Automasi Baru"}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Nama Aturan</label>
@@ -1202,21 +1253,46 @@ export default function WAMarketingPage() {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
-                      <div className="flex-1">
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Jam Eksekusi</label>
-                        <input
-                          type="time"
-                          value={autoForm.scheduleTime}
-                          onChange={(e) => setAutoForm({ ...autoForm, scheduleTime: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </div>
                     </div>
                   )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Pesan Template</label>
-                  <p className="text-[10px] text-gray-500 mb-2">Gunakan {"{{nama_customer}}"} untuk nama pelanggan (jika target customer), {"{{total_revenue}}"} untuk report harian, {"{{items}}"} untuk list stok.</p>
+                  <div className="text-[10px] text-gray-500 mb-2 space-y-0.5">
+                    <p className="font-semibold">Variabel yang tersedia untuk kategori ini:</p>
+                    {autoForm.category === 'daily_report' && (
+                      <p>
+                        <code>{"{{storeName}}"}</code> nama salon,{' '}
+                        <code>{"{{date}}"}</code> tanggal,{' '}
+                        <code>{"{{totalAmount}}"}</code> atau <code>{"{{total_revenue}}"}</code> pendapatan (angka),{' '}
+                        <code>{"{{totalTransactions}}"}</code> jumlah transaksi,{' '}
+                        <code>{"{{totalCustomers}}"}</code> jumlah pelanggan
+                      </p>
+                    )}
+                    {autoForm.category === 'stock_alert' && (
+                      <p>
+                        <code>{"{{storeName}}"}</code> nama salon,{' '}
+                        <code>{"{{count}}"}</code> jumlah produk stok rendah,{' '}
+                        <code>{"{{productList}}"}</code> atau <code>{"{{items}}"}</code> daftar produk
+                      </p>
+                    )}
+                    {(autoForm.category === 'membership_expiry' || autoForm.category === 'package_expiry') && (
+                      <p>
+                        <code>{"{{customerName}}"}</code> nama pelanggan,{' '}
+                        <code>{"{{storeName}}"}</code> nama salon,{' '}
+                        <code>{"{{daysLeft}}"}</code> hari tersisa,{' '}
+                        <code>{"{{expiryDate}}"}</code> tanggal kedaluwarsa
+                        {autoForm.category === 'membership_expiry' && <>, <code>{"{{membershipTier}}"}</code> tier membership</>}
+                        {autoForm.category === 'package_expiry' && <>, <code>{"{{packageName}}"}</code> nama paket, <code>{"{{remainingQuota}}"}</code> sisa kuota</>}
+                      </p>
+                    )}
+                    {autoForm.category === 'birthday' && (
+                      <p>
+                        <code>{"{{nama_customer}}"}</code> nama pelanggan,{' '}
+                        <code>{"{{storeName}}"}</code> nama salon
+                      </p>
+                    )}
+                  </div>
                   <textarea
                     value={autoForm.messageTemplate}
                     onChange={(e) => setAutoForm({ ...autoForm, messageTemplate: e.target.value })}
@@ -1225,26 +1301,45 @@ export default function WAMarketingPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 resize-none"
                   />
                 </div>
+                {(autoForm.category === 'daily_report' || autoForm.category === 'stock_alert') &&
+                 autoForm.targetRole === 'owner' &&
+                 hasOwnerPhone === false && (
+                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Nomor WA Owner belum diisi.</strong> Aturan ini tidak akan mengirim pesan sampai <strong>Nomor WA Owner</strong> diisi di halaman <a href={`/${slug}/settings`} className="underline font-semibold text-amber-900">Settings</a>.
+                    </span>
+                  </div>
+                )}
                 <div className="mt-4 flex justify-end">
                   <button
                     onClick={async () => {
                       if (!autoForm.name || !autoForm.messageTemplate) return alert("Nama dan Template harus diisi");
                       try {
-                        const res = await fetch("/api/wa/automations", {
-                          method: "POST",
+                        const method = editingAutomationId ? "PUT" : "POST";
+                        const url = editingAutomationId ? `/api/wa/automations/${editingAutomationId}` : "/api/wa/automations";
+                        const res = await fetch(url, {
+                          method,
                           headers: { "x-store-slug": slug, "Content-Type": "application/json" },
                           body: JSON.stringify(autoForm),
                         });
                         if (res.ok) {
                           setShowAddAutomation(false);
-                          setAutoForm({ ...autoForm, name: "", messageTemplate: "" });
+                          setEditingAutomationId(null);
+                          setAutoForm({ name: "", category: "daily_report", targetRole: "owner", frequency: "daily", scheduleDays: [], scheduleTime: "09:00", daysBefore: 0, messageTemplate: "", isActive: true });
                           fetchAutomations();
-                        } else alert("Gagal menyimpan");
-                      } catch (e) { console.error(e); }
+                        } else {
+                          const errData = await res.json().catch(() => ({}));
+                          alert(errData.error || "Gagal menyimpan aturan");
+                        }
+                      } catch (e: any) {
+                        console.error(e);
+                        alert(`Terjadi kesalahan jaringan: ${e.message || 'Periksa koneksi internet dan coba lagi.'}`);
+                      }
                     }}
                     className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm"
                   >
-                    Simpan Aturan
+                    {editingAutomationId ? "Update Aturan" : "Simpan Aturan"}
                   </button>
                 </div>
               </div>
@@ -1267,7 +1362,7 @@ export default function WAMarketingPage() {
                       <div>
                         <h3 className="font-bold text-gray-900 text-sm">{rule.name}</h3>
                         <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold rounded uppercase">
-                          {rule.category.replace('_', ' ')}
+                          {(rule.category || '').replace('_', ' ')}
                         </span>
                       </div>
                       <button
@@ -1287,7 +1382,12 @@ export default function WAMarketingPage() {
                     
                     <div className="flex items-center gap-2 text-xs text-gray-500 mb-3 bg-gray-50 p-2 rounded-lg">
                       <Clock className="w-3.5 h-3.5" />
-                      <span>{rule.scheduleTime || "Setiap Jam"}</span>
+                      <span>
+                        {['daily_report', 'stock_alert', 'birthday'].includes(rule.category)
+                            ? (rule.scheduleTime || '09:00')
+                            : `H-${rule.daysBefore || 0} hari`
+                        }
+                      </span>
                       <span className="mx-1 text-gray-300">•</span>
                       <Users className="w-3.5 h-3.5" />
                       <span className="capitalize">{rule.targetRole}</span>
@@ -1303,17 +1403,30 @@ export default function WAMarketingPage() {
                       "{rule.messageTemplate}"
                     </p>
                     
-                    <button
-                      onClick={async () => {
-                        if (confirm("Hapus aturan ini?")) {
-                          await fetch(`/api/wa/automations/${rule._id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
-                          fetchAutomations();
-                        }
-                      }}
-                      className="absolute bottom-4 right-4 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => {
+                          setAutoForm(rule);
+                          setEditingAutomationId(rule._id);
+                          setShowAddAutomation(true);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="text-gray-400 hover:text-indigo-500 font-medium text-xs px-2 py-1"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm("Hapus aturan ini?")) {
+                            await fetch(`/api/wa/automations/${rule._id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
+                            fetchAutomations();
+                          }
+                        }}
+                        className="text-gray-400 hover:text-red-500 font-medium text-xs px-2 py-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1379,8 +1492,9 @@ export default function WAMarketingPage() {
                     return (detailCampaign.targets || []).map((t: any, idx: number) => {
                       let estimatedDisplay = "";
                       if (t.status === "pending") {
-                        // Estimate: 1 target per second (unlimited mode)
-                        const waitSeconds = (pendingCount + 1) * 1;
+                        // ESTIMATE: 12 seconds per target (F-05 fix)
+                        const AVERAGE_SEND_DELAY_SECONDS = 12;
+                        const waitSeconds = (pendingCount + 1) * AVERAGE_SEND_DELAY_SECONDS;
                         const targetTime = new Date(detailCampaign.scheduledAt || Date.now()).getTime() + (waitSeconds * 1000);
                         const remainingSecs = Math.max(0, Math.floor((targetTime - nowMs) / 1000));
                         

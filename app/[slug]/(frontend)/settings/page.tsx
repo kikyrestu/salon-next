@@ -59,10 +59,18 @@ interface Settings {
     membershipExpiryReminderDays: number;
     packageExpiryReminderDays: number;
     dailyReportTime: string;
+    waMembershipReminderTime: string;
+    waPackageReminderTime: string;
+    waStockAlertTime: string;
+    waBirthdayNotifTime: string;
     waTemplateStockAlert: string;
     waTemplateDailyReport: string;
     waTemplateMembershipExpiry: string;
     waTemplatePackageExpiry: string;
+    waOperationalHoursStart: number;
+    waOperationalHoursEnd: number;
+    fonnteMaxDailyMessages: number;
+    fonnteDeviceRegisteredAt: string;
 
     // SMS Settings
     smsEnabled: boolean;
@@ -137,14 +145,22 @@ export default function SettingsPage() {
         waBlastNumber: "",
         waAdminNumber: "",
         waOwnerNumber: "",
-        greetingEnabled: false,
+        greetingEnabled: true,
         membershipExpiryReminderDays: 30,
         packageExpiryReminderDays: 30,
         dailyReportTime: "21:00",
+        waMembershipReminderTime: "09:00",
+        waPackageReminderTime: "09:30",
+        waStockAlertTime: "08:00",
+        waBirthdayNotifTime: "08:00",
         waTemplateStockAlert: "",
         waTemplateDailyReport: "",
         waTemplateMembershipExpiry: "",
         waTemplatePackageExpiry: "",
+        waOperationalHoursStart: 8,
+        waOperationalHoursEnd: 20,
+        fonnteMaxDailyMessages: 0,
+        fonnteDeviceRegisteredAt: "",
         // SMS Settings
         smsEnabled: false,
         twilioAccountSid: "",
@@ -273,14 +289,22 @@ export default function SettingsPage() {
                     waBlastNumber: data.data.waBlastNumber || "",
                     waAdminNumber: data.data.waAdminNumber || "",
                     waOwnerNumber: data.data.waOwnerNumber || "",
-                    greetingEnabled: data.data.greetingEnabled || false,
+                    greetingEnabled: data.data.greetingEnabled ?? true,
                     membershipExpiryReminderDays: data.data.membershipExpiryReminderDays || 30,
                     packageExpiryReminderDays: data.data.packageExpiryReminderDays || 30,
                     dailyReportTime: data.data.dailyReportTime || "21:00",
+                    waMembershipReminderTime: data.data.waMembershipReminderTime || "09:00",
+                    waPackageReminderTime: data.data.waPackageReminderTime || "09:30",
+                    waStockAlertTime: data.data.waStockAlertTime || "08:00",
+                    waBirthdayNotifTime: data.data.waBirthdayNotifTime || "08:00",
                     waTemplateStockAlert: data.data.waTemplateStockAlert || "",
                     waTemplateDailyReport: data.data.waTemplateDailyReport || "",
                     waTemplateMembershipExpiry: data.data.waTemplateMembershipExpiry || "",
                     waTemplatePackageExpiry: data.data.waTemplatePackageExpiry || "",
+                    waOperationalHoursStart: data.data.waOperationalHoursStart ?? 8,
+                    waOperationalHoursEnd: data.data.waOperationalHoursEnd ?? 20,
+                    fonnteMaxDailyMessages: data.data.fonnteMaxDailyMessages || 0,
+                    fonnteDeviceRegisteredAt: data.data.fonnteDeviceRegisteredAt || "",
                     // SMS Settings
                     smsEnabled: data.data.smsEnabled || false,
                     twilioAccountSid: data.data.twilioAccountSid || "",
@@ -1125,6 +1149,18 @@ export default function SettingsPage() {
                         WA Marketing & Notifications
                     </h2>
                     <div className="space-y-4">
+                        <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-100">
+                            <input
+                                type="checkbox"
+                                id="greetingEnabled"
+                                checked={settings.greetingEnabled}
+                                onChange={(e) => setSettings({ ...settings, greetingEnabled: e.target.checked })}
+                                className="w-4 h-4 text-green-600 rounded focus:ring-green-600"
+                            />
+                            <label htmlFor="greetingEnabled" className="text-sm font-medium text-gray-900 cursor-pointer">
+                                Aktifkan Auto-Reply Greeting WA (Pesan sambutan otomatis ke pelanggan baru)
+                            </label>
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <FormInput
                                 label="WA Admin (Stock Alert)"
@@ -1138,91 +1174,133 @@ export default function SettingsPage() {
                                 onChange={(e) => setSettings({ ...settings, waOwnerNumber: e.target.value })}
                                 placeholder="628123456789"
                             />
-                            <FormInput
-                                label="Daily Report Time"
-                                value={settings.dailyReportTime}
-                                onChange={(e) => setSettings({ ...settings, dailyReportTime: e.target.value })}
-                                placeholder="21:00"
-                            />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormInput
-                                label="Membership Expiry Reminder (hari sebelum)"
-                                type="number"
-                                value={settings.membershipExpiryReminderDays.toString()}
-                                onChange={(e) => setSettings({ ...settings, membershipExpiryReminderDays: parseInt(e.target.value) || 30 })}
-                                min="1"
-                                placeholder="30"
-                            />
-                            <FormInput
-                                label="Package Expiry Reminder (hari sebelum)"
-                                type="number"
-                                value={settings.packageExpiryReminderDays.toString()}
-                                onChange={(e) => setSettings({ ...settings, packageExpiryReminderDays: parseInt(e.target.value) || 30 })}
-                                min="1"
-                                placeholder="30"
-                            />
-                        </div>
-                        {/* WA Message Templates */}
+
                         <div className="border-t border-gray-200 pt-4 mt-4">
-                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                📝 Template Pesan Otomatis
-                            </h3>
-                            <div className="space-y-4">
+                            <h3 className="text-sm font-bold text-gray-800 mb-3">⚙️ Pengaturan Lanjutan WA Blast</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* ===== OPERATIONAL HOURS - VISUAL TIME RANGE ===== */}
+                                <div className="col-span-1 md:col-span-2 space-y-4">
+                                    
+                                    {/* Time Range Picker */}
+                                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                                        <h4 className="text-sm font-bold text-gray-800 mb-3">
+                                            🕐 Jendela Jam Operasional WA
+                                        </h4>
+                                        <p className="text-xs text-gray-500 mb-4">
+                                            WA hanya akan dikirim di antara jam ini (berlaku untuk semua pengiriman otomatis)
+                                        </p>
+                                        
+                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                    Mulai Operasional
+                                                </label>
+                                                <input
+                                                    type="time"
+                                                    value={`${String(settings.waOperationalHoursStart ?? 8).padStart(2,'0')}:00`}
+                                                    onChange={(e) => {
+                                                        const hour = parseInt(e.target.value.split(':')[0]) || 0;
+                                                        setSettings({ ...settings, waOperationalHoursStart: hour });
+                                                    }}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm 
+                                                            text-gray-900 bg-white focus:ring-2 focus:ring-green-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                    Selesai Operasional
+                                                </label>
+                                                <input
+                                                    type="time"
+                                                    value={`${String(settings.waOperationalHoursEnd ?? 20).padStart(2,'0')}:00`}
+                                                    onChange={(e) => {
+                                                        const hour = parseInt(e.target.value.split(':')[0]) || 0;
+                                                        setSettings({ ...settings, waOperationalHoursEnd: hour });
+                                                    }}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm 
+                                                            text-gray-900 bg-white focus:ring-2 focus:ring-green-500"
+                                                />
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Visual Preview Bar */}
+                                        <div className="mt-2">
+                                            <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                                <span>00:00</span>
+                                                <span>06:00</span>
+                                                <span>12:00</span>
+                                                <span>18:00</span>
+                                                <span>23:59</span>
+                                            </div>
+                                            <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden">
+                                                <div
+                                                    className="absolute h-full bg-green-400 rounded-full transition-all"
+                                                    style={{
+                                                        left: `${((settings.waOperationalHoursStart ?? 8) / 24) * 100}%`,
+                                                        width: `${(((settings.waOperationalHoursEnd ?? 20) - (settings.waOperationalHoursStart ?? 8)) / 24) * 100}%`
+                                                    }}
+                                                />
+                                            </div>
+                                            <p className="text-xs text-green-700 font-medium mt-2 text-center">
+                                                ✅ WA aktif: {String(settings.waOperationalHoursStart ?? 8).padStart(2,'0')}:00 
+                                                &nbsp;—&nbsp; 
+                                                {String(settings.waOperationalHoursEnd ?? 20).padStart(2,'0')}:00
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Per-Type Schedule */}
+                                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                                        <h4 className="text-sm font-bold text-gray-800 mb-3">
+                                            📅 Jadwal Spesifik per Jenis Notifikasi
+                                        </h4>
+                                        <p className="text-xs text-gray-500 mb-3">
+                                            Tentukan jam berapa tepatnya setiap jenis pesan WA akan dikirim 
+                                            (harus dalam rentang jam operasional di atas)
+                                        </p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {[
+                                                { key: 'dailyReportTime',           label: '📊 Laporan Harian',         default: '21:00' },
+                                                { key: 'waStockAlertTime',          label: '📦 Alert Stok Rendah',       default: '08:00' },
+                                                { key: 'waMembershipReminderTime',  label: '👑 Reminder Membership',     default: '09:00' },
+                                                { key: 'waPackageReminderTime',     label: '🎁 Reminder Paket',           default: '09:30' },
+                                                { key: 'waBirthdayNotifTime',       label: '🎂 Notifikasi Ultah',  default: '08:00' },
+                                            ].map(({ key, label, default: def }) => (
+                                                <div key={key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-white rounded-lg border border-blue-100">
+                                                    <label className="text-sm font-medium text-gray-700 flex-1">{label}</label>
+                                                    <input
+                                                        type="time"
+                                                        value={(settings as any)[key] || def}
+                                                        onChange={(e) => setSettings({ ...settings, [key]: e.target.value })}
+                                                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm 
+                                                                text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 w-full sm:w-32"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* ===== END OPERATIONAL HOURS ===== */}
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                                        Template Stock Alert → Admin
-                                        <span className="text-gray-400 font-normal ml-1">Variabel: {"{{storeName}}"}, {"{{count}}"}, {"{{productList}}"}</span>
-                                    </label>
-                                    <textarea
-                                        value={settings.waTemplateStockAlert}
-                                        onChange={(e) => setSettings({ ...settings, waTemplateStockAlert: e.target.value })}
-                                        rows={4}
-                                        placeholder="⚠️ *Notifikasi Stok Rendah — {{storeName}}*..."
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Nomor Fonnte Didaftarkan</label>
+                                    <input
+                                        type="date"
+                                        value={settings.fonnteDeviceRegisteredAt ? settings.fonnteDeviceRegisteredAt.substring(0, 10) : ''}
+                                        onChange={(e) => setSettings({ ...settings, fonnteDeviceRegisteredAt: e.target.value })}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-900"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                                        Template Daily Report → Owner
-                                        <span className="text-gray-400 font-normal ml-1">Variabel: {"{{storeName}}"}, {"{{date}}"}, {"{{totalAmount}}"}, {"{{totalTransactions}}"}, {"{{totalCustomers}}"}</span>
-                                    </label>
-                                    <textarea
-                                        value={settings.waTemplateDailyReport}
-                                        onChange={(e) => setSettings({ ...settings, waTemplateDailyReport: e.target.value })}
-                                        rows={4}
-                                        placeholder="📊 *Laporan Harian — {{storeName}}*..."
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                                        Template Membership Expiry → Customer
-                                        <span className="text-gray-400 font-normal ml-1">Variabel: {"{{customerName}}"}, {"{{membershipTier}}"}, {"{{storeName}}"}, {"{{daysLeft}}"}, {"{{expiryDate}}"}</span>
-                                    </label>
-                                    <textarea
-                                        value={settings.waTemplateMembershipExpiry}
-                                        onChange={(e) => setSettings({ ...settings, waTemplateMembershipExpiry: e.target.value })}
-                                        rows={4}
-                                        placeholder="Halo {{customerName}} 👋, Membership Anda..."
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                                        Template Package Expiry → Customer
-                                        <span className="text-gray-400 font-normal ml-1">Variabel: {"{{customerName}}"}, {"{{packageName}}"}, {"{{storeName}}"}, {"{{daysLeft}}"}, {"{{expiryDate}}"}, {"{{remainingQuota}}"}</span>
-                                    </label>
-                                    <textarea
-                                        value={settings.waTemplatePackageExpiry}
-                                        onChange={(e) => setSettings({ ...settings, waTemplatePackageExpiry: e.target.value })}
-                                        rows={4}
-                                        placeholder="Halo {{customerName}} 👋, Paket {{packageName}}..."
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                                    />
-                                </div>
+                                <FormInput
+                                    label="Override Limit Pesan Harian (0 = otomatis)"
+                                    type="number" min="0"
+                                    value={settings.fonnteMaxDailyMessages?.toString()}
+                                    onChange={(e) => setSettings({ ...settings, fonnteMaxDailyMessages: parseInt(e.target.value) || 0 })}
+                                    placeholder="0"
+                                />
                             </div>
                         </div>
+
                         <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                             <p className="text-xs text-green-800">
                                 <strong>Auto WA:</strong> Stock alert → Admin | Daily report → Owner | Membership/Package expiry → Customer.<br />
@@ -1431,8 +1509,9 @@ export default function SettingsPage() {
 
                         <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
-                                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-tight">Uji Coba Push WhatsApp</h3>
-                                <p className="text-xs text-gray-500 mt-1">Trigger manual pengiriman WA follow-up yang sudah jatuh tempo.</p>
+                                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-tight">Manual Trigger Scheduler WA</h3>
+                                <p className="text-xs text-gray-500 mt-1">Jalankan scheduler WA secara manual untuk memproses: (1) Follow-up service, (2) Blast campaigns, (3) Automation rules.</p>
+                                <p className="text-[11px] text-red-600 font-bold mt-1">⚠️ Pesan WA sungguhan akan terkirim ke customer.</p>
                                 {waPushResult && (
                                     <p className="text-xs text-gray-700 mt-2">
                                         Hasil: total {waPushResult.total}, sent {waPushResult.sent}, failed {waPushResult.failed}

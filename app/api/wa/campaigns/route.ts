@@ -16,13 +16,14 @@ export async function GET(request: NextRequest, props: any) {
     if (permError) return permError;
 
     try {
-        
-        
+        const { searchParams } = new URL(request.url);
+        const limit = parseInt(searchParams.get('limit') || '50');
 
         const campaigns = await WaCampaignQueue.find({
             status: { $in: ['pending', 'processing'] }
         })
         .sort({ scheduledAt: 1 })
+        .limit(limit)
         .populate('sentBy', 'name')
         .lean();
 
@@ -130,8 +131,13 @@ export async function DELETE(request: NextRequest, props: any) {
             return NextResponse.json({ success: false, error: 'Campaign not found' }, { status: 404 });
         }
 
-        if (campaign.status === 'completed') {
-            return NextResponse.json({ success: false, error: 'Cannot cancel completed campaign' }, { status: 400 });
+        if (['completed', 'processing'].includes(campaign.status)) {
+            return NextResponse.json({ 
+                success: false, 
+                error: campaign.status === 'processing' 
+                    ? 'Campaign sedang diproses. Tunggu selesai.' 
+                    : 'Tidak bisa membatalkan campaign yang sudah selesai.' 
+            }, { status: 400 });
         }
 
         await WaCampaignQueue.findByIdAndDelete(id);

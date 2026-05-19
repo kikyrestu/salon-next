@@ -4,7 +4,27 @@
 
 Dokumen ini berisi riwayat perbaikan untuk isu-isu dari berbagai laporan audit (WA Module, POS, Inventory, dll). Perbaikan difokuskan pada stabilitas, pencegahan pemblokiran WhatsApp, keamanan API, dan kualitas kode.
 
+## Remediasi WA Engine Ronde 3 (18 Mei 2026)
 
+### 36. Perbaikan Kritis Scheduler (Fase 1)
+- **File:** `lib/scheduler.ts`, `app/api/products/[id]/route.ts`, `app/[slug]/(frontend)/wa-marketing/page.tsx`
+- **Fix:** 
+  - Waktu *window* task automasi dilebarkan dari `5` menit ke `60` menit (mencegah missed schedule). 
+  - Template variabel (`{{storeName}}`, `{{count}}`, `{{items}}`, dll) kini diganti dengan tepat oleh backend.
+  - *Trigger ping* dari frontend sekarang dikirim dengan header `Authorization`.
+  - Notifikasi *low-stock* otomatis dire-set apabila stok barang kembali di-isi/update.
+
+### 37. Perbaikan UI & Skema Settings (Fase 2)
+- **File:** `app/[slug]/(frontend)/settings/page.tsx`, `app/api/settings/route.ts`
+- **Fix:** Menambahkan parameter `waOperationalHoursStart`, `waOperationalHoursEnd`, `fonnteMaxDailyMessages`, dan `fonnteDeviceRegisteredAt` pada UI dan TypeScript Interface. Menyematkan daftar `ALLOWED_FIELDS` *(Whitelist)* pada sisi API untuk mencegah *mass-assignment vulnerabilities*.
+
+### 38. Edit Automations & Blast History Fallback (Fase 3)
+- **File:** `app/[slug]/(frontend)/wa-marketing/page.tsx`, `app/api/wa/blast-logs/route.ts`
+- **Fix:** 
+  - Rule otomatis/automation sekarang bisa diedit lewat tombol **Edit** dengan method `PUT`.
+  - Menggabungkan (*merge*) data dari `WaBlastLog` dan `WaCampaignQueue` agar seluruh pesan terkirim dari sistem (tidak peduli blast manual atau autotrigger) tidak hilang dan tampil di **Blast History**.
+
+---
 
 ## [Baru] Modul Inventory (16 Mei 2026)
 

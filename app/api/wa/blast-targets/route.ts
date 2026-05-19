@@ -151,8 +151,14 @@ export async function POST(request: NextRequest, props: any) {
         return NextResponse.json({ success: false, error: 'Tidak ada customer yang memiliki nomor WA valid' }, { status: 400 });
     }
 
-    // Limit restriction removed to allow unlimited targets
-    
+    // FLOW-08 FIX: Limit max target per campaign (B-10)
+    const MAX_TARGETS = 500;
+    if (customers.length > MAX_TARGETS) {
+        return NextResponse.json({
+            success: false,
+            error: `Terlalu banyak target (${customers.length}). Maksimal ${MAX_TARGETS} per campaign.`
+        }, { status: 400 });
+    }
     const targets = customers.map((c: any) => ({
         customerId: c._id,
         phone: normalizeIndonesianPhone(c.phone),
