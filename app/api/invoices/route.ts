@@ -161,8 +161,34 @@ export async function POST(request: NextRequest, props: any) {
       }
     }
 
-    // Generate Invoice Number — atomic via MongoDB counter (tidak ada race condition)
-    const invoiceNumber = await generateInvoiceNumber(tenantSlug);
+    let invoiceNumber = "";
+
+    // [BUG FIX] Mencegah double omset & Re-use Nomor Invoice Lama
+    if (normalizedBody.appointment) {
+      const existingInvoices = await Invoice.find({ appointment: normalizedBody.appointment });
+      const pendingInvoice = existingInvoices.find((inv: any) => inv.status === 'pending');
+      const hasPaid = existingInvoices.some((inv: any) => inv.status === 'paid' || inv.status === 'partially_paid');
+      
+      if (hasPaid) {
+        return NextResponse.json({ 
+            success: false, 
+            error: "Appointment ini sudah memiliki invoice yang terbayar. Harap cek riwayat transaksi." 
+        }, { status: 400 });
+      }
+
+      if (pendingInvoice) {
+        // Gunakan kembali nomor invoice lama yang dibuat oleh sistem appointment
+        invoiceNumber = pendingInvoice.invoiceNumber;
+        
+        // Hapus invoice auto-generated yang masih pending
+        await Invoice.findByIdAndDelete(pendingInvoice._id);
+      }
+    }
+
+    // Generate Invoice Number baru HANYA jika tidak ada invoice lama yang bisa di-reuse
+    if (!invoiceNumber) {
+        invoiceNumber = await generateInvoiceNumber(tenantSlug);
+    }
 
     // BUG FIX 6: Check Wallet Balance before creating invoice
     let walletAmountUsed = 0;

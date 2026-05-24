@@ -156,7 +156,7 @@ export default function StaffCalendar({ onSelectEvent, refreshTrigger, slug }: S
             </div>
 
             <div className="flex-1 relative overflow-x-auto overflow-y-hidden rounded-xl border border-gray-100 bg-gray-50/20">
-                <div className="min-w-[600px] md:min-w-0 h-full">
+                <div className="h-full" style={{ minWidth: view === Views.DAY && resources.length > 0 ? Math.max(800, resources.length * 150) : "100%" }}>
                     <Calendar
                         localizer={localizer}
                         events={events}
@@ -342,4 +342,3 @@ export default function StaffCalendar({ onSelectEvent, refreshTrigger, slug }: S
         </div>
     );
 }
-

@@ -2137,10 +2137,34 @@ export default function POSPage() {
         // Auto-complete appointment if checkout was initiated from a booking
         if (appointmentId) {
           try {
+            const updatedServices = cart
+              .filter(item => item.type === "Service" || item.type === "Bundle")
+              .flatMap(item => {
+                if (item.type === "Bundle" && item.bundleServices) {
+                  return item.bundleServices.map(bs => ({
+                    service: bs.service,
+                    name: bs.serviceName,
+                    price: bs.servicePrice,
+                    duration: bs.duration || 30
+                  }));
+                } else if (item.type === "Service") {
+                  return [{
+                    service: item._id,
+                    name: item.name,
+                    price: item.price,
+                    duration: item.duration || 30
+                  }];
+                }
+                return [];
+              });
+
             await fetch(`/api/appointments/${appointmentId}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json", ...storeHeaders },
-              body: JSON.stringify({ status: "completed" }),
+              body: JSON.stringify({ 
+                 status: "completed",
+                 services: updatedServices.length > 0 ? updatedServices : undefined
+              }),
             });
           } catch (err) {
             console.error("Failed to auto-complete appointment:", err);
