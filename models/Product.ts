@@ -20,6 +20,7 @@ export interface IProduct extends Document {
   commissionValue?: number;
   lowStockAlertEnabled: boolean;
   lowStockNotifSent?: boolean;
+  isFavorite?: boolean;
 }
 
 const productSchema = new Schema<IProduct>(
@@ -55,6 +56,7 @@ const productSchema = new Schema<IProduct>(
       enum: ["active", "inactive"],
       default: "active",
     },
+    isFavorite: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

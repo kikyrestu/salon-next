@@ -23,6 +23,17 @@ interface Settings {
     walletIncludedServices?: string[];
     walletIncludedProducts?: string[];
     walletIncludedBundles?: string[];
+    walletExpiryDays?: number;
+    financialReportSections?: {
+      totalSales: boolean;
+      totalCollected: boolean;
+      purchases: boolean;
+      expenses: boolean;
+      payroll: boolean;
+      walletTopups: boolean;
+      netProfit: boolean;
+      cashFlow: boolean;
+    };
 }
 
 interface SettingsContextType {
@@ -83,6 +94,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                     walletIncludedServices: data.data.walletIncludedServices || [],
                     walletIncludedProducts: data.data.walletIncludedProducts || [],
                     walletIncludedBundles: data.data.walletIncludedBundles || [],
+                    walletExpiryDays: data.data.walletExpiryDays || 0,
+                    financialReportSections: data.data.financialReportSections || {
+                        totalSales: true,
+                        totalCollected: true,
+                        purchases: true,
+                        expenses: true,
+                        payroll: false,
+                        walletTopups: false,
+                        netProfit: true,
+                        cashFlow: true
+                    }
                 });
             }
         } catch (error) {

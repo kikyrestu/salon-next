@@ -3,7 +3,7 @@
 
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Save, Store, Mail, Phone, MapPin, DollarSign, Percent, Image as ImageIcon, Globe, FileText, Clock, CreditCard, MessageSquare, Send, Bell, Sparkles, Trash2, RefreshCw, Gift, Crown } from "lucide-react";
+import { Save, Store, Mail, Phone, MapPin, DollarSign, Percent, Image as ImageIcon, Globe, FileText, Clock, CreditCard, MessageSquare, Send, Bell, Sparkles, Trash2, RefreshCw, Gift, Crown, BarChart3 } from "lucide-react";
 import FormInput, { FormSelect, FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
 import { getAllCurrencies } from "@/lib/currency";
@@ -31,6 +31,17 @@ interface Settings {
     walletIncludedServices: string[];
     walletIncludedProducts: string[];
     walletIncludedBundles: string[];
+    walletExpiryDays: number;
+    financialReportSections: {
+        totalSales: boolean;
+        totalCollected: boolean;
+        purchases: boolean;
+        expenses: boolean;
+        payroll: boolean;
+        walletTopups: boolean;
+        netProfit: boolean;
+        cashFlow: boolean;
+    };
     termsAndConditions: string;
 
     // Premium Membership
@@ -126,6 +137,17 @@ export default function SettingsPage() {
         walletIncludedServices: [],
         walletIncludedProducts: [],
         walletIncludedBundles: [],
+        walletExpiryDays: 0,
+        financialReportSections: {
+            totalSales: true,
+            totalCollected: true,
+            purchases: true,
+            expenses: true,
+            payroll: false,
+            walletTopups: false,
+            netProfit: true,
+            cashFlow: true
+        },
         termsAndConditions: "",
         membershipPrice: 0,
         membershipDurationDays: 365,
@@ -269,6 +291,17 @@ export default function SettingsPage() {
                     walletIncludedServices: data.data.walletIncludedServices || [],
                     walletIncludedProducts: data.data.walletIncludedProducts || [],
                     walletIncludedBundles: data.data.walletIncludedBundles || [],
+                    walletExpiryDays: data.data.walletExpiryDays || 0,
+                    financialReportSections: data.data.financialReportSections || {
+                        totalSales: true,
+                        totalCollected: true,
+                        purchases: true,
+                        expenses: true,
+                        payroll: false,
+                        walletTopups: false,
+                        netProfit: true,
+                        cashFlow: true
+                    },
                     termsAndConditions: data.data.termsAndConditions || "",
                     loyaltyPointPerSpend: data.data.loyaltyPointPerSpend || 0,
                     loyaltyPointValue: data.data.loyaltyPointValue || 0,
@@ -851,6 +884,23 @@ export default function SettingsPage() {
                         </button>
                     </div>
 
+                    <div className="border-t border-gray-100 pt-4 mt-4">
+                        <h4 className="text-sm font-bold text-gray-700 mb-2">Masa Berlaku Saldo E-Wallet</h4>
+                        <select
+                            value={settings.walletExpiryDays || 0}
+                            onChange={(e) => setSettings({...settings, walletExpiryDays: parseInt(e.target.value)})}
+                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-lg bg-white font-medium"
+                        >
+                            <option value={0}>Tidak pernah hangus</option>
+                            <option value={30}>30 hari sejak transaksi terakhir</option>
+                            <option value={60}>60 hari sejak transaksi terakhir</option>
+                            <option value={90}>90 hari sejak transaksi terakhir</option>
+                            <option value={180}>180 hari sejak transaksi terakhir</option>
+                            <option value={365}>365 hari sejak transaksi terakhir</option>
+                        </select>
+                        <p className="text-[11px] text-gray-500 mt-1">Saldo customer akan otomatis hangus jika tidak ada transaksi wallet dalam jangka waktu yang dipilih.</p>
+                    </div>
+
                     <div className="mt-8 pt-6 border-t border-gray-200">
                         <h3 className="text-md font-bold text-gray-900 mb-2">Syarat Penggunaan E-Wallet</h3>
                         <p className="text-xs text-gray-500 mb-4">
@@ -970,6 +1020,42 @@ export default function SettingsPage() {
                             type="number"
                             placeholder="0"
                         />
+                    </div>
+                </div>
+
+                {/* Custom Financial Report */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5 text-indigo-600" /> Custom Financial Report
+                    </h3>
+                    <p className="text-xs text-gray-500">Pilih section yang ingin ditampilkan di halaman Financial Report.</p>
+                    <div className="grid grid-cols-2 gap-3">
+                        {[
+                            { key: 'totalSales', label: 'Total Sales (Revenue)' },
+                            { key: 'totalCollected', label: 'Total Collected (Cash In)' },
+                            { key: 'purchases', label: 'Inventory Purchases' },
+                            { key: 'expenses', label: 'Operational Expenses' },
+                            { key: 'payroll', label: 'Payroll' },
+                            { key: 'walletTopups', label: 'Wallet Top-ups' },
+                            { key: 'netProfit', label: 'Net Profit' },
+                            { key: 'cashFlow', label: 'Cash Flow' },
+                        ].map(item => (
+                            <label key={item.key} className="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.financialReportSections?.[item.key as keyof typeof settings.financialReportSections] ?? (item.key !== 'payroll' && item.key !== 'walletTopups')}
+                                    onChange={(e) => setSettings({
+                                        ...settings,
+                                        financialReportSections: {
+                                            ...(settings.financialReportSections || {}),
+                                            [item.key]: e.target.checked,
+                                        }
+                                    })}
+                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                            </label>
+                        ))}
                     </div>
                 </div>
 

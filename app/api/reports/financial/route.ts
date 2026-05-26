@@ -11,7 +11,7 @@ import { checkPermission } from "@/lib/rbac";
 
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Purchase, Invoice, Expense, Settings, Payroll } = await getTenantModels(tenantSlug);
+    const { Purchase, Invoice, Expense, Settings, Payroll, WalletTransaction } = await getTenantModels(tenantSlug);
 
     try {
     const permissionErrorGET = await checkPermission(request, 'reports', 'view');
@@ -103,6 +103,13 @@ export async function GET(request: NextRequest, props: any) {
         const expenses = expenseStats[0] || { totalExpenses: 0, count: 0 };
         const payroll = payrollStats[0] || { totalPayroll: 0, count: 0 };
 
+        // 5. Wallet Topups
+        const walletResult = await WalletTransaction.aggregate([
+            { $match: { type: 'topup', createdAt: { $gte: start, $lte: end } } },
+            { $group: { _id: null, totalTopups: { $sum: '$amount' }, count: { $sum: 1 } } },
+        ]);
+        const walletTopups = walletResult[0] || { totalTopups: 0, count: 0 };
+
         const netProfit = sales.totalSales - purchases.totalPurchases - expenses.totalExpenses - payroll.totalPayroll;
         const cashFlow = sales.totalCollected - purchases.totalPaid - expenses.totalExpenses - payroll.totalPayroll; // Assuming expenses are paid immediately or we track expense payment separately (Expense model has amount, assume paid)
 
@@ -113,6 +120,7 @@ export async function GET(request: NextRequest, props: any) {
                 purchases,
                 expenses,
                 payroll,
+                walletTopups,
                 netProfit,
                 cashFlow
             }

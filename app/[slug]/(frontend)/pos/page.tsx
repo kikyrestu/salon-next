@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useSearchParams, useParams } from "next/navigation";
 import { useTenantRouter } from "@/hooks/useTenantRouter";
 import {
@@ -143,8 +143,9 @@ export default function POSPage() {
   const storeHeaders = { "x-store-slug": slug };
   const { settings } = useSettings();
   const [activeTab, setActiveTab] = useState<
-    "all" | "services" | "products" | "packages" | "bundles" | "topup"
+    "favorites" | "all" | "services" | "products" | "packages" | "bundles" | "topup"
   >("all");
+  const [expandedParent, setExpandedParent] = useState<string | null>(null);
   // Top-Up Wallet state
   const [topupAmount, setTopupAmount] = useState<number | string>("");
   const [services, setServices] = useState<Item[]>([]);
@@ -590,16 +591,24 @@ export default function POSPage() {
     }
   };
 
+  // Build parent-child map for services
+  const parentServices = services.filter((s: any) => !s.parentService);
+  const childrenMap = new Map<string, typeof services>();
+  services.filter((s: any) => s.parentService).forEach((s: any) => {
+    const pid = String(s.parentService);
+    if (!childrenMap.has(pid)) childrenMap.set(pid, []);
+    childrenMap.get(pid)!.push(s);
+  });
+
   const filteredItems = (
-    activeTab === "all"
-      ? [...services, ...serviceBundles, ...products, ...packages]
-      : activeTab === "services"
-        ? services
-        : activeTab === "products"
-          ? products
-          : activeTab === "bundles"
-            ? serviceBundles
-            : packages
+    activeTab === "favorites"
+      ? [...services, ...products].filter((i: any) => i.isFavorite)
+      : activeTab === "all"
+      ? [...parentServices, ...serviceBundles, ...products, ...packages]
+      : activeTab === "services" ? parentServices
+      : activeTab === "products" ? products
+      : activeTab === "bundles" ? serviceBundles
+      : packages
   ).filter((item) => item.name.toLowerCase().includes(search.toLowerCase()));
 
   const getCartItemKey = (itemId: string, type: string, bundleIndex?: number) => bundleIndex !== undefined ? `${type}:${itemId}-${bundleIndex}` : `${type}:${itemId}`;
@@ -2285,6 +2294,12 @@ export default function POSPage() {
             </div>
             <div className="flex gap-2">
               <button
+                onClick={() => setActiveTab("favorites")}
+                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "favorites" ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200"}`}
+              >
+                ⭐
+              </button>
+              <button
                 onClick={() => setActiveTab("all")}
                 className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "all" ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
               >
@@ -2415,50 +2430,99 @@ export default function POSPage() {
               </div>
             ) : (
               <div className="grid grid-cols-2 xs:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 lg:gap-3">
-                {filteredItems.map((item) => (
-                  <div
-                    key={item._id}
-                    onClick={() => {
-                      addToCart(item);
-                      if (
-                        typeof window !== "undefined" &&
-                        window.innerWidth < 768
-                      ) {
-                        setMobileTab("cart");
+                {filteredItems.map((item) => {
+                  const children = item.type === "Service" ? (childrenMap.get(item._id) || []) : [];
+                  const hasChildren = children.length > 0;
+                  const isExpanded = expandedParent === item._id;
+
+                  return (
+                    <React.Fragment key={`${item._id}-${item.type}`}>
+                      <div
+                        onClick={() => {
+                          if (hasChildren) {
+                            setExpandedParent(isExpanded ? null : item._id);
+                          } else {
+                            addToCart(item);
+                            if (
+                              typeof window !== "undefined" &&
+                              window.innerWidth < 768
+                            ) {
+                              setMobileTab("cart");
+                            }
+                          }
+                        }}
+                        className={`relative bg-white p-2 lg:p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-shadow flex flex-col items-center text-center group min-h-[120px] lg:min-h-[132px] active:scale-95 duration-75 ${hasChildren ? 'border-purple-200 bg-purple-50/30' : 'border-gray-200'} ${isExpanded ? 'ring-2 ring-purple-400 border-purple-400' : ''}`}
+                      >
+                        {(item as any).isFavorite && (
+                          <span className="absolute top-1 left-1 text-amber-400 text-xs">⭐</span>
+                        )}
+                        {hasChildren && (
+                          <span className="absolute top-1 right-1 bg-purple-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">
+                            {children.length} varian
+                          </span>
+                        )}
+                        <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-full flex items-center justify-center mb-1 lg:mb-2 group-hover:scale-105 transition-transform overflow-hidden bg-gray-100">
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : item.type === "Service" ? (
+                            <div className="w-full h-full bg-purple-100 flex items-center justify-center">
+                              <ScissorsIcon className="w-5 h-5 lg:w-6 lg:h-6 text-purple-600" />
+                            </div>
+                          ) : item.type === "Product" ? (
+                            <div className="w-full h-full bg-green-100 flex items-center justify-center">
+                              <Package className="w-5 h-5 lg:w-6 lg:h-6 text-green-600" />
+                            </div>
+                          ) : (
+                            <div className="w-full h-full bg-amber-100 flex items-center justify-center">
+                              <Package className="w-5 h-5 lg:w-6 lg:h-6 text-amber-600" />
+                            </div>
+                          )}
+                        </div>
+                        <h3 className="font-semibold text-gray-800 text-[10px] lg:text-xs leading-tight line-clamp-2 mb-1 h-8 flex items-center justify-center">
+                          {item.name}
+                        </h3>
+                        <p className="text-blue-900 font-bold text-xs lg:text-sm">
+                          {settings.symbol}
+                          {item.price.toLocaleString("id-ID")}
+                        </p>
+                      </div>
+                      {isExpanded && children
+                        .filter(child => child.name.toLowerCase().includes(search.toLowerCase()))
+                        .map(child => (
+                          <div
+                            key={child._id}
+                            onClick={() => {
+                              addToCart(child);
+                              if (
+                                typeof window !== "undefined" &&
+                                window.innerWidth < 768
+                              ) {
+                                setMobileTab("cart");
+                              }
+                            }}
+                            className="relative flex flex-col items-center p-2 lg:p-3 rounded-xl border-2 border-dashed border-purple-300 bg-purple-50/50 text-center cursor-pointer transition-all hover:shadow-md hover:bg-purple-100/50 active:scale-95 duration-75 min-h-[120px] lg:min-h-[132px]"
+                          >
+                            {child.image ? (
+                              <img src={child.image} alt={child.name} className="w-10 h-10 lg:w-12 lg:h-12 rounded-lg object-cover mb-1" />
+                            ) : (
+                              <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-lg bg-purple-100 flex items-center justify-center mb-1">
+                                <ScissorsIcon className="w-4 h-4 lg:w-5 lg:h-5 text-purple-500" />
+                              </div>
+                            )}
+                            <p className="text-[10px] lg:text-xs font-bold text-purple-900 line-clamp-2 leading-tight">{child.name}</p>
+                            <p className="text-[10px] lg:text-xs font-medium text-purple-700 mt-0.5">
+                              {settings.symbol}{child.price?.toLocaleString('id-ID')}
+                            </p>
+                          </div>
+                        ))
                       }
-                    }}
-                    className="bg-white p-2 lg:p-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow flex flex-col items-center text-center group min-h-[120px] lg:min-h-[132px] active:scale-95 duration-75"
-                  >
-                    <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-full flex items-center justify-center mb-1 lg:mb-2 group-hover:scale-105 transition-transform overflow-hidden bg-gray-100">
-                      {item.image ? (
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : item.type === "Service" ? (
-                        <div className="w-full h-full bg-purple-100 flex items-center justify-center">
-                          <ScissorsIcon className="w-5 h-5 lg:w-6 lg:h-6 text-purple-600" />
-                        </div>
-                      ) : item.type === "Product" ? (
-                        <div className="w-full h-full bg-green-100 flex items-center justify-center">
-                          <Package className="w-5 h-5 lg:w-6 lg:h-6 text-green-600" />
-                        </div>
-                      ) : (
-                        <div className="w-full h-full bg-amber-100 flex items-center justify-center">
-                          <Package className="w-5 h-5 lg:w-6 lg:h-6 text-amber-600" />
-                        </div>
-                      )}
-                    </div>
-                    <h3 className="font-semibold text-gray-800 text-[10px] lg:text-xs leading-tight line-clamp-2 mb-1 h-8 flex items-center justify-center">
-                      {item.name}
-                    </h3>
-                    <p className="text-blue-900 font-bold text-xs lg:text-sm">
-                      {settings.symbol}
-                      {item.price.toLocaleString("id-ID")}
-                    </p>
-                  </div>
-                ))}
+                    </React.Fragment>
+                  );
+                })}
               </div>
             )}
           </div>

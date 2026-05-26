@@ -4,7 +4,7 @@
 
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import { DollarSign, TrendingUp, TrendingDown, ShoppingBag, CreditCard, Calendar, RefreshCcw } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, ShoppingBag, CreditCard, Calendar, RefreshCcw, Users, Wallet } from "lucide-react";
 import { FormButton } from "@/components/dashboard/FormInput";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { getMonthDateRangeInTimezone } from "@/lib/dateUtils";
@@ -49,6 +49,12 @@ export default function FinancialReportPage() {
     const formatCurrency = (amount: number) => {
         const val = amount || 0;
         return `${settings.symbol}${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
+    const sections = settings?.financialReportSections || {
+        totalSales: true, totalCollected: true, purchases: true,
+        expenses: true, payroll: false, walletTopups: false,
+        netProfit: true, cashFlow: true
     };
 
     return (
@@ -105,89 +111,137 @@ export default function FinancialReportPage() {
                         {/* Primary Metrics */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {/* Net Profit */}
-                            <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-4 opacity-10">
-                                    <TrendingUp className="w-24 h-24" />
-                                </div>
-                                <div className="relative z-10">
-                                    <p className="text-blue-200 font-medium mb-1">Net Profit</p>
-                                    <h3 className="text-3xl font-bold mb-4">{formatCurrency(data.netProfit)}</h3>
-                                    <div className="flex items-center gap-2 text-sm bg-white/10 w-fit px-3 py-1 rounded-full backdrop-blur-sm">
-                                        <span>Sales - (Purchases + Expenses)</span>
+                            {sections.netProfit && (
+                                <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                                        <TrendingUp className="w-24 h-24" />
+                                    </div>
+                                    <div className="relative z-10">
+                                        <p className="text-blue-200 font-medium mb-1">Net Profit</p>
+                                        <h3 className="text-3xl font-bold mb-4">{formatCurrency(data.netProfit)}</h3>
+                                        <div className="flex items-center gap-2 text-sm bg-white/10 w-fit px-3 py-1 rounded-full backdrop-blur-sm">
+                                            <span>Sales - (Purchases + Expenses)</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Sales Revenue */}
-                            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm relative overflow-hidden group hover:border-blue-900/30 transition-all">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-3 bg-emerald-50 rounded-xl group-hover:bg-emerald-100 transition-colors">
-                                        <DollarSign className="w-6 h-6 text-emerald-600" />
+                            {(sections.totalSales || sections.totalCollected) && (
+                                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm relative overflow-hidden group hover:border-blue-900/30 transition-all">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="p-3 bg-emerald-50 rounded-xl group-hover:bg-emerald-100 transition-colors">
+                                            <DollarSign className="w-6 h-6 text-emerald-600" />
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Sales</p>
+                                            {sections.totalCollected && (
+                                                <p className="text-sm font-medium text-emerald-600">Collected: {formatCurrency(data.sales.totalCollected)}</p>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Sales</p>
-                                        <p className="text-sm font-medium text-emerald-600">Collected: {formatCurrency(data.sales.totalCollected)}</p>
-                                    </div>
+                                    {sections.totalSales && (
+                                        <>
+                                            <h3 className="text-2xl font-bold text-gray-900 mb-1">{formatCurrency(data.sales.totalSales)}</h3>
+                                            <p className="text-sm text-gray-500">{data.sales.count} Invoices</p>
+                                        </>
+                                    )}
                                 </div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-1">{formatCurrency(data.sales.totalSales)}</h3>
-                                <p className="text-sm text-gray-500">{data.sales.count} Invoices</p>
-                            </div>
+                            )}
 
                             {/* Cash Flow */}
-                            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm relative overflow-hidden group hover:border-blue-900/30 transition-all">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-3 bg-indigo-50 rounded-xl group-hover:bg-indigo-100 transition-colors">
-                                        <CreditCard className="w-6 h-6 text-indigo-600" />
+                            {sections.cashFlow && (
+                                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm relative overflow-hidden group hover:border-blue-900/30 transition-all">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="p-3 bg-indigo-50 rounded-xl group-hover:bg-indigo-100 transition-colors">
+                                            <CreditCard className="w-6 h-6 text-indigo-600" />
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cash Flow</p>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cash Flow</p>
-                                    </div>
+                                    <h3 className={`text-2xl font-bold mb-1 ${data.cashFlow >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                                        {formatCurrency(data.cashFlow)}
+                                    </h3>
+                                    <p className="text-sm text-gray-500">Actual Cash In - Out</p>
                                 </div>
-                                <h3 className={`text-2xl font-bold mb-1 ${data.cashFlow >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
-                                    {formatCurrency(data.cashFlow)}
-                                </h3>
-                                <p className="text-sm text-gray-500">Actual Cash In - Out</p>
-                            </div>
+                            )}
                         </div>
 
                         <h2 className="text-lg font-bold text-gray-900 pt-4">Expense Breakdown</h2>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Purchases */}
-                            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm relative overflow-hidden group hover:border-orange-200 transition-all">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-3 bg-orange-50 rounded-xl group-hover:bg-orange-100 transition-colors">
-                                        <ShoppingBag className="w-6 h-6 text-orange-600" />
+                            {sections.purchases && (
+                                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm relative overflow-hidden group hover:border-orange-200 transition-all">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="p-3 bg-orange-50 rounded-xl group-hover:bg-orange-100 transition-colors">
+                                            <ShoppingBag className="w-6 h-6 text-orange-600" />
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Inventory Purchases</p>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Inventory Purchases</p>
+                                    <div className="flex justify-between items-end">
+                                        <div>
+                                            <h3 className="text-2xl font-bold text-gray-900 mb-1">{formatCurrency(data.purchases.totalPurchases)}</h3>
+                                            <p className="text-sm text-gray-500">{data.purchases.count} Orders</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm font-medium text-gray-600">Paid: {formatCurrency(data.purchases.totalPaid)}</p>
+                                            <p className="text-xs text-red-500">Due: {formatCurrency(data.purchases.totalPurchases - data.purchases.totalPaid)}</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex justify-between items-end">
-                                    <div>
-                                        <h3 className="text-2xl font-bold text-gray-900 mb-1">{formatCurrency(data.purchases.totalPurchases)}</h3>
-                                        <p className="text-sm text-gray-500">{data.purchases.count} Orders</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-sm font-medium text-gray-600">Paid: {formatCurrency(data.purchases.totalPaid)}</p>
-                                        <p className="text-xs text-red-500">Due: {formatCurrency(data.purchases.totalPurchases - data.purchases.totalPaid)}</p>
-                                    </div>
-                                </div>
-                            </div>
+                            )}
 
                             {/* Operational Expenses */}
-                            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm relative overflow-hidden group hover:border-red-200 transition-all">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-3 bg-red-50 rounded-xl group-hover:bg-red-100 transition-colors">
-                                        <TrendingDown className="w-6 h-6 text-red-600" />
+                            {sections.expenses && (
+                                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm relative overflow-hidden group hover:border-red-200 transition-all">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="p-3 bg-red-50 rounded-xl group-hover:bg-red-100 transition-colors">
+                                            <TrendingDown className="w-6 h-6 text-red-600" />
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Operational Expenses</p>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Operational Expenses</p>
-                                    </div>
+                                    <h3 className="text-2xl font-bold text-gray-900 mb-1">{formatCurrency(data.expenses.totalExpenses)}</h3>
+                                    <p className="text-sm text-gray-500">{data.expenses.count} Records</p>
                                 </div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-1">{formatCurrency(data.expenses.totalExpenses)}</h3>
-                                <p className="text-sm text-gray-500">{data.expenses.count} Records</p>
-                            </div>
+                            )}
+
+                            {/* Payroll */}
+                            {sections.payroll && (
+                                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm relative overflow-hidden group hover:border-purple-200 transition-all">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="p-3 bg-purple-50 rounded-xl group-hover:bg-purple-100 transition-colors">
+                                            <Users className="w-6 h-6 text-purple-600" />
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Payroll</p>
+                                        </div>
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-gray-900 mb-1">{formatCurrency(data.payroll?.totalPayroll || 0)}</h3>
+                                    <p className="text-sm text-gray-500">{data.payroll?.count || 0} Records</p>
+                                </div>
+                            )}
+
+                            {/* Wallet Topups */}
+                            {sections.walletTopups && (
+                                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm relative overflow-hidden group hover:border-teal-200 transition-all">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="p-3 bg-teal-50 rounded-xl group-hover:bg-teal-100 transition-colors">
+                                            <Wallet className="w-6 h-6 text-teal-600" />
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Wallet Top-ups</p>
+                                        </div>
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-gray-900 mb-1">{formatCurrency(data.walletTopups?.totalTopups || 0)}</h3>
+                                    <p className="text-sm text-gray-500">{data.walletTopups?.count || 0} Transactions</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 ) : error ? (

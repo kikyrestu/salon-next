@@ -55,7 +55,9 @@ export async function GET(request: NextRequest, props: any) {
                     showCommissionInPOS: settings.showCommissionInPOS,
                     walletIncludedServices: settings.walletIncludedServices,
                     walletIncludedProducts: settings.walletIncludedProducts,
-                    walletIncludedBundles: settings.walletIncludedBundles
+                    walletIncludedBundles: settings.walletIncludedBundles,
+                    walletExpiryDays: settings.walletExpiryDays,
+                    financialReportSections: settings.financialReportSections
                 }
             });
         }
@@ -120,7 +122,8 @@ export async function PUT(request: NextRequest, props: any) {
             'fonnteMaxDailyMessages', 'fonnteDeviceRegisteredAt', 'smsEnabled', 'twilioAccountSid',
             'twilioAuthToken', 'twilioPhoneNumber', 'emailEnabled', 'smtpHost', 'smtpPort',
             'smtpSecure', 'smtpUser', 'smtpPassword', 'smtpFrom', 'reminderDaysBefore',
-            'reminderMethod', 'aiEnabled', 'openaiApiKey', 'openaiModel'
+            'reminderMethod', 'aiEnabled', 'openaiApiKey', 'openaiModel', 'walletExpiryDays',
+            'financialReportSections'
         ];
 
         Object.keys(body).forEach(key => {

@@ -24,6 +24,13 @@ export interface IService extends Document {
         secondTemplateId?: mongoose.Types.ObjectId;
     };
     status: 'active' | 'inactive';
+    materialsUsed?: {
+        product: mongoose.Types.ObjectId;
+        productName: string;
+        quantityPerService: number;
+    }[];
+    parentService?: mongoose.Types.ObjectId;
+    isFavorite?: boolean;
 }
 
 const serviceSchema = new Schema<IService>(
@@ -66,6 +73,13 @@ const serviceSchema = new Schema<IService>(
             enum: ['active', 'inactive'],
             default: 'active',
         },
+        materialsUsed: [{
+            product: { type: Schema.Types.ObjectId, ref: 'Product' },
+            productName: { type: String },
+            quantityPerService: { type: Number, default: 1 },
+        }],
+        parentService: { type: Schema.Types.ObjectId, ref: 'Service', default: null },
+        isFavorite: { type: Boolean, default: false },
     },
     { timestamps: true }
 );

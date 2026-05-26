@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IWalletTransaction extends Document {
   customer: mongoose.Types.ObjectId;
-  type: 'topup' | 'bonus' | 'payment' | 'refund';
+  type: 'topup' | 'bonus' | 'payment' | 'refund' | 'expired';
   amount: number;
   balanceAfter: number;
   description: string;
@@ -22,7 +22,7 @@ const walletTransactionSchema = new Schema<IWalletTransaction>(
     customer: { type: Schema.Types.ObjectId, ref: 'Customer', required: true, index: true },
     type: {
       type: String,
-      enum: ['topup', 'bonus', 'payment', 'refund'],
+      enum: ['topup', 'bonus', 'payment', 'refund', 'expired'],
       required: true,
     },
     amount: { type: Number, required: true },

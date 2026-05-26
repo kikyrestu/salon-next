@@ -46,6 +46,13 @@ interface Service {
   image?: string;
   status: string;
   createdAt: string;
+  parentService?: string;
+  isFavorite?: boolean;
+  materialsUsed?: {
+    product: string;
+    productName: string;
+    quantityPerService: number;
+  }[];
   waFollowUp?: {
     enabled: boolean;
     firstDays: number;
@@ -96,6 +103,7 @@ export default function ServicesPage() {
   const { settings } = useSettings();
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [waTemplates, setWaTemplates] = useState<WaTemplate[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -113,6 +121,9 @@ export default function ServicesPage() {
     commissionType: "fixed",
     commissionValue: 0,
     image: "",
+    parentService: "",
+    isFavorite: false,
+    materialsUsed: [] as { product: string; productName: string; quantityPerService: number }[],
     waFollowUp: {
       enabled: false,
       firstDays: 0,
@@ -184,6 +195,7 @@ export default function ServicesPage() {
     fetchCategories();
     fetchWaTemplates();
     fetchBundles();
+    fetchProducts();
   }, []);
 
   useEffect(() => {
@@ -203,6 +215,16 @@ export default function ServicesPage() {
     const res = await fetch("/api/service-categories", { headers: { "x-store-slug": slug } });
     const data = await res.json();
     if (data.success) setCategories(data.data);
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch("/api/products?limit=1000", { headers: { "x-store-slug": slug } });
+      const data = await res.json();
+      if (data.success) setProducts(data.data || []);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const fetchServices = async () => {
@@ -374,6 +396,9 @@ export default function ServicesPage() {
         commissionType: "fixed",
         commissionValue: Number(service.commissionValue || 0),
         image: service.image || "",
+        parentService: service.parentService || "",
+        isFavorite: service.isFavorite || false,
+        materialsUsed: service.materialsUsed || [],
         waFollowUp: {
           enabled: service.waFollowUp?.enabled || false,
           firstDays: service.waFollowUp?.firstDays || 0,
@@ -407,6 +432,9 @@ export default function ServicesPage() {
         commissionType: "fixed",
         commissionValue: 0,
         image: "",
+        parentService: "",
+        isFavorite: false,
+        materialsUsed: [],
         waFollowUp: {
           enabled: false,
           firstDays: 0,
@@ -1436,6 +1464,105 @@ export default function ServicesPage() {
               </p>
             </div>
           </div>
+
+          <div className="border-t border-gray-200 pt-4 mt-6">
+            <h4 className="text-sm font-bold text-gray-700 mb-3">Bahan Baku & Material (Opsional)</h4>
+            <p className="text-xs text-gray-500 mb-3">
+              Pilih produk yang akan otomatis terpotong stoknya saat layanan ini terjual di kasir.
+            </p>
+
+            {serviceFormData.materialsUsed.map((mat, index) => (
+              <div key={index} className="flex gap-2 mb-2 items-center bg-gray-50 p-2 rounded-lg border border-gray-200">
+                <div className="flex-1">
+                  <select
+                    value={mat.product}
+                    onChange={(e) => {
+                      const selectedProduct = products.find(p => p._id === e.target.value);
+                      const newMaterials = [...serviceFormData.materialsUsed];
+                      newMaterials[index] = {
+                        ...newMaterials[index],
+                        product: e.target.value,
+                        productName: selectedProduct ? selectedProduct.name : ""
+                      };
+                      setServiceFormData({...serviceFormData, materialsUsed: newMaterials});
+                    }}
+                    className="w-full h-10 px-3 text-sm border border-gray-300 rounded-lg bg-white"
+                  >
+                    <option value="">-- Pilih Produk --</option>
+                    {products.map(p => (
+                      <option key={p._id} value={p._id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-24">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={mat.quantityPerService}
+                    onChange={(e) => {
+                      const newMaterials = [...serviceFormData.materialsUsed];
+                      newMaterials[index].quantityPerService = parseFloat(e.target.value) || 0;
+                      setServiceFormData({...serviceFormData, materialsUsed: newMaterials});
+                    }}
+                    className="w-full h-10 px-3 text-sm border border-gray-300 rounded-lg"
+                    placeholder="Qty"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newMaterials = serviceFormData.materialsUsed.filter((_, i) => i !== index);
+                    setServiceFormData({...serviceFormData, materialsUsed: newMaterials});
+                  }}
+                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => {
+                setServiceFormData({
+                  ...serviceFormData,
+                  materialsUsed: [
+                    ...serviceFormData.materialsUsed, 
+                    { product: "", productName: "", quantityPerService: 1 }
+                  ]
+                });
+              }}
+              className="mt-2 flex items-center gap-2 text-sm text-blue-600 font-semibold hover:text-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Produk Bahan Baku
+            </button>
+          </div>
+
+          <div className="space-y-1 mt-6">
+            <label className="text-sm font-bold text-gray-700">Parent Service (Opsional — untuk varian S/M/L/XL)</label>
+            <select
+              value={serviceFormData.parentService || ""}
+              onChange={(e) => setServiceFormData({...serviceFormData, parentService: e.target.value || ""})}
+              className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-lg bg-white"
+            >
+              <option value="">— Tidak ada (Top-level) —</option>
+              {services.filter(s => s._id !== editingService?._id && !s.parentService).map(s => (
+                <option key={s._id} value={s._id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700 font-bold bg-amber-50 p-3 rounded-lg border border-amber-200">
+            <input
+              type="checkbox"
+              checked={serviceFormData.isFavorite || false}
+              onChange={(e) => setServiceFormData({...serviceFormData, isFavorite: e.target.checked})}
+              className="w-4 h-4 text-amber-600 rounded"
+            />
+            ⭐ Tandai sebagai Favorit di POS
+          </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormInput

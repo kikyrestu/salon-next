@@ -86,7 +86,7 @@ const normalizeSplitAssignments = (assignments: any[] = []) => {
 
 export async function POST(request: NextRequest, props: any) {
   const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-  const { Invoice, Customer, Product, Settings, CashBalance, CashLog, WalletTransaction, LoyaltyTransaction, Voucher } = await getTenantModels(tenantSlug);
+  const { Invoice, Customer, Product, Service, Settings, CashBalance, CashLog, WalletTransaction, LoyaltyTransaction, Voucher } = await getTenantModels(tenantSlug);
 
   try {
 
@@ -429,6 +429,53 @@ export async function POST(request: NextRequest, props: any) {
           `[LowStock] Failed to update stock for product ${itemId}:`,
           stockError,
         );
+      }
+    }
+
+    // Auto-deduct product stock for SERVICE materials
+    for (const item of normalizedBody.items) {
+      if (item.itemModel !== "Service") continue;
+      try {
+        const serviceDoc = await Service.findById(item.item || item._id || item.itemId).lean() as any;
+        if (!serviceDoc?.materialsUsed?.length) continue;
+        const invoiceQty = toNum(item.quantity ?? 1);
+        for (const mat of serviceDoc.materialsUsed) {
+          const deductQty = mat.quantityPerService * invoiceQty;
+          const updatedProduct = await Product.findByIdAndUpdate(
+            mat.product,
+            { $inc: { stock: -deductQty } },
+            { new: true }
+          );
+
+          if (!updatedProduct) continue;
+          
+          if (
+            updatedProduct.stock <= updatedProduct.alertQuantity &&
+            !updatedProduct.lowStockNotifSent &&
+            updatedProduct.lowStockAlertEnabled !== false
+          ) {
+            try {
+              const settings = await Settings.findOne();
+              const adminPhone = settings?.waAdminNumber || settings?.phone;
+              if (adminPhone) {
+                const message =
+                  `⚠️ *Stok Hampir Habis!*\n\nProduk: ${updatedProduct.name}\n` +
+                  `Stok saat ini: ${updatedProduct.stock}\n` +
+                  `Batas minimum: ${updatedProduct.alertQuantity}\n\n` +
+                  `Segera lakukan pemesanan stok.`;
+                const fonnteToken = settings?.fonnteToken ? decryptFonnteToken(String(settings.fonnteToken).trim()) : undefined;
+                await sendWhatsApp(adminPhone, message, fonnteToken);
+              }
+            } catch (waError) {
+              console.error(`[LowStock] WA notification error for product ${mat.product}:`, waError);
+            }
+            await Product.findByIdAndUpdate(mat.product, { lowStockNotifSent: true });
+          } else if (updatedProduct.stock > updatedProduct.alertQuantity) {
+            await Product.findByIdAndUpdate(mat.product, { lowStockNotifSent: false });
+          }
+        }
+      } catch (matErr) {
+        console.error("Material deduction error:", matErr);
       }
     }
 

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
         if (permissionError) return permissionError;
 
         const products = await Product.find({ status: "active" })
-            .select("_id name price memberPrice image stock commissionType commissionValue")
+            .select("_id name price memberPrice image stock commissionType commissionValue isFavorite")
             .sort({ name: 1 });
 
         return NextResponse.json({ success: true, data: products });
