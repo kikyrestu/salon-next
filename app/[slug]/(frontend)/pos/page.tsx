@@ -620,28 +620,36 @@ export default function POSPage() {
     return false;
   };
 
-  const getEffectivePrice = (item: Item) => {
+  const getEffectivePrice = (item: Item | CartItem) => {
+    let price = item.price;
     if (isPremiumActive()) {
       if (isIncludedInMembership(item)) {
         if (item.memberPrice !== undefined && item.memberPrice > 0) {
-          return item.memberPrice;
-        }
+          price = item.memberPrice;
+        } else {
+          const s = settings as any;
+          const discType = s.memberDiscountType || "percentage";
+          const discVal = Number(s.memberDiscountValue) || 0;
 
-        const s = settings as any;
-        const discType = s.memberDiscountType || "percentage";
-        const discVal = Number(s.memberDiscountValue) || 0;
-
-        if (discVal > 0) {
-          if (discType === "percentage") {
-            const discAmount = (item.price * discVal) / 100;
-            return Math.max(0, item.price - discAmount);
-          } else {
-            return Math.max(0, item.price - discVal);
+          if (discVal > 0) {
+            if (discType === "percentage") {
+              const discAmount = (item.price * discVal) / 100;
+              price = Math.max(0, item.price - discAmount);
+            } else {
+              price = Math.max(0, item.price - discVal);
+            }
           }
         }
       }
     }
-    return item.price;
+    
+    // Apply per-item manual discount if present
+    const cartItem = item as CartItem;
+    if (cartItem.discountAmount) {
+      price = Math.max(0, price - cartItem.discountAmount);
+    }
+    
+    return price;
   };
 
   const roundTwo = (value: number) => Math.round(value * 100) / 100;
@@ -830,6 +838,28 @@ export default function POSPage() {
             if (newQty < 1) newQty = 1;
           }
           return { ...i, quantity: newQty };
+        }
+        return i;
+      }),
+    );
+  };
+
+  const updateCartItemDiscount = (itemId: string, type: string, updates: Partial<{ discountType: string; discountValue: number }>) => {
+    setCart((prev) =>
+      prev.map((i) => {
+        if (i._id === itemId && i.type === type) {
+          const discountType = updates.discountType !== undefined ? updates.discountType : (i.discountType || "percentage");
+          const discountValue = updates.discountValue !== undefined ? updates.discountValue : (i.discountValue || 0);
+          
+          let discountAmount = 0;
+          const basePrice = i.price;
+          if (discountType === "percentage") {
+            discountAmount = (basePrice * discountValue) / 100;
+          } else {
+            discountAmount = discountValue;
+          }
+          
+          return { ...i, discountType, discountValue, discountAmount };
         }
         return i;
       }),
@@ -1983,11 +2013,12 @@ export default function POSPage() {
               name: item.name,
               price: item.price,
               quantity: item.quantity,
+              discountAmount: item.discountAmount || 0,
               total:
                 item.type === "Service" &&
                   packageClaims[getCartItemKey(item._id, item.type)]?.enabled
                   ? 0
-                  : item.price * item.quantity,
+                  : getEffectivePrice(item) * item.quantity,
             },
           ];
         }) as any[],
@@ -2687,6 +2718,29 @@ export default function POSPage() {
                       </button>
                     </div>
                   </div>
+                  {["Service", "Product", "Bundle", "Package"].includes(item.type) && (
+                    <div className="mt-1 ml-8 flex items-center gap-1.5 text-[10px]">
+                      <span className="font-semibold text-gray-500">Diskon:</span>
+                      <select
+                        value={item.discountType || "percentage"}
+                        onChange={(e) => updateCartItemDiscount(item._id, item.type, { discountType: e.target.value })}
+                        className="h-5 px-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50 font-medium text-gray-700"
+                      >
+                        <option value="percentage">%</option>
+                        <option value="nominal">Rp</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={item.discountValue || ""}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          updateCartItemDiscount(item._id, item.type, { discountValue: val ? parseInt(val) : 0 });
+                        }}
+                        placeholder="0"
+                        className="h-5 w-20 px-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-right font-medium text-gray-700"
+                      />
+                    </div>
+                  )}
                   {(item.type === "Service" || item.type === "Product" || item.type === "Package") && (() => {
                     const key = getCartItemKey(item._id, item.type);
                     const isExpanded = expandedStaffKey === key;

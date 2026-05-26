@@ -572,11 +572,23 @@ export default function ReportsPage() {
                     return matchPayment && matchCustomer;
                 });
 
-                const salesSummary = filteredSales.reduce((acc: any, inv: any) => ({
-                    count: acc.count + 1,
-                    total: acc.total + (inv.totalAmount || 0),
-                    received: acc.received + (inv.amountPaid || 0),
-                }), { count: 0, total: 0, received: 0 });
+                const salesSummary = filteredSales.reduce((acc: any, inv: any) => {
+                    let amount = inv.totalAmount || 0;
+                    let received = inv.amountPaid || 0;
+                    if (paymentFilter !== 'all' && inv.paymentMethods && inv.paymentMethods.length > 0) {
+                        const matchingMethods = inv.paymentMethods.filter((pm: any) => (pm.method || '').toLowerCase() === paymentFilter.toLowerCase());
+                        if (matchingMethods.length > 0) {
+                            const methodAmount = matchingMethods.reduce((sum: number, pm: any) => sum + pm.amount, 0);
+                            amount = methodAmount;
+                            received = methodAmount;
+                        }
+                    }
+                    return {
+                        count: acc.count + 1,
+                        total: acc.total + amount,
+                        received: acc.received + received,
+                    };
+                }, { count: 0, total: 0, received: 0 });
 
                 return (
                     <div className="space-y-6">
@@ -628,29 +640,41 @@ export default function ReportsPage() {
                         </div>
                         {renderTable(
                             ['Invoice #', 'Date', 'Customer', 'Staff', 'Total', 'Discount', 'Paid', 'Payment Method', 'Notes', 'Status'],
-                            filteredSales.map((inv: any) => ({
-                                inv: <button onClick={() => openInvoicePreview(inv._id)} className="text-blue-700 hover:text-blue-900 underline underline-offset-2 font-bold cursor-pointer">{inv.invoiceNumber}</button>,
-                                date: formatSafeDate(inv.date),
-                                customer: inv.customer?.name || 'Walk-in',
-                                staff: (() => {
-                                    const names = new Set<string>();
-                                    if (inv.staff?.name) names.add(inv.staff.name);
-                                    if (inv.staffAssignments) inv.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
-                                    if (inv.items) inv.items.forEach((item: any) => {
-                                        if (item.staffAssignments) item.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
-                                    });
-                                    return names.size > 0 ? Array.from(names).join(', ') : 'N/A';
-                                })(),
-                                total: formatCurrency(inv.totalAmount),
-                                discount: formatCurrency(inv.discount || 0),
-                                paid: formatCurrency(inv.amountPaid),
-                                method: (inv.paymentMethods && inv.paymentMethods.length > 0)
-                                    ? <div className="flex flex-col gap-1">{inv.paymentMethods.map((pm: any, idx: number) => <span key={idx} className="text-[10px] bg-gray-100 px-1 rounded">{pm.method}: {formatCurrency(pm.amount)}</span>)}</div>
-                                    : (inv.paymentMethod || 'N/A'),
-                                notes: <span className="text-[10px] sm:text-xs truncate max-w-[150px] inline-block">{inv.notes || '-'}</span>,
-                                status: <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${inv.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                                    }`}>{inv.status?.replace('_', ' ') || 'N/A'}</span>
-                            }))
+                            filteredSales.map((inv: any) => {
+                                let displayTotal = inv.totalAmount;
+                                let displayPaid = inv.amountPaid;
+                                if (paymentFilter !== 'all' && inv.paymentMethods && inv.paymentMethods.length > 0) {
+                                    const matchingMethods = inv.paymentMethods.filter((pm: any) => (pm.method || '').toLowerCase() === paymentFilter.toLowerCase());
+                                    if (matchingMethods.length > 0) {
+                                        const methodAmount = matchingMethods.reduce((sum: number, pm: any) => sum + pm.amount, 0);
+                                        displayTotal = methodAmount;
+                                        displayPaid = methodAmount;
+                                    }
+                                }
+                                return {
+                                    inv: <button onClick={() => openInvoicePreview(inv._id)} className="text-blue-700 hover:text-blue-900 underline underline-offset-2 font-bold cursor-pointer">{inv.invoiceNumber}</button>,
+                                    date: formatSafeDate(inv.date),
+                                    customer: inv.customer?.name || 'Walk-in',
+                                    staff: (() => {
+                                        const names = new Set<string>();
+                                        if (inv.staff?.name) names.add(inv.staff.name);
+                                        if (inv.staffAssignments) inv.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
+                                        if (inv.items) inv.items.forEach((item: any) => {
+                                            if (item.staffAssignments) item.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
+                                        });
+                                        return names.size > 0 ? Array.from(names).join(', ') : 'N/A';
+                                    })(),
+                                    total: formatCurrency(displayTotal),
+                                    discount: formatCurrency(inv.discount || 0),
+                                    paid: formatCurrency(displayPaid),
+                                    method: (inv.paymentMethods && inv.paymentMethods.length > 0)
+                                        ? <div className="flex flex-col gap-1">{inv.paymentMethods.map((pm: any, idx: number) => <span key={idx} className={`text-[10px] px-1 rounded ${paymentFilter !== 'all' && (pm.method || '').toLowerCase() !== paymentFilter.toLowerCase() ? 'bg-gray-50 text-gray-400 line-through' : 'bg-gray-100 text-gray-900'}`}>{pm.method}: {formatCurrency(pm.amount)}</span>)}</div>
+                                        : (inv.paymentMethod || 'N/A'),
+                                    notes: <span className="text-[10px] sm:text-xs truncate max-w-[150px] inline-block">{inv.notes || '-'}</span>,
+                                    status: <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${inv.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                        }`}>{inv.status?.replace('_', ' ') || 'N/A'}</span>
+                                };
+                            })
                         )}
 
                         {/* Invoice Preview Modal */}
@@ -793,52 +817,75 @@ export default function ReportsPage() {
                                             <table className="min-w-full text-left whitespace-nowrap text-sm">
                                                 <thead>
                                                     <tr className="bg-gray-50 border-b">
+                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Item / Service</th>
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Invoice #</th>
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Date</th>
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Customer</th>
-                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Items</th>
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Commission</th>
-                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Total</th>
-                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Status</th>
+                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Item Total</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-50">
-                                                    {drillDownData.map((inv: any) => {
-                                                        // Calculate this staff's commission from the invoice
+                                                    {drillDownData.flatMap((inv: any) => {
                                                         const staffMatch = staffList.find(s => s.name === drillDownStaff);
                                                         const staffId = staffMatch?._id;
-                                                        let staffCommission = 0;
-                                                        // Check top-level staffAssignments
-                                                        if (inv.staffAssignments?.length > 0) {
-                                                            inv.staffAssignments.forEach((sa: any) => {
-                                                                const saId = sa.staff?._id || sa.staff || sa.staffId;
-                                                                if (String(saId) === String(staffId)) {
-                                                                    staffCommission += (sa.komisiNominal || sa.commission || 0);
+                                                        
+                                                        const rows: any[] = [];
+                                                        
+                                                        // Fallback flag if items have no assignments
+                                                        let hasItemLevelStaff = false;
+
+                                                        if (inv.items && inv.items.length > 0) {
+                                                            inv.items.forEach((item: any) => {
+                                                                if (item.staffAssignments && item.staffAssignments.length > 0) {
+                                                                    hasItemLevelStaff = true;
+                                                                    const assigned = item.staffAssignments.find((sa: any) => {
+                                                                        const saId = sa.staff?._id || sa.staff || sa.staffId;
+                                                                        return String(saId) === String(staffId);
+                                                                    });
+                                                                    
+                                                                    if (assigned) {
+                                                                        const staffCount = item.staffAssignments.length;
+                                                                        const itemTotal = (item.price || 0) * (item.quantity || 1);
+                                                                        rows.push(
+                                                                            <tr key={`${inv._id}-${item._id}`} className="hover:bg-gray-50/50">
+                                                                                <td className="px-4 py-3 text-gray-800 font-medium">{item.name} <span className="text-xs text-gray-500">(x{item.quantity || 1})</span></td>
+                                                                                <td className="px-4 py-3 font-bold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline" onClick={() => openInvoicePreview(inv._id)}>{inv.invoiceNumber}</td>
+                                                                                <td className="px-4 py-3 text-gray-600">{formatSafeDate(inv.date)}</td>
+                                                                                <td className="px-4 py-3 text-gray-700">{inv.customer?.name || 'Walk-in'}</td>
+                                                                                <td className="px-4 py-3 font-bold text-blue-700">{formatCurrency(assigned.komisiNominal || assigned.commission || 0)}</td>
+                                                                                <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(itemTotal / staffCount)}</td>
+                                                                            </tr>
+                                                                        );
+                                                                    }
                                                                 }
                                                             });
                                                         }
-                                                        // Also check item-level staffAssignments
-                                                        if (inv.items?.length > 0) {
-                                                            inv.items.forEach((item: any) => {
-                                                                (item.staffAssignments || []).forEach((sa: any) => {
-                                                                    const saId = sa.staff?._id || sa.staff || sa.staffId;
-                                                                    if (String(saId) === String(staffId)) {
-                                                                        staffCommission += (sa.komisiNominal || sa.commission || 0);
-                                                                    }
-                                                                });
-                                                            });
+                                                        
+                                                        if (!hasItemLevelStaff) {
+                                                            let assigned = null;
+                                                            if (inv.staffAssignments && inv.staffAssignments.length > 0) {
+                                                                assigned = inv.staffAssignments.find((sa: any) => String(sa.staff?._id || sa.staff || sa.staffId) === String(staffId));
+                                                            } else if (inv.staff && String(inv.staff?._id || inv.staff) === String(staffId)) {
+                                                                assigned = { commission: inv.commission || 0 };
+                                                            }
+                                                            
+                                                            if (assigned) {
+                                                                const staffCount = inv.staffAssignments?.length || 1;
+                                                                rows.push(
+                                                                    <tr key={inv._id} className="hover:bg-gray-50/50">
+                                                                        <td className="px-4 py-3 text-gray-800 font-medium text-xs truncate max-w-[200px]">{inv.items?.map((it: any) => it.name).join(', ') || 'Global Invoice'}</td>
+                                                                        <td className="px-4 py-3 font-bold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline" onClick={() => openInvoicePreview(inv._id)}>{inv.invoiceNumber}</td>
+                                                                        <td className="px-4 py-3 text-gray-600">{formatSafeDate(inv.date)}</td>
+                                                                        <td className="px-4 py-3 text-gray-700">{inv.customer?.name || 'Walk-in'}</td>
+                                                                        <td className="px-4 py-3 font-bold text-blue-700">{formatCurrency(assigned.komisiNominal || assigned.commission || 0)}</td>
+                                                                        <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(inv.totalAmount / staffCount)}</td>
+                                                                    </tr>
+                                                                );
+                                                            }
                                                         }
-                                                        return (
-                                                            <tr key={inv._id} className="hover:bg-gray-50/50">
-                                                                <td className="px-4 py-3 font-bold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline" onClick={() => openInvoicePreview(inv._id)}>{inv.invoiceNumber}</td>
-                                                                <td className="px-4 py-3 text-gray-600">{formatSafeDate(inv.date)}</td>
-                                                                <td className="px-4 py-3 text-gray-700">{inv.customer?.name || 'Walk-in'}</td>
-                                                                <td className="px-4 py-3 text-gray-500 text-xs">{inv.items?.map((it: any) => it.name).join(', ') || '-'}</td>
-                                                                <td className="px-4 py-3 font-bold text-blue-700">{formatCurrency(staffCommission)}</td>
-                                                                <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(inv.totalAmount)}</td>
-                                                                <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${inv.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : inv.status === 'voided' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>{inv.status}</span></td>
-                                                            </tr>
-                                                        );
+                                                        
+                                                        return rows;
                                                     })}
                                                 </tbody>
                                             </table>
