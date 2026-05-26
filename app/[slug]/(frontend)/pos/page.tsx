@@ -68,6 +68,9 @@ interface Staff {
 
 interface CartItem extends Item {
   quantity: number;
+  discountType?: string;
+  discountValue?: number;
+  discountAmount?: number;
 }
 
 interface Customer {
