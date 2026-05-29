@@ -21,6 +21,11 @@ import {
   X,
   Wallet,
   Save,
+  Menu,
+  Calendar,
+  Clock,
+  LogOut,
+  FileText,
 } from "lucide-react";
 import { FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
@@ -38,6 +43,7 @@ interface Item {
   price: number;
   memberPrice?: number;
   image?: string;
+  category?: { _id: string; name: string };
   type: "Service" | "Product" | "Package" | "Bundle" | "TopUp";
   duration?: number; // Service only
   stock?: number; // Product only
@@ -147,6 +153,7 @@ interface ParkedBill {
   serviceSplitModes: Record<string, "auto" | "manual">;
   cartDiscounts: Record<string, { type: "percentage" | "nominal"; value: number; originalValue?: number; reason?: string }>;
   appointmentId: string | null;
+  medicalNotes?: string;
 }
 
 
@@ -160,6 +167,7 @@ export default function POSPage() {
   const [activeTab, setActiveTab] = useState<
     "favorites" | "all" | "services" | "products" | "packages" | "bundles" | "topup"
   >("all");
+  const [activeCategory, setActiveCategory] = useState<string>("all");
   const [expandedParent, setExpandedParent] = useState<string | null>(null);
   // Top-Up Wallet state
   const [topupAmount, setTopupAmount] = useState<number | string>("");
@@ -238,6 +246,14 @@ export default function POSPage() {
     discountAmount: number;
   } | null>(null);
   const [isFirstTimer, setIsFirstTimer] = useState(false);
+  
+  // New States for Redesign
+  const [medicalNotes, setMedicalNotes] = useState("");
+  const [isMedicalNotesModalOpen, setIsMedicalNotesModalOpen] = useState(false);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [isManualServiceModalOpen, setIsManualServiceModalOpen] = useState(false);
+  const [manualServiceName, setManualServiceName] = useState("");
+  const [manualServicePrice, setManualServicePrice] = useState("");
 
 
   // Derived from splitPayments (backward compat with checkout logic)
@@ -620,7 +636,7 @@ export default function POSPage() {
     childrenMap.get(pid)!.push(s);
   });
 
-  const filteredItems = (
+  const rawFilteredItems = (
     activeTab === "favorites"
       ? [...services, ...products].filter((i: any) => i.isFavorite)
       : activeTab === "all"
@@ -629,7 +645,19 @@ export default function POSPage() {
       : activeTab === "products" ? products
       : activeTab === "bundles" ? serviceBundles
       : packages
-  ).filter((item) => item.name.toLowerCase().includes(search.toLowerCase()));
+  );
+
+  const availableCategories = Array.from(
+    new Map(
+      rawFilteredItems
+        .filter((item) => item.category && item.category._id && item.category.name)
+        .map((item) => [String(item.category!._id), item.category!.name])
+    )
+  ).map(([id, name]) => ({ id, name }));
+
+  const filteredItems = rawFilteredItems
+    .filter((item) => activeCategory === "all" || (item.category && String(item.category._id) === activeCategory))
+    .filter((item) => item.name.toLowerCase().includes(search.toLowerCase()));
 
   const getCartItemKey = (itemId: string, type: string, bundleIndex?: number) => bundleIndex !== undefined ? `${type}:${itemId}-${bundleIndex}` : `${type}:${itemId}`;
 
@@ -740,6 +768,27 @@ export default function POSPage() {
       ...assignment,
       percentage: Number(assignment.percentage) || 0,
     }));
+  };
+
+  const handleAddManualService = () => {
+    if (!manualServiceName || !manualServicePrice) return;
+    
+    const generateObjectId = () => {
+      const timestamp = (Math.floor(new Date().getTime() / 1000)).toString(16);
+      const randomChars = "0123456789abcdef".repeat(16);
+      return timestamp + "xxxxxxxxxxxxxxxx".replace(/[x]/g, () => randomChars[Math.floor(Math.random() * 16)]);
+    };
+
+    addToCart({
+      _id: generateObjectId(),
+      name: `(Manual) ${manualServiceName}`,
+      price: parseFloat(manualServicePrice),
+      type: "Service",
+    });
+    
+    setManualServiceName("");
+    setManualServicePrice("");
+    setIsManualServiceModalOpen(false);
   };
 
   const addToCart = (item: Item) => {
@@ -1551,6 +1600,7 @@ export default function POSPage() {
     setCustomerLoyaltyPoints(0);
     setReferralCode("");
     setReferralValidated(null);
+    setMedicalNotes("");
   };
 
   useEffect(() => {
@@ -1579,6 +1629,7 @@ export default function POSPage() {
       serviceSplitModes,
       cartDiscounts: {}, // Simplification
       appointmentId,
+      medicalNotes,
     };
     const updated = [...parkedBills, newBill];
     setParkedBills(updated);
@@ -1602,6 +1653,7 @@ export default function POSPage() {
     if (bill.appointmentId) {
       window.history.replaceState(null, "", `/pos?appointmentId=${bill.appointmentId}`);
     }
+    setMedicalNotes(bill.medicalNotes || "");
     const updated = parkedBills.filter(b => b.id !== bill.id);
     setParkedBills(updated);
     localStorage.setItem("posParkedBills", JSON.stringify(updated));
@@ -2176,6 +2228,7 @@ export default function POSPage() {
           referral: referralDiscount,
           voucher: voucherApplied?.discountAmount || 0
         },
+        medicalNotes: medicalNotes.trim() || undefined,
         packageUsage: cart.filter(item => item.type === "Service" && packageClaims[getCartItemKey(item._id, item.type)]?.enabled).map(item => {
           const claim = packageClaims[getCartItemKey(item._id, item.type)];
           const pkg = customerPackages.find(p => p._id === claim.customerPackageId);
@@ -2202,6 +2255,7 @@ export default function POSPage() {
           ]
             .filter(Boolean)
             .join(" | ") || undefined,
+        medicalNotes: medicalNotes.trim() || undefined,
       };
 
       const res = await fetch("/api/invoices", {
@@ -2360,97 +2414,125 @@ export default function POSPage() {
       >
         <div className="bg-white flex flex-col h-full overflow-hidden">
           {/* Header/Tabs */}
-          <div className="px-4 py-3 lg:px-6 lg:py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <h1 className="text-lg lg:text-xl font-bold text-gray-800">
-                POS System
-              </h1>
-              <div className="flex items-center gap-2 lg:gap-3 flex-wrap sm:flex-nowrap">
-                <button
-                  onClick={() => router.push("/dashboard")}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs lg:text-sm font-medium hover:bg-gray-200 transition-colors"
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span className="hidden xs:inline">Dashboard</span>
+          <div className="px-4 py-3 lg:px-6 lg:py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+              <button onClick={() => router.push("/dashboard")} className="p-2 bg-gray-50 text-gray-400 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors hidden sm:block">
+                <Menu className="w-5 h-5" />
+              </button>
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Cari layanan..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-full text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    title="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="bg-emerald-100 text-emerald-700 font-bold text-[10px] px-2 py-1.5 rounded-full uppercase tracking-wide flex items-center gap-1.5 whitespace-nowrap">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                  ONLINE
+                </span>
+                <span className="bg-gray-100 text-gray-700 font-bold text-[10px] px-2 py-1.5 rounded-full uppercase tracking-wide flex items-center gap-1 whitespace-nowrap border border-gray-200">
+                  🏛️ {settings.storeName || "CABANG PUSAT"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setIsManualServiceModalOpen(true)} className="px-3 py-1.5 border border-gray-200 rounded-full text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-1.5 whitespace-nowrap">
+                  ✨ Layanan Manual
                 </button>
-                <div className="relative flex-1 sm:w-64 min-w-[150px]">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Search items..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-                  />
-                  {search && (
-                    <button
-                      onClick={() => setSearch("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      title="Clear search"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                <button
-                  onClick={() => setIsParkedListOpen(true)}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-lg text-xs lg:text-sm font-bold border border-amber-200 hover:bg-amber-100 transition-colors shadow-sm whitespace-nowrap"
-                >
-                  <Save className="w-4 h-4" />
-                  <span className="hidden xs:inline">Bon Tersimpan</span>
+                <button onClick={() => setIsCustomerModalOpen(true)} className="px-3 py-1.5 border border-dashed border-gray-400 rounded-full text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-1.5 whitespace-nowrap bg-white">
+                  + Pilih Pelanggan
+                </button>
+              </div>
+              <div className="flex items-center gap-1.5 border-l border-gray-200 pl-3">
+                <button onClick={() => router.push("/appointments/calendar")} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors" title="Jadwal">
+                  <Calendar className="w-5 h-5" />
+                </button>
+                <button onClick={() => setIsParkedListOpen(true)} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg relative transition-colors" title="Bon Tersimpan">
+                  <Wallet className="w-5 h-5" />
                   {parkedBills.length > 0 && (
-                    <span className="bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
-                      {parkedBills.length}
-                    </span>
+                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-white"></span>
                   )}
+                </button>
+                <button onClick={() => setIsMedicalNotesModalOpen(true)} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg relative transition-colors" title="Rekam Medis">
+                  <span className="text-xl leading-none">🩺</span>
+                  {medicalNotes && (
+                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white"></span>
+                  )}
+                </button>
+                <button onClick={() => router.push("/reports")} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors" title="Riwayat Transaksi">
+                  <Clock className="w-5 h-5" />
+                </button>
+                <button onClick={() => router.push("/dashboard")} className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors" title="Keluar">
+                  <LogOut className="w-5 h-5" />
                 </button>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setActiveTab("favorites")}
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "favorites" ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200"}`}
-              >
-                ⭐
-              </button>
-              <button
-                onClick={() => setActiveTab("all")}
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "all" ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setActiveTab("services")}
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "services" ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-              >
-                Services
-              </button>
-              <button
-                onClick={() => setActiveTab("products")}
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "products" ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-              >
-                Products
-              </button>
-              <button
-                onClick={() => setActiveTab("packages")}
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "packages" ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-              >
-                Paket
-              </button>
-              <button
-                onClick={() => setActiveTab("bundles")}
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${activeTab === "bundles" ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-              >
-                Bundling
-              </button>
-              <button
-                onClick={() => setActiveTab("topup")}
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors flex items-center gap-1.5 ${activeTab === "topup" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"}`}
-              >
-                <Wallet className="w-3.5 h-3.5" />
-                Top-Up
-              </button>
+            
+            {/* Tabs */}
+            <div className="flex bg-gray-100 p-1 rounded-lg w-fit overflow-x-auto hide-scrollbar">
+              {[
+                { id: "all", label: "Semua" },
+                { id: "services", label: "Layanan" },
+                { id: "products", label: "Produk" },
+                { id: "packages", label: "Paket" },
+                { id: "bundles", label: "Bundling" },
+                { id: "topup", label: "Top-Up" },
+                { id: "favorites", label: "⭐ Favorit" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-4 py-1.5 rounded-md text-xs lg:text-sm font-semibold transition-colors whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
+
+            {/* Category Pills */}
+            {(activeTab === "all" || activeTab === "services" || activeTab === "products") && availableCategories.length > 0 && (
+              <div className="flex gap-2 mt-4 overflow-x-auto hide-scrollbar pb-1">
+                <button
+                  onClick={() => setActiveCategory("all")}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors border ${
+                    activeCategory === "all"
+                      ? "bg-gray-900 text-white border-gray-900"
+                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  Semua Kategori
+                </button>
+                {availableCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActiveCategory(cat.id)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors border ${
+                      activeCategory === cat.id
+                        ? "bg-gray-900 text-white border-gray-900"
+                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Grid */}
@@ -2565,17 +2647,17 @@ export default function POSPage() {
                             }
                           }
                         }}
-                        className={`relative bg-white p-2 lg:p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-shadow flex flex-col items-center text-center group min-h-[120px] lg:min-h-[132px] active:scale-95 duration-75 ${hasChildren ? 'border-purple-200 bg-purple-50/30' : 'border-gray-200'} ${isExpanded ? 'ring-2 ring-purple-400 border-purple-400' : ''}`}
+                        className={`relative bg-white p-3 lg:p-4 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border cursor-pointer hover:shadow-md transition-shadow flex flex-col items-start group min-h-[160px] lg:min-h-[180px] active:scale-[0.98] duration-75 ${hasChildren ? 'border-purple-200 bg-purple-50/30' : 'border-gray-100 hover:border-gray-200'} ${isExpanded ? 'ring-2 ring-purple-400 border-purple-400' : ''}`}
                       >
                         {(item as any).isFavorite && (
-                          <span className="absolute top-1 left-1 text-amber-400 text-xs">⭐</span>
+                          <span className="absolute top-2 left-2 text-amber-400 text-xs">⭐</span>
                         )}
                         {hasChildren && (
-                          <span className="absolute top-1 right-1 bg-purple-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">
+                          <span className="absolute top-2 right-2 bg-purple-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
                             {children.length} varian
                           </span>
                         )}
-                        <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-full flex items-center justify-center mb-1 lg:mb-2 group-hover:scale-105 transition-transform overflow-hidden bg-gray-100">
+                        <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform overflow-hidden bg-gray-50 border border-gray-100 self-center shrink-0">
                           {item.image ? (
                             <img
                               src={item.image}
@@ -2583,26 +2665,33 @@ export default function POSPage() {
                               className="w-full h-full object-cover"
                             />
                           ) : item.type === "Service" ? (
-                            <div className="w-full h-full bg-purple-100 flex items-center justify-center">
-                              <ScissorsIcon className="w-5 h-5 lg:w-6 lg:h-6 text-purple-600" />
+                            <div className="w-full h-full bg-purple-50 flex items-center justify-center">
+                              <ScissorsIcon className="w-6 h-6 text-purple-400" />
                             </div>
                           ) : item.type === "Product" ? (
-                            <div className="w-full h-full bg-green-100 flex items-center justify-center">
-                              <Package className="w-5 h-5 lg:w-6 lg:h-6 text-green-600" />
+                            <div className="w-full h-full bg-green-50 flex items-center justify-center">
+                              <Package className="w-6 h-6 text-green-400" />
                             </div>
                           ) : (
-                            <div className="w-full h-full bg-amber-100 flex items-center justify-center">
-                              <Package className="w-5 h-5 lg:w-6 lg:h-6 text-amber-600" />
+                            <div className="w-full h-full bg-amber-50 flex items-center justify-center">
+                              <Package className="w-6 h-6 text-amber-400" />
                             </div>
                           )}
                         </div>
-                        <h3 className="font-semibold text-gray-800 text-[10px] lg:text-xs leading-tight line-clamp-2 mb-1 h-8 flex items-center justify-center">
+                        <h3 className="font-bold text-gray-800 text-xs lg:text-sm leading-tight line-clamp-2 mb-auto text-left w-full mt-1">
                           {item.name}
                         </h3>
-                        <p className="text-blue-900 font-bold text-xs lg:text-sm">
-                          {settings.symbol}
-                          {item.price.toLocaleString("id-ID")}
-                        </p>
+                        <div className="flex items-end justify-between w-full mt-3 gap-2">
+                           <div className="min-w-0 flex-1">
+                             <p className="text-[9px] lg:text-[10px] text-gray-400 font-semibold leading-none mb-1">Mulai dari</p>
+                             <p className="text-amber-600 font-black text-sm lg:text-base leading-none truncate">
+                               {settings.symbol}{(item.price || 0).toLocaleString("id-ID")}
+                             </p>
+                           </div>
+                           <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-gray-900 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:bg-gray-800 transition-colors">
+                             <Plus className="w-4 h-4" />
+                           </div>
+                        </div>
                       </div>
                       {isExpanded && children
                         .filter(child => child.name.toLowerCase().includes(search.toLowerCase()))
@@ -2618,19 +2707,27 @@ export default function POSPage() {
                                 setMobileTab("cart");
                               }
                             }}
-                            className="relative flex flex-col items-center p-2 lg:p-3 rounded-xl border-2 border-dashed border-purple-300 bg-purple-50/50 text-center cursor-pointer transition-all hover:shadow-md hover:bg-purple-100/50 active:scale-95 duration-75 min-h-[120px] lg:min-h-[132px]"
+                            className="relative flex flex-col items-start p-3 lg:p-4 rounded-2xl border border-dashed border-purple-200 bg-purple-50/30 text-left cursor-pointer transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:bg-white active:scale-[0.98] duration-75 min-h-[160px] lg:min-h-[180px] group"
                           >
-                            {child.image ? (
-                              <img src={child.image} alt={child.name} className="w-10 h-10 lg:w-12 lg:h-12 rounded-lg object-cover mb-1" />
-                            ) : (
-                              <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-lg bg-purple-100 flex items-center justify-center mb-1">
-                                <ScissorsIcon className="w-4 h-4 lg:w-5 lg:h-5 text-purple-500" />
-                              </div>
-                            )}
-                            <p className="text-[10px] lg:text-xs font-bold text-purple-900 line-clamp-2 leading-tight">{child.name}</p>
-                            <p className="text-[10px] lg:text-xs font-medium text-purple-700 mt-0.5">
-                              {settings.symbol}{child.price?.toLocaleString('id-ID')}
-                            </p>
+                            <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform overflow-hidden bg-purple-100/50 self-center shrink-0">
+                              {child.image ? (
+                                <img src={child.image} alt={child.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <ScissorsIcon className="w-6 h-6 text-purple-400" />
+                              )}
+                            </div>
+                            <p className="text-xs lg:text-sm font-bold text-gray-800 line-clamp-2 leading-tight mb-auto w-full mt-1">{child.name}</p>
+                            <div className="flex items-end justify-between w-full mt-3 gap-2">
+                               <div className="min-w-0 flex-1">
+                                 <p className="text-[9px] lg:text-[10px] text-gray-400 font-semibold leading-none mb-1">Harga Varian</p>
+                                 <p className="text-amber-600 font-black text-sm lg:text-base leading-none truncate">
+                                   {settings.symbol}{(child.price || 0).toLocaleString("id-ID")}
+                                 </p>
+                               </div>
+                               <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:bg-purple-700 transition-colors">
+                                 <Plus className="w-4 h-4" />
+                               </div>
+                            </div>
                           </div>
                         ))
                       }
@@ -2899,789 +2996,39 @@ export default function POSPage() {
                       </button>
                     </div>
                   </div>
-                  {["Service", "Product", "Bundle", "Package"].includes(item.type) && (
-                    <div className="mt-1 ml-8 flex items-center gap-1.5 text-[10px]">
-                      <span className="font-semibold text-gray-500">Diskon:</span>
-                      <select
-                        value={item.discountType || "percentage"}
-                        onChange={(e) => updateCartItemDiscount(item._id, item.type, { discountType: e.target.value })}
-                        className="h-5 px-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50 font-medium text-gray-700"
-                      >
-                        <option value="percentage">%</option>
-                        <option value="nominal">Rp</option>
-                      </select>
-                      <input
-                        type="text"
-                        value={item.discountValue || ""}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/[^0-9]/g, '');
-                          updateCartItemDiscount(item._id, item.type, { discountValue: val ? parseInt(val) : 0 });
-                        }}
-                        placeholder="0"
-                        className="h-5 w-20 px-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-right font-medium text-gray-700"
-                      />
-                    </div>
-                  )}
-                  {(item.type === "Service" || item.type === "Product" || item.type === "Package") && (() => {
-                    const key = getCartItemKey(item._id, item.type);
-                    const isExpanded = expandedStaffKey === key;
-                    const assignedStaff = serviceStaffAssignments[key] || [];
-                    const splitMode = serviceSplitModes[key] || "auto";
-
-                    return (
-                      <div className="mt-1">
-                        {/* Inline toggle button or assigned staff badges */}
-                        {assignedStaff.length === 0 && !isExpanded ? (
-                          <button
-                            type="button"
-                            onClick={() => setExpandedStaffKey(key)}
-                            className="ml-8 flex items-center gap-1 text-[10px] font-semibold text-gray-500 hover:text-blue-700 border border-dashed border-gray-300 hover:border-blue-300 rounded px-2 py-1 transition-colors"
-                          >
-                            <User className="w-3 h-3" /> Assign Staff
-                          </button>
-                        ) : assignedStaff.length > 0 && !isExpanded ? (
-                          <button
-                            type="button"
-                            onClick={() => setExpandedStaffKey(key)}
-                            className="ml-8 flex items-center gap-1.5 flex-wrap"
-                          >
-                            {assignedStaff.map((a) => {
-                              const staff = staffList.find((s) => s._id === a.staffId);
-                              return (
-                                <span key={a.staffId} className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">
-                                  <User className="w-2.5 h-2.5" />{staff?.name}
-                                </span>
-                              );
-                            })}
-                          </button>
-                        ) : null}
-
-                        {/* Expanded staff assignment panel */}
-                        {isExpanded && (
-                          <div className="ml-8 mt-1 space-y-1.5 bg-slate-50 border border-slate-200 rounded-lg p-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-slate-600">Staff</span>
-                              <div className="flex items-center gap-1.5">
-                                {settings.showCommissionInPOS && (
-                                  <div className="inline-flex rounded border border-slate-300 overflow-hidden text-[9px] font-bold">
-                                    <button type="button" onClick={() => updateServiceSplitMode(item._id, item.type, "auto")} className={`px-1.5 py-0.5 ${splitMode === "auto" ? "bg-slate-700 text-white" : "bg-white text-slate-500"}`}>Auto</button>
-                                    <button type="button" onClick={() => updateServiceSplitMode(item._id, item.type, "manual")} className={`px-1.5 py-0.5 ${splitMode === "manual" ? "bg-slate-700 text-white" : "bg-white text-slate-500"}`}>Manual</button>
-                                  </div>
-                                )}
-                                <button type="button" onClick={() => setExpandedStaffKey(null)} className="p-0.5 text-gray-400 hover:text-gray-600 rounded">
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-                            <SearchableSelect
-                              placeholder="Assign staff"
-                              value=""
-                              onChange={(val) => addServiceStaffAssignment(item._id, item.type, val)}
-                              options={staffList.map((s) => ({ value: s._id, label: s.name }))}
-                              className="w-full h-7"
-                              controlClassName="px-2 py-0.5 text-[11px]"
-                            />
-                            {assignedStaff.length > 0 && (
-                              <div className="space-y-1">
-                                {(() => {
-                                  const previewResult = getSplitCommissionPreviewForItem(item);
-                                  const previewMap = new Map(previewResult.assignments.map((a) => [a.staffId, a.komisiNominal]));
-                                  return getEffectiveServiceAssignments(item._id, item.type).map((assignment) => {
-                                    const staff = staffList.find((s) => s._id === assignment.staffId);
-                                    return (
-                                      <div key={assignment.staffId} className="flex items-center gap-1 bg-white p-1 rounded border border-blue-100">
-                                        <p className="text-[9px] font-bold text-gray-800 flex-1 truncate">{staff?.name}</p>
-                                        {settings.showCommissionInPOS && (
-                                          <>
-                                            <div className="flex items-center gap-0.5 bg-blue-50 px-1 py-0.5 rounded border border-blue-200">
-                                              <input type="number" min="0" max="100" value={assignment.percentage} onChange={(e) => updateServiceStaffPercentage(item._id, item.type, assignment.staffId, parseFloat(e.target.value) || 0)} disabled={splitMode === "auto"} className={`w-10 text-right text-[11px] font-black border-0 bg-transparent focus:outline-none ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`} />
-                                              <span className="text-[9px] font-bold text-blue-700">%</span>
-                                            </div>
-                                            <span className="text-[9px] font-bold text-emerald-700 min-w-[60px] text-right">
-                                              {settings.symbol}{(previewMap.get(assignment.staffId) || 0).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
-                                            </span>
-                                          </>
-                                        )}
-                                        <button onClick={() => removeServiceStaffAssignment(item._id, item.type, assignment.staffId)} className="p-0.5 text-gray-400 hover:text-red-500 rounded">
-                                          <Trash2 className="w-2.5 h-2.5" />
-                                        </button>
-                                      </div>
-                                    );
-                                  });
-                                })()}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {(item.type === "Product" || item.type === "Package") &&
-                    Number(item.commissionValue || 0) > 0 && (
-                      <div className="pl-8 space-y-1.5 mt-1">
-                        <div className="flex items-center gap-1 bg-green-50 border border-green-100 rounded p-1.5">
-                          <span className="text-[10px] font-bold text-green-700 flex-1">
-                            Staff Penjual {settings.showCommissionInPOS && (
-                              `(Komisi ${item.commissionType === "percentage"
-                                ? `${item.commissionValue}%`
-                                : `Rp${Number(item.commissionValue).toLocaleString("id-ID")}/pcs`})`
-                            )}
-                          </span>
-                        </div>
-                        <SearchableSelect
-                          placeholder="Assign staff penjual"
-                          value={
-                            serviceStaffAssignments[
-                              getCartItemKey(item._id, item.type)
-                            ]?.[0]?.staffId || ""
-                          }
-                          onChange={(val) => {
-                            const key = getCartItemKey(item._id, item.type);
-                            setServiceStaffAssignments((prev) => ({
-                              ...prev,
-                              [key]: val
-                                ? [{ staffId: val, percentage: 100 }]
-                                : [],
-                            }));
-                          }}
-                          options={[
-                            { value: "", label: settings.showCommissionInPOS ? "— Tanpa komisi staff —" : "— Tanpa staff —" },
-                            ...staffList.map((s) => ({
-                              value: s._id,
-                              label: s.name,
-                            })),
-                          ]}
-                          className="w-full h-8"
-                          controlClassName="px-2.5 py-1 text-[11px] md:text-[11px] lg:text-xs"
-                        />
-                      </div>
-                    )}
-                  {item.type === "Bundle" && (
-                    <div className="pl-8 space-y-2 mt-1">
-                      {/* Services list inside bundle */}
-                      <div className="bg-blue-50 border border-blue-100 rounded p-1.5 mb-2">
-                        <p className="text-[9px] font-black text-blue-800 uppercase tracking-wide mb-1">
-                          {settings.showCommissionInPOS ? "Pembagian komisi per jasa:" : "Pembagian staff per jasa:"}
-                        </p>
-                      </div>
-
-                      {(item.bundleServices || []).map((bs, i) => {
-                        const bsKey = getCartItemKey(item._id, item.type, i);
-                        const bsAssignments = serviceStaffAssignments[bsKey] || [];
-                        const bsEffective = getEffectiveServiceAssignments(item._id, item.type, i);
-                        const splitMode = serviceSplitModes[bsKey] || "auto";
-
-                        return (
-                          <div key={i} className="mb-2 p-2 border border-blue-100 bg-white rounded shadow-sm">
-                            <div className="flex justify-between text-[10px] text-blue-800 font-bold mb-1.5">
-                              <span className="truncate">{bs.serviceName}</span>
-                              <span className="flex-shrink-0 ml-1">
-                                {settings.symbol}
-                                {bs.servicePrice.toLocaleString("id-ID", {
-                                  maximumFractionDigits: 0,
-                                })}
-                              </span>
-                            </div>
-
-                            {/* Auto/Manual Split Toggle — hanya tampil jika komisi aktif */}
-                            {settings.showCommissionInPOS && (
-                              <div className="flex items-center justify-between gap-1 bg-slate-50 border border-slate-200 rounded p-1.5 mb-1.5">
-                                <span className="text-[10px] font-bold text-slate-700">Split Komisi</span>
-                                <div className="inline-flex rounded border border-slate-300 overflow-hidden text-[10px] font-bold">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      updateServiceSplitMode(
-                                        item._id,
-                                        item.type,
-                                        "auto",
-                                        i,
-                                      )
-                                    }
-                                    className={`px-2 py-0.5 ${splitMode === "auto" ? "bg-slate-700 text-white" : "bg-white text-slate-600"}`}
-                                  >
-                                    Auto
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      updateServiceSplitMode(
-                                        item._id,
-                                        item.type,
-                                        "manual",
-                                        i,
-                                      )
-                                    }
-                                    className={`px-2 py-0.5 ${splitMode === "manual" ? "bg-slate-700 text-white" : "bg-white text-slate-600"}`}
-                                  >
-                                    Manual
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-
-                            <SearchableSelect
-                              placeholder={`Assign staff untuk ${bs.serviceName}`}
-                              value=""
-                              onChange={(val) =>
-                                addServiceStaffAssignment(item._id, item.type, val, i)
-                              }
-                              options={staffList.map((s) => ({
-                                value: s._id,
-                                label: s.name,
-                              }))}
-                              className="w-full h-8 mb-1.5"
-                              controlClassName="px-2.5 py-1 text-[11px] md:text-[11px] lg:text-xs"
-                            />
-
-                            {bsAssignments.length > 0 && (
-                              <div className="space-y-1">
-                                {bsEffective.map((assignment) => {
-                                  const staff = staffList.find(
-                                    (s) => s._id === assignment.staffId,
-                                  );
-                                  return (
-                                    <div
-                                      key={assignment.staffId}
-                                      className="flex items-center gap-1.5 bg-blue-50/50 p-1 rounded border border-blue-100"
-                                    >
-                                      <p className="text-[9px] font-bold text-gray-800 flex-1 truncate">
-                                        {staff?.name}
-                                      </p>
-                                      {settings.showCommissionInPOS && (
-                                        <div className="flex items-center gap-1 bg-white px-1 py-0.5 rounded border border-blue-200">
-                                          <input
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            value={assignment.percentage}
-                                            onChange={(e) =>
-                                              updateServiceStaffPercentage(
-                                                item._id,
-                                                item.type,
-                                                assignment.staffId,
-                                                parseFloat(e.target.value) || 0,
-                                                i
-                                              )
-                                            }
-                                            disabled={splitMode === "auto"}
-                                            className={`w-12 md:w-14 text-right text-xs md:text-sm font-black border border-blue-200 bg-white rounded px-1 disabled:bg-gray-50 disabled:border-transparent focus:outline-none focus:border-blue-400 ${splitMode === "auto" ? "text-blue-400" : "text-blue-900"}`}
-                                          />
-                                          <span className="text-[10px] md:text-xs font-bold text-blue-900">
-                                            %
-                                          </span>
-                                        </div>
-                                      )}
-                                      <button
-                                        onClick={() =>
-                                          removeServiceStaffAssignment(
-                                            item._id,
-                                            item.type,
-                                            assignment.staffId,
-                                            i
-                                          )
-                                        }
-                                        className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded transition-colors"
-                                      >
-                                        <Trash2 className="w-2.5 h-2.5" />
-                                      </button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {item.type === "Package" && <div className="pl-8"></div>}
                 </div>
               ))
             )}
           </div>
 
           {/* Summary - Sticky at bottom */}
-          <div className="flex-shrink-0 p-2 bg-gray-50 border-t border-gray-200 pb-20 md:pb-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            <div className="max-h-[200px] md:max-h-[280px] lg:max-h-[340px] overflow-y-auto pr-1">
-              <div className="space-y-0.5 mb-2 text-[10px] lg:text-xs">
-                <div className="flex justify-between text-gray-600">
-                  <span>Subtotal</span>
-                  <span>
-                    {settings.symbol}
-                    {subtotal.toLocaleString("id-ID", {
-                      maximumFractionDigits: 0,
-                    })}
-                  </span>
-                </div>
-                {payableSubtotal !== subtotal && (
-                  <div className="flex justify-between text-amber-600">
-                    <span>Subtotal Dibayar</span>
-                    <span>
-                      {settings.symbol}
-                      {payableSubtotal.toLocaleString("id-ID", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </span>
-                  </div>
-                )}
-                {tax > 0 && (
-                  <div className="flex justify-between text-gray-600">
-                    <span>Tax ({settings.taxRate}%)</span>
-                    <span>
-                      {settings.symbol}
-                      {tax.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
-                    </span>
-                  </div>
-                )}
-                {((settings.showCommissionInPOS && commission > 0) || tips > 0) && (
-                  <div className="flex items-center justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setIsStaffEarningsHidden((prev) => !prev)}
-                      className="text-[9px] lg:text-[10px] font-semibold text-indigo-600 hover:text-indigo-800"
-                    >
-                      {isStaffEarningsHidden
-                        ? "Tampilkan Staff Earnings"
-                        : "Hide Staff Earnings"}
-                    </button>
-                  </div>
-                )}
-                {((settings.showCommissionInPOS && commission > 0) || tips > 0) && !isStaffEarningsHidden && (
-                  <div className="space-y-1 bg-indigo-50 px-2 py-1.5 rounded border border-indigo-100/50">
-                    <div className="flex justify-between text-indigo-600 font-bold mb-1 border-b border-indigo-200/50 pb-0.5 px-1">
-                      <span>Staff Earnings</span>
-                      <div className="flex gap-4 text-[8px] uppercase tracking-tighter">
-                        {settings.showCommissionInPOS && <span>Comm</span>}
-                        <span className="w-10 text-right">Tip</span>
-                      </div>
-                    </div>
-                    {assignments.map((assignment, idx) => {
-                      const staff = staffList.find(
-                        (s) => s._id === assignment.staffId,
-                      );
-                      return (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between text-[10px] text-indigo-700 bg-white/50 p-1 rounded"
-                        >
-                          <span className="truncate font-medium flex-1">
-                            {staff?.name}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            {settings.showCommissionInPOS && (
-                              <span className="text-[9px] text-indigo-400">
-                                {settings.symbol}
-                                {(assignment.commission || 0).toLocaleString(
-                                  "id-ID",
-                                  { maximumFractionDigits: 0 },
-                                )}
-                              </span>
-                            )}
-                            <div className="flex items-center gap-0.5 bg-indigo-100 px-1 rounded border border-indigo-200">
-                              <span className="text-[8px] font-bold text-indigo-400">
-                                {settings.symbol}
-                              </span>
-                              <input
-                                type="number"
-                                min="0"
-                                value={staffTips[assignment.staffId] || ""}
-                                placeholder="0"
-                                onChange={(e) =>
-                                  setStaffTips((prev) => ({
-                                    ...prev,
-                                    [assignment.staffId]:
-                                      parseFloat(e.target.value) || 0,
-                                  }))
-                                }
-                                className="w-10 text-right text-gray-900 bg-white border border-indigo-200 rounded px-1 py-0.5 focus:outline-none focus:border-indigo-400 font-bold text-indigo-900"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                <div className="flex justify-between text-gray-600 items-center">
-                  <div className="flex items-center gap-2">
-                    <span>Discount</span>
-                    <select
-                      value={discountType}
-                      onChange={(e) => setDiscountType(e.target.value as "nominal" | "percentage")}
-                      className="bg-white text-[10px] lg:text-xs font-bold text-blue-900 border border-gray-300 rounded px-1.5 py-0.5 focus:ring-1 focus:ring-blue-900 outline-none cursor-pointer"
-                    >
-                      <option value="nominal">{settings.symbol}</option>
-                      <option value="percentage">%</option>
-                    </select>
-                  </div>
-                  <input
-                    type="number"
-                    value={discount}
-                    onChange={(e) =>
-                      setDiscount(parseFloat(e.target.value) || 0)
-                    }
-                    className="w-16 text-right text-[10px] lg:text-xs text-gray-900 border border-gray-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-900 outline-none bg-white"
-                    min="0"
-                  />
-                </div>
-                {discount > 0 && (
-                  <div className="flex flex-col gap-1 mt-1">
-                    <label className="text-[10px] lg:text-xs font-semibold text-red-600">Alasan Diskon (Wajib)</label>
-                    <input
-                      type="text"
-                      value={discountReason}
-                      onChange={(e) => setDiscountReason(e.target.value)}
-                      placeholder="Contoh: Promo Spesial"
-                      className={`w-full text-[10px] lg:text-xs text-gray-900 border ${!discountReason.trim() ? "border-red-300 focus:ring-red-500" : "border-gray-300 focus:ring-blue-900"} rounded px-2 py-1 outline-none bg-white`}
-                    />
-                  </div>
-                )}
-
-                {/* ── Voucher Redemption ── */}
-                {!voucherApplied ? (
-                  showVoucherInput ? (
-                    <div className="flex gap-1 items-center">
-                      <input
-                        type="text"
-                        value={voucherCode}
-                        onChange={(e) =>
-                          setVoucherCode(e.target.value.toUpperCase())
-                        }
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && void applyVoucher()
-                        }
-                        placeholder="Kode Voucher..."
-                        className="flex-1 text-[10px] lg:text-xs text-gray-900 border border-gray-200 rounded px-2 py-1 focus:ring-1 focus:ring-blue-900 outline-none bg-white"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void applyVoucher()}
-                        disabled={voucherLoading || !voucherCode.trim()}
-                        className="px-2 py-1 text-[9px] font-bold bg-blue-900 text-white rounded hover:bg-blue-800 disabled:opacity-50 transition-colors"
-                      >
-                        {voucherLoading ? "..." : "Pakai"}
-                      </button>
-                      <button type="button" onClick={() => { setShowVoucherInput(false); setVoucherCode(''); }} className="text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>
-                    </div>
-                  ) : (
-                    <button type="button" onClick={() => setShowVoucherInput(true)} className="text-[10px] font-semibold text-blue-600 hover:text-blue-800">
-                      🎫 Punya voucher?
-                    </button>
-                  )
-                ) : (
-                  <div className="flex justify-between items-center text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
-                    <span className="text-[10px] font-bold flex items-center gap-1">
-                      🎫 {voucherApplied.code}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black">
-                        -{settings.symbol}
-                        {voucherApplied.discountAmount.toLocaleString("id-ID", {
-                          maximumFractionDigits: 0,
-                        })}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={removeVoucher}
-                        className="text-red-400 hover:text-red-600 text-[10px] font-bold"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Loyalty Point Redemption ── */}
-                {selectedCustomer &&
-                  selectedCustomer !== "walking-customer" &&
-                  customerLoyaltyPoints > 0 && (
-                    showLoyaltySlider ? (
-                      <div className="space-y-1">
-                        <div className="flex justify-between items-center text-amber-700">
-                          <span className="text-[10px] font-bold flex items-center gap-1">
-                            ⭐ Loyalty Points (
-                            {customerLoyaltyPoints.toLocaleString("id-ID")} pts)
-                          </span>
-                          {loyaltyPointsToRedeem > 0 && (
-                            <span className="text-[10px] font-black text-emerald-700">
-                              -{settings.symbol}
-                              {Math.min(
-                                loyaltyPointsToRedeem * (settings.loyaltyPointValue || 1),
-                                payableSubtotal,
-                              ).toLocaleString("id-ID", {
-                                maximumFractionDigits: 0,
-                              })}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="range"
-                            min="0"
-                            max={Math.min(customerLoyaltyPoints, Math.ceil(payableSubtotal / (settings.loyaltyPointValue || 1)))}
-                            step="100"
-                            value={loyaltyPointsToRedeem}
-                            onChange={(e) =>
-                              setLoyaltyPointsToRedeem(
-                                parseInt(e.target.value) || 0,
-                              )
-                            }
-                            className="flex-1 accent-amber-600"
-                          />
-                          <input
-                            type="number"
-                            min="0"
-                            max={Math.min(customerLoyaltyPoints, Math.ceil(payableSubtotal / (settings.loyaltyPointValue || 1)))}
-                            value={loyaltyPointsToRedeem || ""}
-                            placeholder="0"
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 0;
-                              setLoyaltyPointsToRedeem(
-                                Math.min(
-                                  val,
-                                  customerLoyaltyPoints,
-                                  Math.ceil(payableSubtotal / (settings.loyaltyPointValue || 1))
-                                ),
-                              );
-                            }}
-                            className="w-16 text-right text-[10px] text-gray-900 border border-amber-200 rounded px-1 py-0.5 focus:ring-1 focus:ring-amber-500 outline-none bg-white"
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <button type="button" onClick={() => setShowLoyaltySlider(true)} className="flex items-center justify-between w-full text-[10px] font-semibold text-amber-700 hover:text-amber-900">
-                        <span className="flex items-center gap-1">⭐ {customerLoyaltyPoints.toLocaleString("id-ID")} pts tersedia</span>
-                        <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold hover:bg-amber-200 transition-colors">Pakai</span>
-                      </button>
-                    )
-                  )}
-
-                {/* Wallet Balance Info */}
-                {selectedCustomer && selectedCustomer !== 'walking-customer' && customerWalletBalance > 0 && maxWalletPaymentAllowed > 0 && (
-                  <div className="flex justify-between items-center text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1.5 shadow-sm">
-                    <span className="flex items-center gap-1">💳 Saldo Wallet</span>
-                    <div className="text-right flex flex-col">
-                      <span className="font-bold">{settings.symbol}{customerWalletBalance.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                      <span className="text-[9px] text-emerald-600">Max usable: {settings.symbol}{maxWalletPaymentAllowed.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                    </div>
-                  </div>
-                )}
-
-                {tips > 0 && (
-                  <div className="flex justify-between text-indigo-600 items-center animate-in fade-in slide-in-from-right-2 duration-300">
-                    <span className="flex items-center gap-1">
-                      Tips
-                      <span className="text-[8px] bg-indigo-100 px-1 rounded uppercase tracking-tighter">
-                        Auto
-                      </span>
-                    </span>
-                    <span className="font-bold">
-                      {settings.symbol}
-                      {tips.toLocaleString("id-ID", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </span>
-                  </div>
-                )}
-              </div>
+          <div className="flex-shrink-0 p-4 bg-white border-t border-gray-200 shadow-[0_-4px_10px_rgba(0,0,0,0.03)] pb-24 md:pb-4">
+            <div className="flex justify-between items-center mb-2 text-sm text-gray-500 font-semibold">
+              <span>Subtotal</span>
+              <span>{settings.symbol}{subtotal.toLocaleString("id-ID")}</span>
             </div>
-
-            {/* ── Split Payment Section ── */}
-            <div className="mb-2 space-y-1.5 border-t border-gray-200 pt-1.5 mt-0.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] lg:text-xs font-black text-gray-700 flex items-center gap-1">
-                  <CreditCard className="w-3 h-3" /> Metode Pembayaran
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (splitPayments.length > 0) {
-                        const lastIdx = splitPayments.length - 1;
-                        const paidBeforeLast = splitPayments.slice(0, lastIdx).reduce((sum, p) => sum + (parseFloat(String(p.amount || "0")) || 0), 0);
-                        const remainder = Math.max(0, total - paidBeforeLast);
-                        updateSplitAmount(lastIdx, remainder.toString());
-                      } else {
-                        setSplitPayments([{ method: "Cash", amount: total.toString() }]);
-                      }
-                    }}
-                    className="text-[9px] lg:text-[10px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 border border-emerald-200 rounded px-1.5 py-0.5 hover:bg-emerald-50 transition-colors"
-                  >
-                    Isi Pas
-                  </button>
-                  <button
-                    type="button"
-                    onClick={addSplitPayment}
-                    className="text-[9px] lg:text-[10px] font-bold text-blue-900 hover:text-blue-700 flex items-center gap-0.5 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-50 transition-colors"
-                  >
-                    <Plus className="w-2.5 h-2.5" /> Tambah Metode
-                  </button>
-                </div>
-              </div>
-
-              {splitPayments.map((payment, index) => (
-                <div key={index} className="flex items-center gap-1.5">
-                  <select
-                    value={payment.method}
-                    onChange={(e) => updateSplitMethod(index, e.target.value)}
-                    className={`flex-1 text-[10px] lg:text-xs font-bold border border-gray-200 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-900 outline-none cursor-pointer ${payment.method ? 'text-gray-900 bg-white' : 'text-gray-400 bg-gray-50'}`}
-                  >
-                    <option value="" disabled className="text-gray-400 font-normal">Pilih Metode...</option>
-                    {["Cash", "Transfer", "Debit", "Credit Card", "QRIS", ...(selectedCustomer && selectedCustomer !== 'walking-customer' && customerWalletBalance > 0 && maxWalletPaymentAllowed > 0 ? ["Wallet"] : [])].map(
-                      (m) => (
-                        <option
-                          key={m}
-                          value={m}
-                          className="text-gray-900 bg-white font-semibold"
-                        >
-                          {m}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                  <input
-                    type="number"
-                    placeholder={
-                      splitPayments.length === 1
-                        ? total.toLocaleString("id-ID", {
-                          maximumFractionDigits: 0,
-                        })
-                        : index === splitPayments.length - 1 &&
-                          totalSplitPaidComputed < total
-                          ? (
-                            total -
-                            splitPayments
-                              .slice(0, -1)
-                              .reduce(
-                                (s, p) =>
-                                  s +
-                                  (parseFloat(String(p.amount || "0")) || 0),
-                                0,
-                              )
-                          ).toLocaleString("id-ID", {
-                            maximumFractionDigits: 0,
-                          })
-                          : "0"
-                    }
-                    value={payment.amount}
-                    onChange={(e) => {
-                      let val = e.target.value;
-                      if (payment.method === 'Wallet') {
-                        const numVal = parseFloat(val) || 0;
-                        const maxAllowed = Math.min(customerWalletBalance, maxWalletPaymentAllowed);
-                        if (numVal > maxAllowed) {
-                          val = maxAllowed.toString();
-                        }
-                      }
-                      updateSplitAmount(index, val);
-                    }}
-                    className="w-28 text-right text-xs lg:text-sm text-gray-900 border border-gray-200 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-900 outline-none font-black"
-                  />
-                  {splitPayments.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeSplitPayment(index)}
-                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors flex-shrink-0"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
-
-              {/* Running total for split mode */}
-              {splitPayments.length > 1 && (
-                <div
-                  className={`flex justify-between text-[10px] font-bold px-1 py-0.5 rounded ${Math.abs(totalSplitPaidComputed - total) < 1
-                    ? "text-emerald-700 bg-emerald-50"
-                    : totalSplitPaidComputed > total
-                      ? "text-red-600 bg-red-50"
-                      : "text-amber-700 bg-amber-50"
-                    }`}
-                >
-                  <span>Total dibayar:</span>
-                  <span>
-                    {settings.symbol}
-                    {totalSplitPaidComputed.toLocaleString("id-ID", {
-                      maximumFractionDigits: 0,
-                    })}
-                    {Math.abs(totalSplitPaidComputed - total) < 1
-                      ? " ✓ Sesuai"
-                      : totalSplitPaidComputed > total
-                        ? ` (lebih ${settings.symbol}${(totalSplitPaidComputed - total).toLocaleString("id-ID", { maximumFractionDigits: 0 })})`
-                        : ` (kurang ${settings.symbol}${(total - totalSplitPaidComputed).toLocaleString("id-ID", { maximumFractionDigits: 0 })})`}
-                  </span>
-                </div>
-              )}
-
-              {/* Single payment: show change if overpaid */}
-              {splitPayments.length === 1 &&
-                changeAmount > 0 &&
-                totalSplitPaidComputed > 0 && (
-                  <div className="flex justify-between text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded">
-                    <span>Kembalian:</span>
-                    <span>
-                      {settings.symbol}
-                      {changeAmount.toLocaleString("id-ID", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </span>
-                  </div>
-                )}
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-lg font-black text-gray-900">Total Tagihan</span>
+              <span className="text-2xl font-black text-blue-900">{settings.symbol}{total.toLocaleString("id-ID")}</span>
             </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-gray-200 mb-4 mt-1">
-              <div className="flex items-center gap-2">
-                <span className="text-lg lg:text-xl font-black text-gray-900">
-                  {splitPayments.length === 1 &&
-                    totalSplitPaidComputed > 0 &&
-                    totalSplitPaidComputed < total
-                    ? "Due"
-                    : "Total"}
-                </span>
-                <span
-                  className={
-                    `text-xl lg:text-2xl font-black ${splitPayments.length === 1 &&
-                      totalSplitPaidComputed > 0 &&
-                      totalSplitPaidComputed < total
-                      ? "text-red-600"
-                      : "text-blue-900"
-                    }`
-                  }
-                >
-                  {settings.symbol}{(splitPayments.length === 1 &&
-                    totalSplitPaidComputed > 0 &&
-                    totalSplitPaidComputed < total
-                    ? total - totalSplitPaidComputed
-                    : total
-                  ).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
-                </span>
-              </div>
-
-              <div className="flex gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setIsParkModalOpen(true)}
-                  disabled={cart.length === 0}
-                  className="flex-1 sm:flex-none px-4 py-3 text-[11px] lg:text-xs uppercase tracking-widest font-black text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border border-amber-200"
-                >
-                  <Save className="w-4 h-4" /> Simpan Bon
-                </button>
-                <FormButton
-                  onClick={() => {
-                    void handleCheckout();
-                  }}
-                  loading={submitting}
-                  disabled={hasInvalidSplitInCart || cart.length === 0 || !splitPayments.some(p => !!p.method)}
-                  variant="success"
-                  className="flex-1 sm:max-w-max px-4 py-3 text-[11px] lg:text-xs uppercase tracking-widest font-black shadow-lg hover:shadow-xl active:translate-y-0.5 transition-all w-full sm:w-auto"
-                  icon={<CreditCard className="w-4 h-4" />}
-                >
-                  Complete Order
-                </FormButton>
-              </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setIsParkModalOpen(true)}
+                disabled={cart.length === 0}
+                className="px-4 py-3 bg-amber-50 text-amber-600 rounded-xl font-bold border border-amber-200 hover:bg-amber-100 disabled:opacity-50 transition-colors flex items-center justify-center"
+                title="Park Bill"
+              >
+                <Save className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setIsCheckoutModalOpen(true)}
+                disabled={cart.length === 0}
+                className="flex-1 py-3 bg-blue-900 text-white rounded-xl font-black text-sm hover:bg-blue-800 disabled:opacity-50 transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <CreditCard className="w-5 h-5" />
+                PROSES PEMBAYARAN
+              </button>
             </div>
           </div>
         </div>
@@ -3718,6 +3065,77 @@ export default function POSPage() {
           )}
         </button>
       </div>
+
+      <Modal
+        isOpen={isMedicalNotesModalOpen}
+        onClose={() => setIsMedicalNotesModalOpen(false)}
+        title="🩺 Catatan Rekam Medis"
+      >
+        <div className="space-y-4">
+          <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-lg flex gap-3 items-start">
+            <span className="text-xl">💡</span>
+            <p className="text-xs text-emerald-800">
+              Catatan rekam medis ini akan <b>disimpan menempel langsung ke dalam Bon/Invoice</b>. Cocok untuk mencatat formula warna, alergi, atau catatan khusus pelanggan saat visit ini.
+            </p>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-700">Catatan Medis & Treatment</label>
+            <textarea
+              value={medicalNotes}
+              onChange={(e) => setMedicalNotes(e.target.value)}
+              placeholder="Contoh: Pelanggan alergi terhadap bleaching tipe X. Formula pewarna rambut: 60% Ash, 40% Blonde dengan developer 20vol..."
+              className="w-full mt-1 border border-gray-300 px-3 py-2 rounded-lg text-sm min-h-[120px] resize-y"
+              autoFocus
+            />
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <button onClick={() => setIsMedicalNotesModalOpen(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200">
+              Tutup
+            </button>
+            <button onClick={() => setIsMedicalNotesModalOpen(false)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700">
+              Simpan Catatan
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isManualServiceModalOpen}
+        onClose={() => setIsManualServiceModalOpen(false)}
+        title="✨ Tambah Layanan Manual"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-bold text-gray-700">Nama Layanan</label>
+            <input
+              type="text"
+              value={manualServiceName}
+              onChange={(e) => setManualServiceName(e.target.value)}
+              placeholder="Contoh: Potong Poni (Custom)"
+              className="w-full mt-1 border border-gray-300 px-3 py-2 rounded-lg text-sm"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-700">Harga (Rp)</label>
+            <input
+              type="number"
+              value={manualServicePrice}
+              onChange={(e) => setManualServicePrice(e.target.value)}
+              placeholder="0"
+              className="w-full mt-1 border border-gray-300 px-3 py-2 rounded-lg text-sm"
+            />
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <button onClick={() => setIsManualServiceModalOpen(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200">
+              Batal
+            </button>
+            <button onClick={handleAddManualService} disabled={!manualServiceName.trim() || !manualServicePrice} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50">
+              Tambah ke Keranjang
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={isCustomerModalOpen}
@@ -3920,8 +3338,185 @@ export default function POSPage() {
           {toastMessage}
         </div>
       )}
+      {/* Modal Checkout */}
+      <Modal isOpen={isCheckoutModalOpen} onClose={() => setIsCheckoutModalOpen(false)} title="Checkout & Pembayaran" size="xl">
+        <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-2 pb-10">
+          {/* List of Cart Items for Discount & Staff Selection */}
+          <div className="space-y-3">
+            <h3 className="font-black text-gray-800 text-sm border-b pb-1">Review Items & Staff</h3>
+            {cart.map((item) => (
+              <div key={`${item._id}-${item.type}`} className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-bold text-gray-800 text-sm">{item.name} <span className="text-gray-500 font-normal">x{item.quantity}</span></p>
+                    <p className="text-xs text-amber-600 font-bold">{settings.symbol}{(item.price * item.quantity).toLocaleString("id-ID")}</p>
+                  </div>
+                  {["Service", "Product", "Bundle", "Package"].includes(item.type) && (
+                    <div className="flex items-center gap-1.5 text-[10px]">
+                      <span className="font-semibold text-gray-500">Diskon:</span>
+                      <select
+                        value={item.discountType || "percentage"}
+                        onChange={(e) => updateCartItemDiscount(item._id, item.type, { discountType: e.target.value })}
+                        className="h-6 px-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-gray-700"
+                      >
+                        <option value="percentage">%</option>
+                        <option value="nominal">Rp</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={item.discountValue || ""}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          updateCartItemDiscount(item._id, item.type, { discountValue: val ? parseInt(val) : 0 });
+                        }}
+                        placeholder="0"
+                        className="h-6 w-20 px-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-right font-medium text-gray-700 bg-white"
+                      />
+                    </div>
+                  )}
+                </div>
 
-      {/* Modal Park Bill */}
+                {/* Staff Assignment */}
+                {(item.type === "Service" || item.type === "Product" || item.type === "Package" || item.type === "Bundle") && (
+                  <div className="pt-2 border-t border-gray-200">
+                    <p className="text-[10px] font-bold text-gray-500 mb-1">Assign Staff</p>
+                    <SearchableSelect
+                      placeholder="Pilih Staff..."
+                      value={serviceStaffAssignments[getCartItemKey(item._id, item.type)]?.[0]?.staffId || ""}
+                      onChange={(val) => {
+                        const key = getCartItemKey(item._id, item.type);
+                        setServiceStaffAssignments((prev) => ({
+                          ...prev,
+                          [key]: val ? [{ staffId: val, percentage: 100 }] : [],
+                        }));
+                      }}
+                      options={[
+                        { value: "", label: "— Tanpa staff —" },
+                        ...staffList.map((s) => ({ value: s._id, label: s.name })),
+                      ]}
+                      className="w-full"
+                      controlClassName="px-2 py-1 text-xs"
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-3 pt-3 border-t-2 border-dashed border-gray-300">
+            <h3 className="font-black text-gray-800 text-sm border-b pb-1">Global Discount & Voucher</h3>
+            
+            <div className="flex justify-between text-gray-600 items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold">Discount Tagihan</span>
+                <select
+                  value={discountType}
+                  onChange={(e) => setDiscountType(e.target.value as "nominal" | "percentage")}
+                  className="bg-white text-xs font-bold text-blue-900 border border-gray-300 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-900 outline-none"
+                >
+                  <option value="nominal">{settings.symbol}</option>
+                  <option value="percentage">%</option>
+                </select>
+              </div>
+              <input
+                type="number"
+                value={discount}
+                onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                className="w-24 text-right text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-900 outline-none bg-white font-bold"
+                min="0"
+              />
+            </div>
+            {discount > 0 && (
+              <input
+                type="text"
+                value={discountReason}
+                onChange={(e) => setDiscountReason(e.target.value)}
+                placeholder="Alasan Diskon (Wajib)"
+                className="w-full text-xs text-gray-900 border border-red-300 focus:ring-red-500 rounded px-2 py-1.5 outline-none bg-white"
+              />
+            )}
+            
+            {/* Voucher & Loyalty here if needed */}
+          </div>
+
+          <div className="space-y-3 pt-3 border-t-2 border-dashed border-gray-300">
+            <h3 className="font-black text-gray-800 text-sm border-b pb-1">Payment Method</h3>
+            
+            <div className="space-y-2">
+              {splitPayments.map((payment, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <select
+                    value={payment.method}
+                    onChange={(e) => updateSplitMethod(index, e.target.value)}
+                    className="flex-1 text-xs font-bold border border-gray-300 rounded px-2 py-2 focus:ring-1 focus:ring-blue-900 outline-none"
+                  >
+                    <option value="" disabled>Pilih Metode...</option>
+                    {["Cash", "Transfer", "Debit", "Credit Card", "QRIS", ...(selectedCustomer && selectedCustomer !== 'walking-customer' && customerWalletBalance > 0 && maxWalletPaymentAllowed > 0 ? ["Wallet"] : [])].map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    value={payment.amount}
+                    onChange={(e) => updateSplitAmount(index, e.target.value)}
+                    className="w-32 text-right text-sm font-black border border-gray-300 rounded px-2 py-2 focus:ring-1 focus:ring-blue-900 outline-none"
+                  />
+                  {splitPayments.length > 1 && (
+                    <button type="button" onClick={() => removeSplitPayment(index)} className="p-2 text-red-500 bg-red-50 rounded hover:bg-red-100">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <button type="button" onClick={addSplitPayment} className="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">
+                  + Split Payment
+                </button>
+                <button type="button" onClick={() => {
+                  if (splitPayments.length > 0) {
+                    const lastIdx = splitPayments.length - 1;
+                    const paidBeforeLast = splitPayments.slice(0, lastIdx).reduce((sum, p) => sum + (parseFloat(String(p.amount || "0")) || 0), 0);
+                    const remainder = Math.max(0, total - paidBeforeLast);
+                    updateSplitAmount(lastIdx, remainder.toString());
+                  } else {
+                    setSplitPayments([{ method: "Cash", amount: total.toString() }]);
+                  }
+                }} className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
+                  Isi Pas Tagihan
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex justify-between items-center mt-4">
+            <div>
+              <p className="text-xs font-bold text-blue-900">Total Dibayar</p>
+              <p className="text-lg font-black text-blue-900">{settings.symbol}{totalSplitPaidComputed.toLocaleString("id-ID")}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-bold text-gray-600">Tagihan</p>
+              <p className="text-lg font-black text-gray-900">{settings.symbol}{total.toLocaleString("id-ID")}</p>
+            </div>
+          </div>
+          
+          <div className="pt-4 flex gap-3">
+            <button type="button" onClick={() => setIsCheckoutModalOpen(false)} className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200">
+              Batal
+            </button>
+            <FormButton
+              onClick={() => void handleCheckout()}
+              loading={submitting}
+              disabled={hasInvalidSplitInCart || cart.length === 0 || !splitPayments.some(p => !!p.method) || (discount > 0 && !discountReason.trim()) || totalSplitPaidComputed < total}
+              variant="success"
+              className="flex-[2] py-3 text-sm font-black uppercase tracking-widest shadow-lg rounded-xl"
+              icon={<CreditCard className="w-5 h-5" />}
+            >
+              Complete Order
+            </FormButton>
+          </div>
+        </div>
+      </Modal>
+
       <Modal isOpen={isParkModalOpen} onClose={() => setIsParkModalOpen(false)} title="Simpan Keranjang (Park Bill)">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">Simpan keranjang ini sementara agar bisa dipanggil lagi nanti tanpa kehilangan data.</p>

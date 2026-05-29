@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
         if (permissionError) return permissionError;
 
         const services = await Service.find({ status: "active" })
-            .select("_id name price memberPrice image duration commissionType commissionValue waFollowUp parentService isFavorite")
+            .populate("category", "name")
+            .select("_id name price memberPrice image duration commissionType commissionValue waFollowUp parentService isFavorite category")
             .sort({ name: 1 });
 
         return NextResponse.json({ success: true, data: services });

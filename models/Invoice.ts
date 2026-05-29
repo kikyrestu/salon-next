@@ -52,6 +52,7 @@ export interface IInvoice extends Document {
   }[];
   commission: number;
   notes?: string;
+  medicalNotes?: string;
   followUpPhoneNumber?: string;
   sourceType: "normal_sale" | "package_redeem" | "package_purchase" | "membership_purchase";
   date: Date;
@@ -185,6 +186,7 @@ const invoiceSchema = new Schema<IInvoice>(
     ],
     commission: { type: Number, default: 0 },
     notes: String,
+    medicalNotes: String,
     followUpPhoneNumber: {
       type: String,
       trim: true,
