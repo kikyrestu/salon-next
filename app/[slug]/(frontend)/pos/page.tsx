@@ -2255,7 +2255,6 @@ export default function POSPage() {
           ]
             .filter(Boolean)
             .join(" | ") || undefined,
-        medicalNotes: medicalNotes.trim() || undefined,
       };
 
       const res = await fetch("/api/invoices", {
