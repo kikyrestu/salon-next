@@ -304,7 +304,10 @@ export default function ServicesPage() {
       const res = await fetch(url, {
         method: editingService ? "PUT" : "POST",
         headers: { "x-store-slug": slug, "Content-Type": "application/json" },
-        body: JSON.stringify(serviceFormData),
+        body: JSON.stringify({
+          ...serviceFormData,
+          parentService: serviceFormData.parentService || null,
+        }),
       });
       const data = await res.json();
       if (data.success) {

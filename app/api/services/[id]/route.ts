@@ -32,6 +32,12 @@ const normalizeServicePayload = (payload: any) => {
         };
     }
 
+    // Sanitize parentService: convert empty string to null
+    // Mongoose ObjectId cannot cast "" → harus null untuk "no parent"
+    if (body.parentService === '' || body.parentService === undefined) {
+        body.parentService = null;
+    }
+
     return body;
 };
 

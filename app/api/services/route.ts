@@ -35,6 +35,11 @@ const normalizeServicePayload = (payload: any) => {
         };
     }
 
+    // Sanitize parentService: convert empty string to null
+    if (body.parentService === '' || body.parentService === undefined) {
+        body.parentService = null;
+    }
+
     return body;
 };
 
