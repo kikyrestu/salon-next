@@ -118,9 +118,11 @@ export async function POST(request: NextRequest, props: any) {
             body.status = body.status.target.value;
         }
 
+        const settings = await Settings.findOne();
+
         // [U03 FIX] Cek konflik jadwal staff — tolak jika ada appointment lain di slot yang sama
         // [BE-02 FIX] Konversi ke integer minutes untuk perbandingan yang robust (bukan string)
-        if (body.staff && body.date && body.startTime && body.endTime) {
+        if (!settings?.allowStaffDoubleBooking && body.staff && body.date && body.startTime && body.endTime) {
             const toMinutes = (t: string) => {
                 const [h, m] = t.split(':').map(Number);
                 return h * 60 + m;
@@ -148,7 +150,6 @@ export async function POST(request: NextRequest, props: any) {
             }
         }
 
-        const settings = await Settings.findOne();
         const taxRate = settings?.taxRate || 0;
 
         const subtotal = body.services.reduce((acc: number, s: any) => acc + (s.price || 0), 0);

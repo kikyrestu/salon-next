@@ -57,6 +57,7 @@ export async function GET(request: NextRequest, props: any) {
                     walletIncludedProducts: settings.walletIncludedProducts,
                     walletIncludedBundles: settings.walletIncludedBundles,
                     walletExpiryDays: settings.walletExpiryDays,
+                    allowStaffDoubleBooking: settings.allowStaffDoubleBooking,
                     financialReportSections: settings.financialReportSections
                 }
             });
@@ -123,7 +124,7 @@ export async function PUT(request: NextRequest, props: any) {
             'twilioAuthToken', 'twilioPhoneNumber', 'emailEnabled', 'smtpHost', 'smtpPort',
             'smtpSecure', 'smtpUser', 'smtpPassword', 'smtpFrom', 'reminderDaysBefore',
             'reminderMethod', 'aiEnabled', 'openaiApiKey', 'openaiModel', 'walletExpiryDays',
-            'financialReportSections'
+            'financialReportSections', 'allowStaffDoubleBooking'
         ];
 
         Object.keys(body).forEach(key => {

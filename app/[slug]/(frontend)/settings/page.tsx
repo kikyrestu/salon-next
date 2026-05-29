@@ -3,7 +3,7 @@
 
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Save, Store, Mail, Phone, MapPin, DollarSign, Percent, Image as ImageIcon, Globe, FileText, Clock, CreditCard, MessageSquare, Send, Bell, Sparkles, Trash2, RefreshCw, Gift, Crown, BarChart3 } from "lucide-react";
+import { Save, Store, Mail, Phone, MapPin, DollarSign, Percent, Image as ImageIcon, Globe, FileText, Clock, CreditCard, MessageSquare, Send, Bell, Sparkles, Trash2, RefreshCw, Gift, Crown, BarChart3, Calendar } from "lucide-react";
 import FormInput, { FormSelect, FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
 import { getAllCurrencies } from "@/lib/currency";
@@ -42,6 +42,7 @@ interface Settings {
         netProfit: boolean;
         cashFlow: boolean;
     };
+    allowStaffDoubleBooking: boolean;
     termsAndConditions: string;
 
     // Premium Membership
@@ -148,6 +149,7 @@ export default function SettingsPage() {
             netProfit: true,
             cashFlow: true
         },
+        allowStaffDoubleBooking: false,
         termsAndConditions: "",
         membershipPrice: 0,
         membershipDurationDays: 365,
@@ -302,6 +304,7 @@ export default function SettingsPage() {
                         netProfit: true,
                         cashFlow: true
                     },
+                    allowStaffDoubleBooking: data.data.allowStaffDoubleBooking || false,
                     termsAndConditions: data.data.termsAndConditions || "",
                     loyaltyPointPerSpend: data.data.loyaltyPointPerSpend || 0,
                     loyaltyPointValue: data.data.loyaltyPointValue || 0,
@@ -660,6 +663,31 @@ export default function SettingsPage() {
                                     type="checkbox"
                                     checked={settings.showCommissionInPOS}
                                     onChange={(e) => setSettings({ ...settings, showCommissionInPOS: e.target.checked })}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Booking & Schedule Settings */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-blue-900" />
+                        Booking & Schedule Settings
+                    </h2>
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <div>
+                                <p className="text-sm font-bold text-gray-900">Izinkan Double Booking Staf & Abaikan Jam Bentrok</p>
+                                <p className="text-xs text-gray-500 mt-0.5">Jika diaktifkan, staf dapat dipesan pada jam yang sama oleh lebih dari satu pelanggan (mengabaikan blokir jadwal bentrok).</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.allowStaffDoubleBooking}
+                                    onChange={(e) => setSettings({ ...settings, allowStaffDoubleBooking: e.target.checked })}
                                     className="sr-only peer"
                                 />
                                 <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>

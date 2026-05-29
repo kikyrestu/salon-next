@@ -83,6 +83,10 @@ const SettingsSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    allowStaffDoubleBooking: {
+        type: Boolean,
+        default: false
+    },
     walletExpiryDays: { type: Number, default: 0 },
     financialReportSections: {
         totalSales: { type: Boolean, default: true },

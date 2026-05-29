@@ -20,6 +20,7 @@ import {
   Zap,
   X,
   Wallet,
+  Save,
 } from "lucide-react";
 import { FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
@@ -136,6 +137,18 @@ interface PaymentEntry {
   amount: number | string;
 }
 
+interface ParkedBill {
+  id: string;
+  name: string;
+  date: string;
+  cart: CartItem[];
+  selectedCustomer: string;
+  serviceStaffAssignments: Record<string, { staffId: string; percentage: number; porsiPersen?: number }[]>;
+  serviceSplitModes: Record<string, "auto" | "manual">;
+  cartDiscounts: Record<string, { type: "percentage" | "nominal"; value: number; originalValue?: number; reason?: string }>;
+  appointmentId: string | null;
+}
+
 
 export default function POSPage() {
   const router = useTenantRouter();
@@ -215,6 +228,11 @@ export default function POSPage() {
   const [referralCode, setReferralCode] = useState("");
   const [referralValidating, setReferralValidating] = useState(false);
   const [referralInfoModal, setReferralInfoModal] = useState<{ name: string, phone: string } | null>(null);
+  const [mobileTab, setMobileTab] = useState<"catalog" | "cart">("catalog");
+  const [isParkModalOpen, setIsParkModalOpen] = useState(false);
+  const [isParkedListOpen, setIsParkedListOpen] = useState(false);
+  const [parkBillName, setParkBillName] = useState("");
+  const [parkedBills, setParkedBills] = useState<ParkedBill[]>([]);
   const [referralValidated, setReferralValidated] = useState<{
     referrerName: string;
     discountAmount: number;
@@ -1535,6 +1553,67 @@ export default function POSPage() {
     setReferralValidated(null);
   };
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("posParkedBills");
+        if (stored) setParkedBills(JSON.parse(stored));
+      } catch (e) {
+        console.error("Failed to load parked bills", e);
+      }
+    }
+  }, []);
+
+  const saveParkedBill = () => {
+    if (!parkBillName.trim()) {
+      alert("Nama referensi tidak boleh kosong");
+      return;
+    }
+    const newBill: ParkedBill = {
+      id: Date.now().toString(),
+      name: parkBillName,
+      date: new Date().toLocaleString("id-ID"),
+      cart,
+      selectedCustomer,
+      serviceStaffAssignments,
+      serviceSplitModes,
+      cartDiscounts: {}, // Simplification
+      appointmentId,
+    };
+    const updated = [...parkedBills, newBill];
+    setParkedBills(updated);
+    localStorage.setItem("posParkedBills", JSON.stringify(updated));
+    resetCheckoutState();
+    setIsParkModalOpen(false);
+    setParkBillName("");
+    if (appointmentId) {
+       router.push("/appointments/calendar");
+    } else {
+       router.refresh();
+    }
+    alert("Keranjang berhasil disimpan sementara!");
+  };
+
+  const restoreParkedBill = (bill: ParkedBill) => {
+    setCart(bill.cart);
+    setSelectedCustomer(bill.selectedCustomer || "walking-customer");
+    setServiceStaffAssignments(bill.serviceStaffAssignments || {});
+    setServiceSplitModes(bill.serviceSplitModes || {});
+    if (bill.appointmentId) {
+      window.history.replaceState(null, "", `/pos?appointmentId=${bill.appointmentId}`);
+    }
+    const updated = parkedBills.filter(b => b.id !== bill.id);
+    setParkedBills(updated);
+    localStorage.setItem("posParkedBills", JSON.stringify(updated));
+    setIsParkedListOpen(false);
+  };
+
+  const deleteParkedBill = (id: string) => {
+    const updated = parkedBills.filter(b => b.id !== id);
+    setParkedBills(updated);
+    localStorage.setItem("posParkedBills", JSON.stringify(updated));
+  };
+
   const handleCheckout = async (nonQrisPaid?: boolean) => {
     if (submitting) return;
     if (referralCode.trim() && !referralValidated && isFirstTimer) {
@@ -2270,7 +2349,6 @@ export default function POSPage() {
   });
   const enteredPaidAmount = totalSplitPaidComputed;
   const changeAmount = Math.max(0, totalSplitPaidComputed - total);
-  const [mobileTab, setMobileTab] = useState<"catalog" | "cart">("catalog");
   const availableDeals = getAvailableDeals();
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -2302,19 +2380,30 @@ export default function POSPage() {
                     placeholder="Search items..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-blue-900"
+                    className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
                   />
                   {search && (
                     <button
-                      type="button"
                       onClick={() => setSearch("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       title="Clear search"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="w-4 h-4" />
                     </button>
                   )}
                 </div>
+                <button
+                  onClick={() => setIsParkedListOpen(true)}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-lg text-xs lg:text-sm font-bold border border-amber-200 hover:bg-amber-100 transition-colors shadow-sm whitespace-nowrap"
+                >
+                  <Save className="w-4 h-4" />
+                  <span className="hidden xs:inline">Bon Tersimpan</span>
+                  {parkedBills.length > 0 && (
+                    <span className="bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
+                      {parkedBills.length}
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
             <div className="flex gap-2">
@@ -3571,18 +3660,28 @@ export default function POSPage() {
                 </span>
               </div>
 
-              <FormButton
-                onClick={() => {
-                  void handleCheckout();
-                }}
-                loading={submitting}
-                disabled={hasInvalidSplitInCart || cart.length === 0 || !splitPayments.some(p => !!p.method)}
-                variant="success"
-                className="flex-1 sm:max-w-max px-4 py-3 text-[11px] lg:text-xs uppercase tracking-widest font-black shadow-lg hover:shadow-xl active:translate-y-0.5 transition-all w-full sm:w-auto"
-                icon={<CreditCard className="w-4 h-4" />}
-              >
-                Complete Order
-              </FormButton>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsParkModalOpen(true)}
+                  disabled={cart.length === 0}
+                  className="flex-1 sm:flex-none px-4 py-3 text-[11px] lg:text-xs uppercase tracking-widest font-black text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border border-amber-200"
+                >
+                  <Save className="w-4 h-4" /> Simpan Bon
+                </button>
+                <FormButton
+                  onClick={() => {
+                    void handleCheckout();
+                  }}
+                  loading={submitting}
+                  disabled={hasInvalidSplitInCart || cart.length === 0 || !splitPayments.some(p => !!p.method)}
+                  variant="success"
+                  className="flex-1 sm:max-w-max px-4 py-3 text-[11px] lg:text-xs uppercase tracking-widest font-black shadow-lg hover:shadow-xl active:translate-y-0.5 transition-all w-full sm:w-auto"
+                  icon={<CreditCard className="w-4 h-4" />}
+                >
+                  Complete Order
+                </FormButton>
+              </div>
             </div>
           </div>
         </div>
@@ -3821,6 +3920,72 @@ export default function POSPage() {
           {toastMessage}
         </div>
       )}
+
+      {/* Modal Park Bill */}
+      <Modal isOpen={isParkModalOpen} onClose={() => setIsParkModalOpen(false)} title="Simpan Keranjang (Park Bill)">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">Simpan keranjang ini sementara agar bisa dipanggil lagi nanti tanpa kehilangan data.</p>
+          <div>
+            <label className="text-xs font-bold text-gray-700">Nama Referensi (Misal: Nama Pelanggan / Nomor Antrean)</label>
+            <input
+              type="text"
+              value={parkBillName}
+              onChange={(e) => setParkBillName(e.target.value)}
+              placeholder="Contoh: Budi - Potong Rambut"
+              className="w-full mt-1 border border-gray-300 px-3 py-2 rounded-lg text-sm"
+              autoFocus
+            />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setIsParkModalOpen(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200">
+              Batal
+            </button>
+            <button onClick={saveParkedBill} disabled={!parkBillName.trim()} className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold hover:bg-amber-600 disabled:opacity-50">
+              Simpan
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal Daftar Parked Bills */}
+      <Modal isOpen={isParkedListOpen} onClose={() => setIsParkedListOpen(false)} title="Daftar Bon Tersimpan">
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          {parkedBills.length === 0 ? (
+            <div className="text-center text-gray-500 text-sm py-8 flex flex-col items-center">
+              <Package className="w-8 h-8 text-gray-300 mb-2" />
+              Belum ada bon yang disimpan
+            </div>
+          ) : (
+            parkedBills.map((bill) => (
+              <div key={bill.id} className="p-3 border border-gray-200 rounded-lg hover:border-amber-300 transition-colors flex items-center justify-between group">
+                <div>
+                  <h4 className="font-bold text-gray-800 text-sm">{bill.name}</h4>
+                  <div className="text-xs text-gray-500 flex gap-2 mt-1">
+                    <span>🕒 {bill.date}</span>
+                    <span>•</span>
+                    <span>🛒 {bill.cart.length} item</span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => restoreParkedBill(bill)}
+                    className="px-3 py-1.5 bg-blue-900 text-white rounded-lg text-xs font-bold hover:bg-blue-800"
+                  >
+                    Panggil
+                  </button>
+                  <button
+                    onClick={() => deleteParkedBill(bill.id)}
+                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg opacity-50 group-hover:opacity-100 transition-opacity"
+                    title="Hapus"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }
