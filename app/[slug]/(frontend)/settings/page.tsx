@@ -1051,41 +1051,7 @@ export default function SettingsPage() {
                     </div>
                 </div>
 
-                {/* Custom Financial Report */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
-                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <BarChart3 className="w-5 h-5 text-indigo-600" /> Custom Financial Report
-                    </h3>
-                    <p className="text-xs text-gray-500">Pilih section yang ingin ditampilkan di halaman Financial Report.</p>
-                    <div className="grid grid-cols-2 gap-3">
-                        {[
-                            { key: 'totalSales', label: 'Total Sales (Revenue)' },
-                            { key: 'totalCollected', label: 'Total Collected (Cash In)' },
-                            { key: 'purchases', label: 'Inventory Purchases' },
-                            { key: 'expenses', label: 'Operational Expenses' },
-                            { key: 'payroll', label: 'Payroll' },
-                            { key: 'walletTopups', label: 'Wallet Top-ups' },
-                            { key: 'netProfit', label: 'Net Profit' },
-                            { key: 'cashFlow', label: 'Cash Flow' },
-                        ].map(item => (
-                            <label key={item.key} className="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                                <input
-                                    type="checkbox"
-                                    checked={settings.financialReportSections?.[item.key as keyof typeof settings.financialReportSections] ?? (item.key !== 'payroll' && item.key !== 'walletTopups')}
-                                    onChange={(e) => setSettings({
-                                        ...settings,
-                                        financialReportSections: {
-                                            ...(settings.financialReportSections || {}),
-                                            [item.key]: e.target.checked,
-                                        }
-                                    })}
-                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                />
-                                <span className="text-sm font-medium text-gray-700">{item.label}</span>
-                            </label>
-                        ))}
-                    </div>
-                </div>
+
 
                 {/* Receipt Customization */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
