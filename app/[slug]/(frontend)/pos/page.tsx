@@ -122,6 +122,8 @@ interface CustomerDealOption {
   remainingQuota: number;
   totalQuota: number;
   expiresAt?: string;
+  isUsable: boolean;
+  statusReason: string;
 }
 
 interface PackageClaim {
@@ -1010,11 +1012,18 @@ export default function POSPage() {
 
   const getAvailableDeals = (): CustomerDealOption[] => {
     return customerPackages
-      .filter((pkg) => pkg.status === "active")
       .flatMap((pkg) => {
-        return (pkg.serviceQuotas || [])
-          .filter((quota) => Number(quota.remainingQuota) > 0)
-          .map((quota) => ({
+        return (pkg.serviceQuotas || []).map((quota) => {
+          const isExpired = pkg.expiresAt && new Date(pkg.expiresAt) < new Date();
+          const isDepleted = Number(quota.remainingQuota) <= 0;
+          const isUsable = pkg.status === "active" && !isExpired && !isDepleted;
+
+          let statusReason = "Aktif";
+          if (isExpired) statusReason = "Expired";
+          else if (isDepleted) statusReason = "Habis";
+          else if (pkg.status !== "active") statusReason = "Tidak Aktif";
+
+          return {
             customerPackageId: pkg._id,
             packageName: pkg.packageName,
             packageCode: pkg.package?.code,
@@ -1023,13 +1032,21 @@ export default function POSPage() {
             remainingQuota: Number(quota.remainingQuota || 0),
             totalQuota: Number(quota.totalQuota || 0),
             expiresAt: pkg.expiresAt,
-          }));
+            isUsable,
+            statusReason,
+          };
+        });
       });
   };
 
   const addDealToCart = (deal: CustomerDealOption) => {
     if (!selectedCustomer || selectedCustomer === "walking-customer") {
       alert("Pilih customer terdaftar dulu untuk menggunakan paket.");
+      return;
+    }
+
+    if (!deal.isUsable) {
+      alert(`Paket ini tidak dapat digunakan karena statusnya: ${deal.statusReason}`);
       return;
     }
 
@@ -1043,6 +1060,14 @@ export default function POSPage() {
     const existing = cart.find(
       (entry) => entry._id === service._id && entry.type === "Service",
     );
+    
+    // CEGAH QTY MELEBIHI SISA KUOTA
+    const existingQty = existing ? existing.quantity : 0;
+    if (existingQty + 1 > deal.remainingQuota) {
+      alert(`Kuota paket ini hanya tersisa ${deal.remainingQuota}. Anda tidak bisa menambahkannya lagi.`);
+      return;
+    }
+
     const existingClaim = packageClaims[key];
 
     if (
@@ -3629,32 +3654,42 @@ export default function POSPage() {
             availableDeals.map((deal, index) => (
               <div
                 key={`${deal.customerPackageId}-${deal.serviceId}-${index}`}
-                className="rounded-lg border border-amber-200 bg-amber-50 p-3"
+                className={`rounded-lg border p-3 ${
+                  deal.isUsable 
+                    ? "border-amber-200 bg-amber-50" 
+                    : "border-gray-200 bg-gray-100 opacity-75"
+                }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-black text-amber-900 uppercase tracking-wide">
+                    <p className={`text-xs font-black uppercase tracking-wide ${deal.isUsable ? "text-amber-900" : "text-gray-700"}`}>
                       {deal.packageCode ? `${deal.packageCode} ` : ""}
                       {deal.serviceName}
                     </p>
-                    <p className="text-xs text-amber-800 mt-0.5">
+                    <p className={`text-xs mt-0.5 ${deal.isUsable ? "text-amber-800" : "text-gray-600"}`}>
                       Reward: {deal.packageName} ({deal.remainingQuota}/
                       {deal.totalQuota})
                     </p>
-                    <p className="text-[11px] text-amber-700 mt-0.5">
+                    <p className={`text-[11px] mt-0.5 ${deal.isUsable ? "text-amber-700" : "text-gray-500"}`}>
                       Exp:{" "}
                       {deal.expiresAt
                         ? new Date(deal.expiresAt).toLocaleDateString("id-ID")
                         : "Seumur Hidup"}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => addDealToCart(deal)}
-                    className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700"
-                  >
-                    Masuk Cart
-                  </button>
+                  {deal.isUsable ? (
+                    <button
+                      type="button"
+                      onClick={() => addDealToCart(deal)}
+                      className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700"
+                    >
+                      Masuk Cart
+                    </button>
+                  ) : (
+                    <div className="shrink-0 px-3 py-1.5 rounded-lg bg-gray-300 text-gray-600 text-xs font-bold cursor-not-allowed">
+                      {deal.statusReason}
+                    </div>
+                  )}
                 </div>
               </div>
             ))
