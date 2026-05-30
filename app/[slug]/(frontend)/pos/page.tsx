@@ -218,7 +218,7 @@ export default function POSPage() {
   const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
   const [customerLoyaltyPoints, setCustomerLoyaltyPoints] = useState(0);
   const [customerWalletBalance, setCustomerWalletBalance] = useState(0);
-  const [isNonQrisConfirmOpen, setIsNonQrisConfirmOpen] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [isDealsModalOpen, setIsDealsModalOpen] = useState(false);
@@ -254,8 +254,15 @@ export default function POSPage() {
   const [isManualServiceModalOpen, setIsManualServiceModalOpen] = useState(false);
   const [manualServiceName, setManualServiceName] = useState("");
   const [manualServicePrice, setManualServicePrice] = useState("");
+  // Appointments Modal State
+  const [isAppointmentsModalOpen, setIsAppointmentsModalOpen] = useState(false);
+  const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
 
-
+  // Reports Modal State
+  const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
+  const [todayReport, setTodayReport] = useState<any>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
   // Derived from splitPayments (backward compat with checkout logic)
   const paymentMethod = splitPayments[0]?.method || "Cash";
 
@@ -267,7 +274,8 @@ export default function POSPage() {
   }, 0);
 
   const addSplitPayment = () => {
-    setSplitPayments((prev) => [...prev, { method: "Cash", amount: "" }]);
+    const remainder = Math.max(0, total - totalSplitPaidComputed);
+    setSplitPayments((prev) => [...prev, { method: "Cash", amount: remainder > 0 ? remainder.toString() : "" }]);
   };
 
   const removeSplitPayment = (index: number) => {
@@ -1603,6 +1611,38 @@ export default function POSPage() {
     setMedicalNotes("");
   };
 
+  const fetchTodayAppointments = async () => {
+    setLoadingAppointments(true);
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const res = await fetch(`/api/appointments?start=${today}&end=${today}`, { headers: storeHeaders });
+      const data = await res.json();
+      if (data.success) {
+        setTodayAppointments(data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch appointments:", error);
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
+
+  const fetchTodayReport = async () => {
+    setLoadingReport(true);
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const res = await fetch(`/api/reports/financial?startDate=${today}&endDate=${today}`, { headers: storeHeaders });
+      const data = await res.json();
+      if (data.success) {
+        setTodayReport(data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch report:", error);
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
@@ -1660,6 +1700,23 @@ export default function POSPage() {
     setIsParkedListOpen(false);
   };
 
+  const handleOpenCheckout = () => {
+    const typesRequiringStaff = ["Service", "Product", "Package", "Bundle"];
+    const unassignedItems = cart.filter(item => {
+      if (!typesRequiringStaff.includes(item.type)) return false;
+      const key = getCartItemKey(item._id, item.type);
+      const assignments = serviceStaffAssignments[key] || [];
+      return assignments.length === 0 || assignments.some(a => !a.staffId);
+    });
+
+    if (unassignedItems.length > 0) {
+      alert(`Mohon pilih staff / capster untuk item:\n- ${unassignedItems.map(i => i.name).join('\n- ')}`);
+      return;
+    }
+    
+    setIsCheckoutModalOpen(true);
+  };
+
   const deleteParkedBill = (id: string) => {
     const updated = parkedBills.filter(b => b.id !== id);
     setParkedBills(updated);
@@ -1706,11 +1763,6 @@ export default function POSPage() {
         );
         return;
       }
-    }
-
-    if (nonQrisPaid === undefined) {
-      setIsNonQrisConfirmOpen(true);
-      return;
     }
 
     const isMarkedPaid = nonQrisPaid ?? false;
@@ -2455,7 +2507,7 @@ export default function POSPage() {
                 </button>
               </div>
               <div className="flex items-center gap-1.5 border-l border-gray-200 pl-3">
-                <button onClick={() => router.push("/appointments/calendar")} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors" title="Jadwal">
+                <button onClick={() => { setIsAppointmentsModalOpen(true); fetchTodayAppointments(); }} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors" title="Jadwal Hari Ini">
                   <Calendar className="w-5 h-5" />
                 </button>
                 <button onClick={() => setIsParkedListOpen(true)} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg relative transition-colors" title="Bon Tersimpan">
@@ -2470,7 +2522,7 @@ export default function POSPage() {
                     <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white"></span>
                   )}
                 </button>
-                <button onClick={() => router.push("/reports")} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors" title="Riwayat Transaksi">
+                <button onClick={() => { setIsReportsModalOpen(true); fetchTodayReport(); }} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors" title="Laporan Hari Ini">
                   <Clock className="w-5 h-5" />
                 </button>
                 <button onClick={() => router.push("/dashboard")} className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors" title="Keluar">
@@ -2995,6 +3047,151 @@ export default function POSPage() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Inline Item Discount */}
+                  {["Service", "Product", "Bundle", "Package"].includes(item.type) && (
+                    <div className="flex items-center gap-1.5 text-[10px] mt-1 pt-1 border-t border-gray-100">
+                      <span className="font-semibold text-gray-500">Diskon:</span>
+                      <select
+                        value={item.discountType || "percentage"}
+                        onChange={(e) => updateCartItemDiscount(item._id, item.type, { discountType: e.target.value as any })}
+                        className="h-6 px-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-gray-700"
+                      >
+                        <option value="percentage">%</option>
+                        <option value="nominal">Rp</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={item.discountValue || ""}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          updateCartItemDiscount(item._id, item.type, { discountValue: val ? parseInt(val) : 0 });
+                        }}
+                        placeholder="0"
+                        className="h-6 w-16 px-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-right font-medium text-gray-700 bg-white"
+                      />
+                    </div>
+                  )}
+
+                  {/* Inline Staff Assignment */}
+                  {(item.type === "Service" || item.type === "Product" || item.type === "Package" || item.type === "Bundle") && (
+                    <div className="pt-1 mt-1 border-t border-gray-100">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-[10px] font-bold text-gray-500">Assign Staff</p>
+                        {settings?.showCommissionInPOS && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-medium text-gray-400">Mode:</span>
+                            <select
+                              className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded px-1 py-0.5 outline-none"
+                              value={serviceSplitModes[getCartItemKey(item._id, item.type)] || "auto"}
+                              onChange={(e) => {
+                                setServiceSplitModes((prev) => ({
+                                  ...prev,
+                                  [getCartItemKey(item._id, item.type)]: e.target.value as "auto" | "manual",
+                                }));
+                                const current = serviceStaffAssignments[getCartItemKey(item._id, item.type)] || [];
+                                if (e.target.value === "auto" && current.length > 0) {
+                                  const newPct = 100 / current.length;
+                                  const updated = current.map((a) => ({ ...a, percentage: newPct }));
+                                  setServiceStaffAssignments((prev) => ({ ...prev, [getCartItemKey(item._id, item.type)]: updated }));
+                                }
+                              }}
+                            >
+                              <option value="auto">Bagi Rata</option>
+                              <option value="manual">Manual %</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-1.5">
+                        {(serviceStaffAssignments[getCartItemKey(item._id, item.type)] || []).map((assignment, idx) => (
+                          <div key={idx} className="flex items-center gap-1.5">
+                            <SearchableSelect
+                              placeholder="Pilih Staff..."
+                              value={assignment.staffId}
+                              onChange={(val) => {
+                                const updated = [...(serviceStaffAssignments[getCartItemKey(item._id, item.type)] || [])];
+                                updated[idx].staffId = val;
+                                setServiceStaffAssignments((prev) => ({
+                                  ...prev,
+                                  [getCartItemKey(item._id, item.type)]: updated,
+                                }));
+                              }}
+                              options={[
+                                { value: "", label: "— Pilih —" },
+                                ...staffList.map((s) => ({ value: s._id, label: s.name })),
+                              ]}
+                              className="flex-1"
+                              controlClassName="px-2 py-1 text-[10px] min-h-[26px]"
+                            />
+                            {settings?.showCommissionInPOS && (
+                              serviceSplitModes[getCartItemKey(item._id, item.type)] === "manual" ? (
+                                <div className="flex items-center gap-0.5 w-14">
+                                  <input
+                                    type="number"
+                                    value={assignment.percentage}
+                                    onChange={(e) => {
+                                      const updated = [...(serviceStaffAssignments[getCartItemKey(item._id, item.type)] || [])];
+                                      updated[idx].percentage = parseFloat(e.target.value) || 0;
+                                      setServiceStaffAssignments((prev) => ({
+                                        ...prev,
+                                        [getCartItemKey(item._id, item.type)]: updated,
+                                      }));
+                                    }}
+                                    className="w-full text-right text-[10px] border border-gray-200 rounded px-1 py-1 focus:ring-1 focus:ring-blue-500 outline-none"
+                                  />
+                                  <span className="text-[10px] text-gray-500">%</span>
+                                </div>
+                              ) : (
+                                <div className="w-10 text-right text-[10px] text-gray-500 font-medium">
+                                  {assignment.percentage.toFixed(1)}%
+                                </div>
+                              )
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                let updated = [...(serviceStaffAssignments[getCartItemKey(item._id, item.type)] || [])];
+                                updated.splice(idx, 1);
+                                if (serviceSplitModes[getCartItemKey(item._id, item.type)] !== "manual" && updated.length > 0) {
+                                  const newPct = 100 / updated.length;
+                                  updated = updated.map((a) => ({ ...a, percentage: newPct }));
+                                }
+                                setServiceStaffAssignments((prev) => ({
+                                  ...prev,
+                                  [getCartItemKey(item._id, item.type)]: updated,
+                                }));
+                              }}
+                              className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                        
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = serviceStaffAssignments[getCartItemKey(item._id, item.type)] || [];
+                            const isManual = serviceSplitModes[getCartItemKey(item._id, item.type)] === "manual";
+                            let updated = [...current, { staffId: "", percentage: isManual ? 0 : 100 }];
+                            if (!isManual) {
+                              const newPct = 100 / updated.length;
+                              updated = updated.map((a) => ({ ...a, percentage: newPct }));
+                            }
+                            setServiceStaffAssignments((prev) => ({
+                              ...prev,
+                              [getCartItemKey(item._id, item.type)]: updated,
+                            }));
+                          }}
+                          className="text-[9px] font-bold text-blue-600 flex items-center gap-1 hover:text-blue-800 py-0.5"
+                        >
+                          <Plus className="w-3 h-3" /> Tambah Staff
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -3021,7 +3218,7 @@ export default function POSPage() {
                 <Save className="w-5 h-5" />
               </button>
               <button
-                onClick={() => setIsCheckoutModalOpen(true)}
+                onClick={handleOpenCheckout}
                 disabled={cart.length === 0}
                 className="flex-1 py-3 bg-blue-900 text-white rounded-xl font-black text-sm hover:bg-blue-800 disabled:opacity-50 transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-2"
               >
@@ -3093,6 +3290,88 @@ export default function POSPage() {
             </button>
             <button onClick={() => setIsMedicalNotesModalOpen(false)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700">
               Simpan Catatan
+            </button>
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        isOpen={isAppointmentsModalOpen}
+        onClose={() => setIsAppointmentsModalOpen(false)}
+        title="📅 Jadwal Hari Ini"
+      >
+        <div className="space-y-4">
+          {loadingAppointments ? (
+            <div className="text-center py-4 text-sm text-gray-500">Memuat jadwal...</div>
+          ) : todayAppointments.length === 0 ? (
+            <div className="text-center py-4 text-sm text-gray-500">Tidak ada jadwal hari ini.</div>
+          ) : (
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+              {todayAppointments.map((apt: any) => (
+                <div key={apt._id} className="p-3 border border-gray-200 rounded-lg flex justify-between items-start">
+                  <div>
+                    <div className="font-bold text-gray-800 text-sm">{apt.customer?.name || "Pelanggan Tanpa Nama"}</div>
+                    <div className="text-xs text-gray-500 mt-1">Staf: {apt.staff?.name || "-"}</div>
+                    <div className="text-xs text-gray-500">Status: <span className="uppercase text-[10px] bg-gray-100 px-2 py-0.5 rounded-full">{apt.status}</span></div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-blue-600 text-sm">{apt.startTime} - {apt.endTime}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end pt-2">
+            <button onClick={() => setIsAppointmentsModalOpen(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200">
+              Tutup
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isReportsModalOpen}
+        onClose={() => setIsReportsModalOpen(false)}
+        title="📈 Ringkasan Laporan Hari Ini"
+      >
+        <div className="space-y-4">
+          {loadingReport ? (
+            <div className="text-center py-4 text-sm text-gray-500">Memuat laporan...</div>
+          ) : !todayReport ? (
+            <div className="text-center py-4 text-sm text-gray-500">Gagal memuat laporan.</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg">
+                <div className="text-xs text-blue-600 font-bold mb-1">Total Penjualan</div>
+                <div className="text-lg font-black text-blue-800">
+                  {settings.symbol}{(todayReport.sales?.totalSales || 0).toLocaleString("id-ID")}
+                </div>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-lg">
+                <div className="text-xs text-emerald-600 font-bold mb-1">Total Diterima</div>
+                <div className="text-lg font-black text-emerald-800">
+                  {settings.symbol}{(todayReport.sales?.totalCollected || 0).toLocaleString("id-ID")}
+                </div>
+              </div>
+              <div className="bg-red-50 border border-red-100 p-3 rounded-lg">
+                <div className="text-xs text-red-600 font-bold mb-1">Total Pengeluaran</div>
+                <div className="text-lg font-black text-red-800">
+                  {settings.symbol}{(todayReport.expenses?.totalExpenses || 0).toLocaleString("id-ID")}
+                </div>
+              </div>
+              <div className="bg-purple-50 border border-purple-100 p-3 rounded-lg">
+                <div className="text-xs text-purple-600 font-bold mb-1">Laba Bersih</div>
+                <div className="text-lg font-black text-purple-800">
+                  {settings.symbol}{(todayReport.netProfit || 0).toLocaleString("id-ID")}
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <button onClick={() => router.push("/reports")} className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-50">
+              Lihat Detail
+            </button>
+            <button onClick={() => setIsReportsModalOpen(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200">
+              Tutup
             </button>
           </div>
         </div>
@@ -3245,91 +3524,7 @@ export default function POSPage() {
         </div>
       </Modal>
 
-      <Modal
-        isOpen={isNonQrisConfirmOpen}
-        onClose={() => setIsNonQrisConfirmOpen(false)}
-        title="Payment Confirmation"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-700">
-            {splitPayments.length === 1 ? (
-              <>
-                <span className="font-semibold">{splitPayments[0].method}</span>{" "}
-                — konfirmasi pembayaran transaksi ini?
-              </>
-            ) : (
-              <>
-                Split payment{" "}
-                <span className="font-semibold">
-                  {splitPayments.length} metode
-                </span>{" "}
-                — konfirmasi pembayaran transaksi ini?
-              </>
-            )}
-          </p>
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm space-y-1">
-            <div className="flex justify-between text-gray-600 font-semibold border-b border-gray-200 pb-1 mb-1">
-              <span>Total Transaksi</span>
-              <span className="text-gray-900">
-                {settings.symbol}
-                {total.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
-              </span>
-            </div>
-            {splitPayments.map((p, i) => (
-              <div key={i} className="flex justify-between text-gray-600">
-                <span className="flex items-center gap-1">
-                  {splitPayments.length > 1 && (
-                    <span className="text-[10px] bg-blue-100 text-blue-700 font-bold px-1 rounded">
-                      {p.method}
-                    </span>
-                  )}
-                  {splitPayments.length === 1 && <span>Jumlah Dibayar</span>}
-                </span>
-                <span className="font-semibold text-gray-900">
-                  {settings.symbol}
-                  {(
-                    parseFloat(String(p.amount || "0")) ||
-                    (splitPayments.length === 1 ? total : 0)
-                  ).toLocaleString("id-ID", { maximumFractionDigits: 0 })}
-                </span>
-              </div>
-            ))}
-            {changeAmount > 0 && enteredPaidAmount > 0 && (
-              <div className="flex justify-between text-emerald-700 font-semibold border-t border-emerald-200 pt-1 mt-1">
-                <span>Kembalian</span>
-                <span>
-                  {settings.symbol}
-                  {changeAmount.toLocaleString("id-ID", {
-                    maximumFractionDigits: 0,
-                  })}
-                </span>
-              </div>
-            )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <button
-              type="button"
-              className="px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700"
-              onClick={() => {
-                setIsNonQrisConfirmOpen(false);
-                void handleCheckout(true);
-              }}
-            >
-              Paid
-            </button>
-            <button
-              type="button"
-              className="px-3 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700"
-              onClick={() => {
-                setIsNonQrisConfirmOpen(false);
-                void handleCheckout(false);
-              }}
-            >
-              Not Paid Yet
-            </button>
-          </div>
-        </div>
-      </Modal>
+
 
       {toastMessage && (
         <div className={`fixed bottom-20 md:bottom-6 right-3 md:right-6 z-[70] px-4 py-2 rounded-lg text-white text-xs lg:text-sm font-bold shadow-xl max-w-xs ${toastType === "warning" ? "bg-amber-500" : "bg-emerald-600"
@@ -3340,69 +3535,7 @@ export default function POSPage() {
       {/* Modal Checkout */}
       <Modal isOpen={isCheckoutModalOpen} onClose={() => setIsCheckoutModalOpen(false)} title="Checkout & Pembayaran" size="xl">
         <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-2 pb-10">
-          {/* List of Cart Items for Discount & Staff Selection */}
-          <div className="space-y-3">
-            <h3 className="font-black text-gray-800 text-sm border-b pb-1">Review Items & Staff</h3>
-            {cart.map((item) => (
-              <div key={`${item._id}-${item.type}`} className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-bold text-gray-800 text-sm">{item.name} <span className="text-gray-500 font-normal">x{item.quantity}</span></p>
-                    <p className="text-xs text-amber-600 font-bold">{settings.symbol}{(item.price * item.quantity).toLocaleString("id-ID")}</p>
-                  </div>
-                  {["Service", "Product", "Bundle", "Package"].includes(item.type) && (
-                    <div className="flex items-center gap-1.5 text-[10px]">
-                      <span className="font-semibold text-gray-500">Diskon:</span>
-                      <select
-                        value={item.discountType || "percentage"}
-                        onChange={(e) => updateCartItemDiscount(item._id, item.type, { discountType: e.target.value })}
-                        className="h-6 px-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-gray-700"
-                      >
-                        <option value="percentage">%</option>
-                        <option value="nominal">Rp</option>
-                      </select>
-                      <input
-                        type="text"
-                        value={item.discountValue || ""}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/[^0-9]/g, '');
-                          updateCartItemDiscount(item._id, item.type, { discountValue: val ? parseInt(val) : 0 });
-                        }}
-                        placeholder="0"
-                        className="h-6 w-20 px-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-right font-medium text-gray-700 bg-white"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Staff Assignment */}
-                {(item.type === "Service" || item.type === "Product" || item.type === "Package" || item.type === "Bundle") && (
-                  <div className="pt-2 border-t border-gray-200">
-                    <p className="text-[10px] font-bold text-gray-500 mb-1">Assign Staff</p>
-                    <SearchableSelect
-                      placeholder="Pilih Staff..."
-                      value={serviceStaffAssignments[getCartItemKey(item._id, item.type)]?.[0]?.staffId || ""}
-                      onChange={(val) => {
-                        const key = getCartItemKey(item._id, item.type);
-                        setServiceStaffAssignments((prev) => ({
-                          ...prev,
-                          [key]: val ? [{ staffId: val, percentage: 100 }] : [],
-                        }));
-                      }}
-                      options={[
-                        { value: "", label: "— Tanpa staff —" },
-                        ...staffList.map((s) => ({ value: s._id, label: s.name })),
-                      ]}
-                      className="w-full"
-                      controlClassName="px-2 py-1 text-xs"
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="space-y-3 pt-3 border-t-2 border-dashed border-gray-300">
+          {/* List of Cart Items is now handled in the Sidebar */}          <div className="space-y-3 pt-3 border-t-2 border-dashed border-gray-300">
             <h3 className="font-black text-gray-800 text-sm border-b pb-1">Global Discount & Voucher</h3>
             
             <div className="flex justify-between text-gray-600 items-center">
@@ -3503,7 +3636,7 @@ export default function POSPage() {
               Batal
             </button>
             <FormButton
-              onClick={() => void handleCheckout()}
+              onClick={() => void handleCheckout(true)}
               loading={submitting}
               disabled={hasInvalidSplitInCart || cart.length === 0 || !splitPayments.some(p => !!p.method) || (discount > 0 && !discountReason.trim()) || totalSplitPaidComputed < total}
               variant="success"
