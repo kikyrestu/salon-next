@@ -78,6 +78,7 @@ interface CartItem extends Item {
   discountType?: string;
   discountValue?: number;
   discountAmount?: number;
+  discountNote?: string;
 }
 
 interface Customer {
@@ -933,12 +934,13 @@ export default function POSPage() {
     );
   };
 
-  const updateCartItemDiscount = (itemId: string, type: string, updates: Partial<{ discountType: string; discountValue: number }>) => {
+  const updateCartItemDiscount = (itemId: string, type: string, updates: Partial<{ discountType: string; discountValue: number; discountNote: string }>) => {
     setCart((prev) =>
       prev.map((i) => {
         if (i._id === itemId && i.type === type) {
           const discountType = updates.discountType !== undefined ? updates.discountType : (i.discountType || "percentage");
           const discountValue = updates.discountValue !== undefined ? updates.discountValue : (i.discountValue || 0);
+          const discountNote = updates.discountNote !== undefined ? updates.discountNote : (i.discountNote || "");
           
           let discountAmount = 0;
           const basePrice = i.price;
@@ -948,7 +950,7 @@ export default function POSPage() {
             discountAmount = discountValue;
           }
           
-          return { ...i, discountType, discountValue, discountAmount };
+          return { ...i, discountType, discountValue, discountAmount, discountNote };
         }
         return i;
       }),
@@ -2152,6 +2154,7 @@ export default function POSPage() {
                   price: itemPrice,
                   quantity: 1,
                   total: itemPrice,
+                  discountNote: item.discountNote || undefined,
                   splitCommissionMode: splitMode,
                   staffAssignments: assignments.map((a: any) => ({
                     staff: a.staffId,
@@ -2234,6 +2237,7 @@ export default function POSPage() {
               price: item.price,
               quantity: item.quantity,
               discountAmount: item.discountAmount || 0,
+              discountNote: item.discountNote || undefined,
               total:
                 item.type === "Service" &&
                   packageClaims[getCartItemKey(item._id, item.type)]?.enabled
@@ -2745,7 +2749,6 @@ export default function POSPage() {
                         </div>
                       </div>
                       {isExpanded && children
-                        .filter(child => child.name.toLowerCase().includes(search.toLowerCase()))
                         .map(child => (
                           <div
                             key={child._id}
@@ -3069,6 +3072,13 @@ export default function POSPage() {
                         }}
                         placeholder="0"
                         className="h-6 w-16 px-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-right font-medium text-gray-700 bg-white"
+                      />
+                      <input
+                        type="text"
+                        value={item.discountNote || ""}
+                        onChange={(e) => updateCartItemDiscount(item._id, item.type, { discountNote: e.target.value })}
+                        placeholder="Keterangan..."
+                        className="h-6 w-24 sm:w-32 px-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-gray-700 bg-white ml-auto"
                       />
                     </div>
                   )}

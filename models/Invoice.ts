@@ -11,6 +11,7 @@ export interface IInvoice extends Document {
     price: number;
     quantity: number;
     discount: number; // Amount
+    discountNote?: string;
     total: number;
     splitCommissionMode?: "auto" | "manual";
     staffAssignments?: {
@@ -129,6 +130,7 @@ const invoiceSchema = new Schema<IInvoice>(
         price: Number,
         quantity: { type: Number, default: 1 },
         discount: { type: Number, default: 0 },
+        discountNote: { type: String },
         total: Number,
         splitCommissionMode: {
           type: String,

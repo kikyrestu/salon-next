@@ -390,32 +390,44 @@ export default function ReportsPage() {
         let exportData = Array.isArray(reportData) ? reportData : [reportData];
 
         if (activeTab === 'sales' || activeTab === 'custom-sales') {
-            exportData = reportData.map((inv: any) => {
-                const row: any = {};
-                if (activeTab === 'sales' || customColumns.invoice) row['Invoice #'] = inv.invoiceNumber;
-                if (activeTab === 'sales' || customColumns.date) row['Date'] = formatSafeDate(inv.date);
-                if (activeTab === 'sales' || customColumns.customer) row['Customer'] = inv.customer?.name || 'Walk-in';
-                if (activeTab === 'sales' || customColumns.staff) row['Staff'] = (() => {
-                    const names = new Set<string>();
-                    if (inv.staff?.name) names.add(inv.staff.name);
-                    if (inv.staffAssignments) inv.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
-                    if (inv.items) inv.items.forEach((item: any) => {
-                        if (item.staffAssignments) item.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
-                    });
-                    return names.size > 0 ? Array.from(names).join(', ') : 'N/A';
-                })();
-                if (activeTab === 'custom-sales' && customColumns.service) {
-                    row['Services'] = inv.items?.map((it: any) => it.name).join(', ') || '-';
+            exportData = reportData.flatMap((inv: any) => {
+                const createRow = (item?: any) => {
+                    const row: any = {};
+                    if (activeTab === 'sales' || customColumns.invoice) row['Invoice #'] = inv.invoiceNumber;
+                    if (activeTab === 'sales' || customColumns.date) row['Date'] = formatSafeDate(inv.date, "dd MMM yyyy HH:mm");
+                    if (activeTab === 'sales' || customColumns.customer) row['Customer'] = inv.customer?.name || 'Walk-in';
+                    if (activeTab === 'sales' || customColumns.staff) row['Staff'] = (() => {
+                        if (item) {
+                            const names = new Set<string>();
+                            if (item.staffAssignments) item.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
+                            return names.size > 0 ? Array.from(names).join(', ') : (inv.staff?.name || 'N/A');
+                        }
+                        const names = new Set<string>();
+                        if (inv.staff?.name) names.add(inv.staff.name);
+                        if (inv.staffAssignments) inv.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
+                        if (inv.items) inv.items.forEach((it: any) => {
+                            if (it.staffAssignments) it.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
+                        });
+                        return names.size > 0 ? Array.from(names).join(', ') : 'N/A';
+                    })();
+                    if (activeTab === 'sales' || customColumns.service) {
+                        row['Services'] = item ? item.name : (inv.items?.map((it: any) => it.name).join(', ') || '-');
+                    }
+                    if (activeTab === 'sales' || customColumns.total) row['Total Amount'] = item ? ((item.price || 0) * (item.quantity || 1)) : inv.totalAmount;
+                    if (activeTab === 'sales' || customColumns.discount) row['Discount'] = item ? 0 : (inv.discount || 0); // Don't duplicate discount for items
+                    if (activeTab === 'sales' || customColumns.paid) row['Amount Paid'] = item ? ((item.price || 0) * (item.quantity || 1)) : inv.amountPaid; // Approximation for item paid
+                    if (activeTab === 'sales' || customColumns.method) row['Payment Method'] = (inv.paymentMethods && inv.paymentMethods.length > 0)
+                        ? inv.paymentMethods.map((pm: any) => `${pm.method} (${pm.amount})`).join(' + ')
+                        : (inv.paymentMethod || 'N/A');
+                    if (activeTab === 'sales' || customColumns.notes) row['Notes'] = inv.notes || '';
+                    if (activeTab === 'sales' || customColumns.status) row['Status'] = inv.status;
+                    return row;
+                };
+
+                if (activeTab === 'custom-sales' && customColumns.service && inv.items && inv.items.length > 0) {
+                    return inv.items.map((it: any) => createRow(it));
                 }
-                if (activeTab === 'sales' || customColumns.total) row['Total Amount'] = inv.totalAmount;
-                if (activeTab === 'sales' || customColumns.discount) row['Discount'] = inv.discount || 0;
-                if (activeTab === 'sales' || customColumns.paid) row['Amount Paid'] = inv.amountPaid;
-                if (activeTab === 'sales' || customColumns.method) row['Payment Method'] = (inv.paymentMethods && inv.paymentMethods.length > 0)
-                    ? inv.paymentMethods.map((pm: any) => `${pm.method} (${pm.amount})`).join(' + ')
-                    : (inv.paymentMethod || 'N/A');
-                if (activeTab === 'sales' || customColumns.notes) row['Notes'] = inv.notes || '';
-                if (activeTab === 'sales' || customColumns.status) row['Status'] = inv.status;
-                return row;
+                return [createRow()];
             });
         } else if (activeTab === 'staff') {
             exportData = reportData.map((s: any) => ({
@@ -696,7 +708,7 @@ export default function ReportsPage() {
                             if (activeTab === 'sales' || customColumns.date) tableHeaders.push('Date');
                             if (activeTab === 'sales' || customColumns.customer) tableHeaders.push('Customer');
                             if (activeTab === 'sales' || customColumns.staff) tableHeaders.push('Staff');
-                            if (activeTab === 'custom-sales' && customColumns.service) tableHeaders.push('Services');
+                            if (activeTab === 'sales' || (activeTab === 'custom-sales' && customColumns.service)) tableHeaders.push('Services');
                             if (activeTab === 'sales' || customColumns.total) tableHeaders.push('Total');
                             if (activeTab === 'sales' || customColumns.discount) tableHeaders.push('Discount');
                             if (activeTab === 'sales' || customColumns.paid) tableHeaders.push('Paid');
@@ -704,7 +716,7 @@ export default function ReportsPage() {
                             if (activeTab === 'sales' || customColumns.notes) tableHeaders.push('Notes');
                             if (activeTab === 'sales' || customColumns.status) tableHeaders.push('Status');
 
-                            const tableRows = filteredSales.map((inv: any) => {
+                            const tableRows = filteredSales.flatMap((inv: any) => {
                                 let displayTotal = inv.totalAmount;
                                 let displayPaid = inv.amountPaid;
                                 if (paymentFilter !== 'all' && inv.paymentMethods && inv.paymentMethods.length > 0) {
@@ -716,34 +728,46 @@ export default function ReportsPage() {
                                     }
                                 }
 
-                                const row: any = {};
-                                if (activeTab === 'sales' || customColumns.invoice) {
-                                    row.inv = <button onClick={() => openInvoicePreview(inv._id)} className="text-blue-700 hover:text-blue-900 underline underline-offset-2 font-bold cursor-pointer">{inv.invoiceNumber}</button>;
-                                }
-                                if (activeTab === 'sales' || customColumns.date) row.date = formatSafeDate(inv.date);
-                                if (activeTab === 'sales' || customColumns.customer) row.customer = inv.customer?.name || 'Walk-in';
-                                if (activeTab === 'sales' || customColumns.staff) row.staff = (() => {
-                                    const names = new Set<string>();
-                                    if (inv.staff?.name) names.add(inv.staff.name);
-                                    if (inv.staffAssignments) inv.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
-                                    if (inv.items) inv.items.forEach((item: any) => {
-                                        if (item.staffAssignments) item.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
-                                    });
-                                    return names.size > 0 ? Array.from(names).join(', ') : 'N/A';
-                                })();
-                                if (activeTab === 'custom-sales' && customColumns.service) {
-                                    row.services = <span className="text-[10px] sm:text-xs truncate max-w-[150px] inline-block">{inv.items?.map((it: any) => it.name).join(', ') || '-'}</span>;
-                                }
-                                if (activeTab === 'sales' || customColumns.total) row.total = formatCurrency(displayTotal);
-                                if (activeTab === 'sales' || customColumns.discount) row.discount = formatCurrency(inv.discount || 0);
-                                if (activeTab === 'sales' || customColumns.paid) row.paid = formatCurrency(displayPaid);
-                                if (activeTab === 'sales' || customColumns.method) row.method = (inv.paymentMethods && inv.paymentMethods.length > 0)
-                                    ? <div className="flex flex-col gap-1">{inv.paymentMethods.map((pm: any, idx: number) => <span key={idx} className={`text-[10px] px-1 rounded ${paymentFilter !== 'all' && (pm.method || '').toLowerCase() !== paymentFilter.toLowerCase() ? 'bg-gray-50 text-gray-400 line-through' : 'bg-gray-100 text-gray-900'}`}>{pm.method}: {formatCurrency(pm.amount)}</span>)}</div>
-                                    : (inv.paymentMethod || 'N/A');
-                                if (activeTab === 'sales' || customColumns.notes) row.notes = <span className="text-[10px] sm:text-xs truncate max-w-[150px] inline-block">{inv.notes || '-'}</span>;
-                                if (activeTab === 'sales' || customColumns.status) row.status = <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${inv.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>{inv.status?.replace('_', ' ') || 'N/A'}</span>;
+                                const createRow = (item?: any) => {
+                                    const row: any = {};
+                                    if (activeTab === 'sales' || customColumns.invoice) {
+                                        row.inv = <button onClick={() => openInvoicePreview(inv._id)} className="text-blue-700 hover:text-blue-900 underline underline-offset-2 font-bold cursor-pointer">{inv.invoiceNumber}</button>;
+                                    }
+                                    if (activeTab === 'sales' || customColumns.date) row.date = formatSafeDate(inv.date, "dd MMM yyyy HH:mm");
+                                    if (activeTab === 'sales' || customColumns.customer) row.customer = inv.customer?.name || 'Walk-in';
+                                    if (activeTab === 'sales' || customColumns.staff) row.staff = (() => {
+                                        if (item) {
+                                            const names = new Set<string>();
+                                            if (item.staffAssignments) item.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
+                                            return names.size > 0 ? Array.from(names).join(', ') : (inv.staff?.name || 'N/A');
+                                        }
+                                        const names = new Set<string>();
+                                        if (inv.staff?.name) names.add(inv.staff.name);
+                                        if (inv.staffAssignments) inv.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
+                                        if (inv.items) inv.items.forEach((it: any) => {
+                                            if (it.staffAssignments) it.staffAssignments.forEach((sa: any) => sa.staff && names.add(sa.staff.name));
+                                        });
+                                        return names.size > 0 ? Array.from(names).join(', ') : 'N/A';
+                                    })();
+                                    if (activeTab === 'sales' || (activeTab === 'custom-sales' && customColumns.service)) {
+                                        row.services = <span className="text-[10px] sm:text-xs truncate max-w-[150px] inline-block">{item ? item.name : (inv.items?.map((it: any) => it.name).join(', ') || '-')}</span>;
+                                    }
+                                    if (activeTab === 'sales' || customColumns.total) row.total = formatCurrency(item ? ((item.price || 0) * (item.quantity || 1)) : displayTotal);
+                                    if (activeTab === 'sales' || customColumns.discount) row.discount = formatCurrency(item ? 0 : (inv.discount || 0));
+                                    if (activeTab === 'sales' || customColumns.paid) row.paid = formatCurrency(item ? ((item.price || 0) * (item.quantity || 1)) : displayPaid);
+                                    if (activeTab === 'sales' || customColumns.method) row.method = (inv.paymentMethods && inv.paymentMethods.length > 0)
+                                        ? <div className="flex flex-col gap-1">{inv.paymentMethods.map((pm: any, idx: number) => <span key={idx} className={`text-[10px] px-1 rounded ${paymentFilter !== 'all' && (pm.method || '').toLowerCase() !== paymentFilter.toLowerCase() ? 'bg-gray-50 text-gray-400 line-through' : 'bg-gray-100 text-gray-900'}`}>{pm.method}: {formatCurrency(pm.amount)}</span>)}</div>
+                                        : (inv.paymentMethod || 'N/A');
+                                    if (activeTab === 'sales' || customColumns.notes) row.notes = <span className="text-[10px] sm:text-xs truncate max-w-[150px] inline-block">{inv.notes || '-'}</span>;
+                                    if (activeTab === 'sales' || customColumns.status) row.status = <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${inv.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>{inv.status?.replace('_', ' ') || 'N/A'}</span>;
 
-                                return row;
+                                    return row;
+                                };
+
+                                if (activeTab === 'custom-sales' && customColumns.service && inv.items && inv.items.length > 0) {
+                                    return inv.items.map((it: any) => createRow(it));
+                                }
+                                return [createRow()];
                             });
 
                             return renderTable(tableHeaders, tableRows);
@@ -776,7 +800,7 @@ export default function ReportsPage() {
                                                     <thead><tr className="bg-gray-50 border-b"><th className="px-2 py-2 text-left font-bold text-gray-500">Item</th><th className="px-2 py-2 text-right font-bold text-gray-500">Qty</th><th className="px-2 py-2 text-right font-bold text-gray-500">Price</th><th className="px-2 py-2 text-right font-bold text-gray-500">Total</th></tr></thead>
                                                     <tbody className="divide-y divide-gray-50">
                                                         {previewInvoice.items?.map((it: any, idx: number) => (
-                                                            <tr key={idx}><td className="px-2 py-2 font-medium">{it.name}</td><td className="px-2 py-2 text-right">{it.quantity}</td><td className="px-2 py-2 text-right">{formatCurrency(it.price)}</td><td className="px-2 py-2 text-right font-bold">{formatCurrency(it.total)}</td></tr>
+                                                            <tr key={idx}><td className="px-2 py-2 font-medium">{it.name}{it.discountNote ? <span className="block text-[10px] text-gray-500 font-normal">Diskon: {it.discountNote}</span> : null}</td><td className="px-2 py-2 text-right">{it.quantity}</td><td className="px-2 py-2 text-right">{formatCurrency(it.price)}</td><td className="px-2 py-2 text-right font-bold">{formatCurrency(it.total)}</td></tr>
                                                         ))}
                                                     </tbody>
                                                 </table>
