@@ -139,6 +139,7 @@ export default function ReportsPage() {
         const today = getCurrentDateInTimezone(settings.timezone || "UTC");
         return { start: today, end: today };
     });
+    const [activePreset, setActivePreset] = useState<'today' | 'thisMonth' | 'last3Months' | 'custom'>('today');
 
     useEffect(() => {
         const today = getCurrentDateInTimezone(settings.timezone || "UTC");
@@ -158,6 +159,7 @@ export default function ReportsPage() {
     // Kasir restriction: force today only
     const handleDateChange = (field: 'start' | 'end', value: string) => {
         if (isKasir) return; // Block date changes for Kasir
+        setActivePreset('custom');
         setDateRange(prev => ({ ...prev, [field]: value }));
     };
 
@@ -185,6 +187,13 @@ export default function ReportsPage() {
         // Clear previous report data to avoid mapping errors during transition
         setReportData(null);
         try {
+            // Bypass API call for activity-log as it only renders a static UI
+            if (activeTab === 'activity-log') {
+                setReportData({});
+                setLoading(false);
+                return;
+            }
+
             if (activeTab === 'summary') {
                 const res = await fetch(`/api/reports/data?startDate=${dateRange.start}&endDate=${dateRange.end}`, { headers: { "x-store-slug": slug } });
                 const aggregatedData = await res.json();
@@ -232,6 +241,7 @@ export default function ReportsPage() {
     };
 
     const setPresetRange = (preset: 'thisMonth' | 'lastMonth' | 'last3Months' | 'today') => {
+        setActivePreset(preset as any);
         const now = new Date();
         let start, end;
 
@@ -1237,9 +1247,38 @@ export default function ReportsPage() {
 
                         <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
                             <div className="flex items-center gap-2 bg-white p-2 rounded-xl border-2 border-gray-300 shadow-sm w-full sm:w-auto justify-center">
-                                <button onClick={() => setPresetRange('today')} className="px-4 py-2 text-sm font-bold text-white rounded-lg bg-blue-600 border-2 border-blue-700 shadow-sm transition-all flex-1 sm:flex-none hover:bg-blue-700">Today</button>
-                                <button onClick={() => !isKasir && setPresetRange('thisMonth')} className={`px-4 py-2 text-sm font-bold rounded-lg bg-gray-100 border-2 border-gray-300 transition-all flex-1 sm:flex-none ${isKasir ? 'opacity-40 cursor-not-allowed' : 'text-gray-900 hover:bg-blue-600 hover:text-white hover:border-blue-600'}`}>Month</button>
-                                <button onClick={() => !isKasir && setPresetRange('last3Months')} className={`px-4 py-2 text-sm font-bold rounded-lg bg-gray-100 border-2 border-gray-300 transition-all flex-1 sm:flex-none ${isKasir ? 'opacity-40 cursor-not-allowed' : 'text-gray-900 hover:bg-blue-600 hover:text-white hover:border-blue-600'}`}>Quarter</button>
+                                <button 
+                                    onClick={() => setPresetRange('today')} 
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg shadow-sm transition-all flex-1 sm:flex-none ${
+                                        activePreset === 'today' 
+                                            ? 'bg-[#8B7355] border-2 border-[#7A6347] text-white hover:bg-[#7A6347]' 
+                                            : 'bg-gray-100 border-2 border-gray-300 text-gray-900 hover:bg-[#8B7355] hover:text-white hover:border-[#8B7355]'
+                                    }`}
+                                >
+                                    Today
+                                </button>
+                                <button 
+                                    onClick={() => !isKasir && setPresetRange('thisMonth')} 
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 sm:flex-none ${
+                                        isKasir ? 'opacity-40 cursor-not-allowed bg-gray-100 border-2 border-gray-300 text-gray-900' : 
+                                        activePreset === 'thisMonth' 
+                                            ? 'bg-[#8B7355] border-2 border-[#7A6347] text-white hover:bg-[#7A6347]' 
+                                            : 'bg-gray-100 border-2 border-gray-300 text-gray-900 hover:bg-[#8B7355] hover:text-white hover:border-[#8B7355]'
+                                    }`}
+                                >
+                                    Month
+                                </button>
+                                <button 
+                                    onClick={() => !isKasir && setPresetRange('last3Months')} 
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 sm:flex-none ${
+                                        isKasir ? 'opacity-40 cursor-not-allowed bg-gray-100 border-2 border-gray-300 text-gray-900' : 
+                                        activePreset === 'last3Months' 
+                                            ? 'bg-[#8B7355] border-2 border-[#7A6347] text-white hover:bg-[#7A6347]' 
+                                            : 'bg-gray-100 border-2 border-gray-300 text-gray-900 hover:bg-[#8B7355] hover:text-white hover:border-[#8B7355]'
+                                    }`}
+                                >
+                                    Quarter
+                                </button>
                             </div>
 
                             <div className="flex justify-center items-center gap-2 bg-white px-4 py-2.5 rounded-xl border-2 border-gray-300 shadow-sm w-full sm:w-auto">
