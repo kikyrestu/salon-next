@@ -40,6 +40,7 @@ import WaCampaignQueue from "@/models/WaCampaignQueue";
 import WaAutomation from "@/models/WaAutomation";
 import LoyaltyTransaction from "@/models/LoyaltyTransaction";
 import Counter from "@/models/Counter";
+import StockLog from "@/models/StockLog";
 
 // Export all models for convenience
 export {
@@ -82,6 +83,7 @@ export {
   WaAutomation,
   LoyaltyTransaction,
   Counter,
+  StockLog,
 };
 
 // This function can be called to ensure models are loaded
@@ -127,5 +129,6 @@ export function initModels() {
     WaAutomation,
     LoyaltyTransaction,
     Counter,
+    StockLog,
   };
 }

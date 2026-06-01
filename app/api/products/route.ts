@@ -54,7 +54,7 @@ export async function GET(request: NextRequest, props: any) {
 
 export async function POST(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Product } = await getTenantModels(tenantSlug);
+    const { Product, StockLog } = await getTenantModels(tenantSlug);
 
     try {
         // Security Check
@@ -70,7 +70,8 @@ export async function POST(request: NextRequest, props: any) {
             numberRange: [
                 { field: 'price', min: 0 },
                 { field: 'costPrice', min: 0 },
-                { field: 'stock', min: 0 }
+                { field: 'stock', min: 0 },
+                { field: 'discount', min: 0 }
             ],
             maxLength: [
                 { field: 'name', length: 100 },
@@ -84,7 +85,22 @@ export async function POST(request: NextRequest, props: any) {
             return validationErrorResponse(validation.errors);
         }
 
-        const product = await Product.create(validation.sanitizedData);
+        if (body.discount !== undefined) validation.sanitizedData.discount = Number(body.discount);
+        if (body.expiredDate) validation.sanitizedData.expiredDate = new Date(body.expiredDate);
+
+        const product: any = await Product.create(validation.sanitizedData);
+
+        if (product.stock > 0) {
+            await StockLog.create({
+                product: product._id,
+                storeSlug: tenantSlug,
+                type: "in",
+                quantity: product.stock,
+                balanceAfter: product.stock,
+                note: "Initial stock upon creation"
+            });
+        }
+
         return NextResponse.json({ success: true, data: product });
     } catch (error: any) {
         console.error('Error creating product:', error);

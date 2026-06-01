@@ -2143,6 +2143,7 @@ export default function POSPage() {
                     ? bs.servicePrice / totalOriginalPrice
                     : 1 / (item.bundleServices?.length || 1);
                 const itemPrice = Math.round(item.price * proportion);
+                const itemDiscount = Math.round((item.discountAmount || 0) * proportion);
 
                 const splitMode = splitData?.splitCommissionMode || "auto";
                 const assignments = splitData?.staffAssignments || [];
@@ -2153,7 +2154,8 @@ export default function POSPage() {
                   name: `${bs.serviceName} (Bundle: ${item.name})`,
                   price: itemPrice,
                   quantity: 1,
-                  total: itemPrice,
+                  discount: itemDiscount,
+                  total: itemPrice - itemDiscount,
                   discountNote: item.discountNote || undefined,
                   splitCommissionMode: splitMode,
                   staffAssignments: assignments.map((a: any) => ({
@@ -2236,7 +2238,7 @@ export default function POSPage() {
               name: item.name,
               price: item.price,
               quantity: item.quantity,
-              discountAmount: item.discountAmount || 0,
+              discount: item.discountAmount || 0,
               discountNote: item.discountNote || undefined,
               total:
                 item.type === "Service" &&
@@ -2460,6 +2462,128 @@ export default function POSPage() {
   const changeAmount = Math.max(0, totalSplitPaidComputed - total);
   const availableDeals = getAvailableDeals();
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const renderStaffAssignmentBlock = (item: CartItem, customTitle?: string, bundleIndex?: number) => {
+    const key = getCartItemKey(item._id, item.type, bundleIndex);
+    return (
+      <div key={key} className="pt-1 mt-1 border-t border-gray-100">
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[10px] font-bold text-gray-500">Assign Staff {customTitle ? `- ${customTitle}` : ""}</p>
+          {settings?.showCommissionInPOS && (
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] font-medium text-gray-400">Mode:</span>
+              <select
+                className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded px-1 py-0.5 outline-none"
+                value={serviceSplitModes[key] || "auto"}
+                onChange={(e) => {
+                  setServiceSplitModes((prev) => ({
+                    ...prev,
+                    [key]: e.target.value as "auto" | "manual",
+                  }));
+                  const current = serviceStaffAssignments[key] || [];
+                  if (e.target.value === "auto" && current.length > 0) {
+                    const newPct = 100 / current.length;
+                    const updated = current.map((a) => ({ ...a, percentage: newPct }));
+                    setServiceStaffAssignments((prev) => ({ ...prev, [key]: updated }));
+                  }
+                }}
+              >
+                <option value="auto">Bagi Rata</option>
+                <option value="manual">Manual %</option>
+              </select>
+            </div>
+          )}
+        </div>
+        
+        <div className="space-y-1.5">
+          {(serviceStaffAssignments[key] || []).map((assignment, idx) => (
+            <div key={idx} className="flex items-center gap-1.5">
+              <SearchableSelect
+                placeholder="Pilih Staff..."
+                value={assignment.staffId}
+                onChange={(val) => {
+                  const updated = [...(serviceStaffAssignments[key] || [])];
+                  updated[idx].staffId = val;
+                  setServiceStaffAssignments((prev) => ({
+                    ...prev,
+                    [key]: updated,
+                  }));
+                }}
+                options={[
+                  { value: "", label: "— Pilih —" },
+                  ...staffList.map((s) => ({ value: s._id, label: s.name })),
+                ]}
+                className="flex-1"
+                controlClassName="px-2 py-1 text-[10px] min-h-[26px]"
+              />
+              {settings?.showCommissionInPOS && (
+                serviceSplitModes[key] === "manual" ? (
+                  <div className="flex items-center gap-0.5 w-14">
+                    <input
+                      type="number"
+                      value={assignment.percentage}
+                      onChange={(e) => {
+                        const updated = [...(serviceStaffAssignments[key] || [])];
+                        updated[idx].percentage = parseFloat(e.target.value) || 0;
+                        setServiceStaffAssignments((prev) => ({
+                          ...prev,
+                          [key]: updated,
+                        }));
+                      }}
+                      className="w-full text-right text-[10px] border border-gray-200 rounded px-1 py-1 focus:ring-1 focus:ring-blue-500 outline-none"
+                    />
+                    <span className="text-[10px] text-gray-500">%</span>
+                  </div>
+                ) : (
+                  <div className="w-10 text-right text-[10px] text-gray-500 font-medium">
+                    {assignment.percentage.toFixed(1)}%
+                  </div>
+                )
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  let updated = [...(serviceStaffAssignments[key] || [])];
+                  updated.splice(idx, 1);
+                  if (serviceSplitModes[key] !== "manual" && updated.length > 0) {
+                    const newPct = 100 / updated.length;
+                    updated = updated.map((a) => ({ ...a, percentage: newPct }));
+                  }
+                  setServiceStaffAssignments((prev) => ({
+                    ...prev,
+                    [key]: updated,
+                  }));
+                }}
+                className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+          
+          <button
+            type="button"
+            onClick={() => {
+              const current = serviceStaffAssignments[key] || [];
+              const isManual = serviceSplitModes[key] === "manual";
+              let updated = [...current, { staffId: "", percentage: isManual ? 0 : 100 }];
+              if (!isManual) {
+                const newPct = 100 / updated.length;
+                updated = updated.map((a) => ({ ...a, percentage: newPct }));
+              }
+              setServiceStaffAssignments((prev) => ({
+                ...prev,
+                [key]: updated,
+              }));
+            }}
+            className="text-[9px] font-bold text-blue-600 flex items-center gap-1 hover:text-blue-800 py-0.5"
+          >
+            <Plus className="w-3 h-3" /> Tambah Staff
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex h-[100dvh] w-full bg-gray-50 overflow-hidden flex-col md:flex-row">
@@ -3084,122 +3208,12 @@ export default function POSPage() {
                   )}
 
                   {/* Inline Staff Assignment */}
-                  {(item.type === "Service" || item.type === "Product" || item.type === "Package" || item.type === "Bundle") && (
-                    <div className="pt-1 mt-1 border-t border-gray-100">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <p className="text-[10px] font-bold text-gray-500">Assign Staff</p>
-                        {settings?.showCommissionInPOS && (
-                          <div className="flex items-center gap-1">
-                            <span className="text-[9px] font-medium text-gray-400">Mode:</span>
-                            <select
-                              className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded px-1 py-0.5 outline-none"
-                              value={serviceSplitModes[getCartItemKey(item._id, item.type)] || "auto"}
-                              onChange={(e) => {
-                                setServiceSplitModes((prev) => ({
-                                  ...prev,
-                                  [getCartItemKey(item._id, item.type)]: e.target.value as "auto" | "manual",
-                                }));
-                                const current = serviceStaffAssignments[getCartItemKey(item._id, item.type)] || [];
-                                if (e.target.value === "auto" && current.length > 0) {
-                                  const newPct = 100 / current.length;
-                                  const updated = current.map((a) => ({ ...a, percentage: newPct }));
-                                  setServiceStaffAssignments((prev) => ({ ...prev, [getCartItemKey(item._id, item.type)]: updated }));
-                                }
-                              }}
-                            >
-                              <option value="auto">Bagi Rata</option>
-                              <option value="manual">Manual %</option>
-                            </select>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-1.5">
-                        {(serviceStaffAssignments[getCartItemKey(item._id, item.type)] || []).map((assignment, idx) => (
-                          <div key={idx} className="flex items-center gap-1.5">
-                            <SearchableSelect
-                              placeholder="Pilih Staff..."
-                              value={assignment.staffId}
-                              onChange={(val) => {
-                                const updated = [...(serviceStaffAssignments[getCartItemKey(item._id, item.type)] || [])];
-                                updated[idx].staffId = val;
-                                setServiceStaffAssignments((prev) => ({
-                                  ...prev,
-                                  [getCartItemKey(item._id, item.type)]: updated,
-                                }));
-                              }}
-                              options={[
-                                { value: "", label: "— Pilih —" },
-                                ...staffList.map((s) => ({ value: s._id, label: s.name })),
-                              ]}
-                              className="flex-1"
-                              controlClassName="px-2 py-1 text-[10px] min-h-[26px]"
-                            />
-                            {settings?.showCommissionInPOS && (
-                              serviceSplitModes[getCartItemKey(item._id, item.type)] === "manual" ? (
-                                <div className="flex items-center gap-0.5 w-14">
-                                  <input
-                                    type="number"
-                                    value={assignment.percentage}
-                                    onChange={(e) => {
-                                      const updated = [...(serviceStaffAssignments[getCartItemKey(item._id, item.type)] || [])];
-                                      updated[idx].percentage = parseFloat(e.target.value) || 0;
-                                      setServiceStaffAssignments((prev) => ({
-                                        ...prev,
-                                        [getCartItemKey(item._id, item.type)]: updated,
-                                      }));
-                                    }}
-                                    className="w-full text-right text-[10px] border border-gray-200 rounded px-1 py-1 focus:ring-1 focus:ring-blue-500 outline-none"
-                                  />
-                                  <span className="text-[10px] text-gray-500">%</span>
-                                </div>
-                              ) : (
-                                <div className="w-10 text-right text-[10px] text-gray-500 font-medium">
-                                  {assignment.percentage.toFixed(1)}%
-                                </div>
-                              )
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                let updated = [...(serviceStaffAssignments[getCartItemKey(item._id, item.type)] || [])];
-                                updated.splice(idx, 1);
-                                if (serviceSplitModes[getCartItemKey(item._id, item.type)] !== "manual" && updated.length > 0) {
-                                  const newPct = 100 / updated.length;
-                                  updated = updated.map((a) => ({ ...a, percentage: newPct }));
-                                }
-                                setServiceStaffAssignments((prev) => ({
-                                  ...prev,
-                                  [getCartItemKey(item._id, item.type)]: updated,
-                                }));
-                              }}
-                              className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                        
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const current = serviceStaffAssignments[getCartItemKey(item._id, item.type)] || [];
-                            const isManual = serviceSplitModes[getCartItemKey(item._id, item.type)] === "manual";
-                            let updated = [...current, { staffId: "", percentage: isManual ? 0 : 100 }];
-                            if (!isManual) {
-                              const newPct = 100 / updated.length;
-                              updated = updated.map((a) => ({ ...a, percentage: newPct }));
-                            }
-                            setServiceStaffAssignments((prev) => ({
-                              ...prev,
-                              [getCartItemKey(item._id, item.type)]: updated,
-                            }));
-                          }}
-                          className="text-[9px] font-bold text-blue-600 flex items-center gap-1 hover:text-blue-800 py-0.5"
-                        >
-                          <Plus className="w-3 h-3" /> Tambah Staff
-                        </button>
-                      </div>
+                  {(item.type === "Service" || item.type === "Product" || item.type === "Package") && (
+                    renderStaffAssignmentBlock(item)
+                  )}
+                  {item.type === "Bundle" && item.bundleServices && (
+                    <div className="space-y-1 mt-1">
+                      {item.bundleServices.map((bs, i) => renderStaffAssignmentBlock(item, bs.serviceName, i))}
                     </div>
                   )}
                 </div>

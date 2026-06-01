@@ -17,6 +17,9 @@ import {
   MoreVertical,
   Filter,
   FileText,
+  History,
+  Scale,
+  PlusCircle,
 } from "lucide-react";
 import Modal from "@/components/dashboard/Modal";
 import FormInput, {
@@ -39,6 +42,8 @@ interface Product {
   alertQuantity: number;
   type: string;
   image?: string;
+  discount?: number;
+  expiredDate?: string;
   status: string;
   commissionType?: "fixed" | "percentage";
   commissionValue?: number;
@@ -53,6 +58,15 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  
+  // Stock Modals State
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [stockLogs, setStockLogs] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [restockModalOpen, setRestockModalOpen] = useState(false);
+  const [adjustModalOpen, setAdjustModalOpen] = useState(false);
+  const [stockFormData, setStockFormData] = useState({ quantity: 0, note: "" });
+
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<any>({
@@ -88,6 +102,8 @@ export default function ProductsPage() {
     type: "retail",
     alertQuantity: 5,
     image: "",
+    discount: 0,
+    expiredDate: "",
     status: "active",
     commissionType: "fixed" as "fixed" | "percentage",
     commissionValue: 0,
@@ -155,6 +171,64 @@ export default function ProductsPage() {
     }
   };
 
+  // --- Stock Action Handlers ---
+  const openHistoryModal = async (product: Product) => {
+    setEditingProduct(product);
+    setHistoryModalOpen(true);
+    setLoadingHistory(true);
+    try {
+      const res = await fetch(`/api/products/${product._id}/stock-history`, {
+        headers: { "x-store-slug": slug },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStockLogs(data.data);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const openRestockModal = (product: Product) => {
+    setEditingProduct(product);
+    setStockFormData({ quantity: 0, note: "" });
+    setRestockModalOpen(true);
+  };
+
+  const openAdjustmentModal = (product: Product) => {
+    setEditingProduct(product);
+    setStockFormData({ quantity: product.stock, note: "" });
+    setAdjustModalOpen(true);
+  };
+
+  const handleStockSubmit = async (e: React.FormEvent, type: "add" | "adjust") => {
+    e.preventDefault();
+    if (!editingProduct) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/products/${editingProduct._id}/stock`, {
+        method: "POST",
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
+        body: JSON.stringify({ ...stockFormData, type }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchProducts();
+        setRestockModalOpen(false);
+        setAdjustModalOpen(false);
+      } else {
+        alert(data.error || "Gagal mengubah stok");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Terjadi kesalahan");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this product?")) return;
     const res = await fetch(`/api/products/${id}`, { headers: { "x-store-slug": slug }, method: "DELETE" });
@@ -174,6 +248,8 @@ export default function ProductsPage() {
         stock: product.stock,
         type: product.type,
         image: product.image || "",
+        discount: product.discount || 0,
+        expiredDate: product.expiredDate ? new Date(product.expiredDate).toISOString().split('T')[0] : "",
         alertQuantity: product.alertQuantity ?? 5,
         status: product.status,
         commissionType: product.commissionType || "fixed",
@@ -191,6 +267,8 @@ export default function ProductsPage() {
         costPrice: 0,
         stock: 0,
         image: "",
+        discount: 0,
+        expiredDate: "",
         type: "retail",
         alertQuantity: 5,
         status: "active",
@@ -270,16 +348,19 @@ export default function ProductsPage() {
                       Category
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Harga Jual
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Diskon
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Expired
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Stock
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Price
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Type
-                    </th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Actions
+                      Aksi
                     </th>
                   </tr>
                 </thead>
@@ -329,6 +410,28 @@ export default function ProductsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm font-bold text-gray-900">
+                            {settings.symbol}
+                            {product.price.toLocaleString("id-ID", {
+                              maximumFractionDigits: 0,
+                            })}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm font-medium text-gray-600">
+                            {product.discount ? (
+                              <>{settings.symbol}{product.discount.toLocaleString("id-ID")}</>
+                            ) : (
+                              "-"
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm font-medium text-gray-600">
+                            {product.expiredDate ? new Date(product.expiredDate).toLocaleDateString("id-ID") : "-"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
                             <span
                               className={`text-sm font-bold ${product.stock <= (product.alertQuantity ?? 5) ? "text-red-600" : "text-gray-900"}`}
@@ -340,71 +443,55 @@ export default function ProductsPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-bold text-gray-900">
-                            {settings.symbol}
-                            {product.price.toLocaleString("id-ID", {
-                              maximumFractionDigits: 0,
-                            })}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`text-[10px] uppercase tracking-widest font-black px-2.5 py-1 rounded-full border ${product.type === "retail" ? "bg-green-50 text-green-700 border-green-200" : "bg-purple-50 text-purple-700 border-purple-200"}`}
-                          >
-                            {product.type}
-                          </span>
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                          <div className="relative flex justify-end dropdown-trigger">
+                          <div className="flex items-center justify-end gap-3">
                             <button
-                              onClick={() =>
-                                setActiveDropdown(
-                                  activeDropdown === product._id
-                                    ? null
-                                    : product._id,
-                                )
-                              }
-                              className="p-2 text-gray-400 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all"
+                              title="History Stock"
+                              onClick={() => {
+                                openHistoryModal(product);
+                              }}
+                              className="text-gray-400 hover:text-blue-600 transition-colors"
                             >
-                              <MoreVertical className="w-5 h-5" />
+                              <History className="w-4 h-4" />
                             </button>
-
-                            {activeDropdown === product._id && (
-                              <div className="absolute right-0 mt-10 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-50 py-1 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                                <PermissionGate
-                                  resource="products"
-                                  action="edit"
-                                >
-                                  <button
-                                    onClick={() => {
-                                      openModal(product);
-                                      setActiveDropdown(null);
-                                    }}
-                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                                  >
-                                    <Edit className="w-4 h-4 text-blue-600" />
-                                    Edit Details
-                                  </button>
-                                </PermissionGate>
-                                <div className="h-px bg-gray-100 my-1" />
-                                <PermissionGate
-                                  resource="products"
-                                  action="delete"
-                                >
-                                  <button
-                                    onClick={() => {
-                                      handleDelete(product._id);
-                                      setActiveDropdown(null);
-                                    }}
-                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                    Delete Product
-                                  </button>
-                                </PermissionGate>
-                              </div>
-                            )}
+                            <PermissionGate resource="settings" action="edit">
+                              <button
+                                title="Stock Adjustment"
+                                onClick={() => {
+                                  openAdjustmentModal(product);
+                                }}
+                                className="text-gray-400 hover:text-amber-600 transition-colors"
+                              >
+                                <Scale className="w-4 h-4" />
+                              </button>
+                            </PermissionGate>
+                            <PermissionGate resource="products" action="edit">
+                              <button
+                                title="Tambah Stock"
+                                onClick={() => {
+                                  openRestockModal(product);
+                                }}
+                                className="text-gray-400 hover:text-green-600 transition-colors"
+                              >
+                                <PlusCircle className="w-4 h-4" />
+                              </button>
+                              <button
+                                title="Edit Product"
+                                onClick={() => openModal(product)}
+                                className="text-gray-400 hover:text-blue-600 transition-colors"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                            </PermissionGate>
+                            <PermissionGate resource="products" action="delete">
+                              <button
+                                title="Delete Product"
+                                onClick={() => handleDelete(product._id)}
+                                className="text-gray-400 hover:text-red-600 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </PermissionGate>
                           </div>
                         </td>
                       </tr>
@@ -669,16 +756,35 @@ export default function ProductsPage() {
               }
             />
           </div>
-          <FormInput
-            label={`Harga Member (${settings.symbol})`}
-            type="number"
-            value={formData.memberPrice}
-            onChange={(e) =>
-              setFormData({ ...formData, memberPrice: parseFloat(e.target.value) || 0 })
-            }
-            min="0"
-            placeholder="Kosongkan jika tidak ada harga member"
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <FormInput
+              label={`Harga Member (${settings.symbol})`}
+              type="number"
+              value={formData.memberPrice}
+              onChange={(e) =>
+                setFormData({ ...formData, memberPrice: parseFloat(e.target.value) || 0 })
+              }
+              min="0"
+              placeholder="Kosongkan jika tidak ada"
+            />
+            <FormInput
+              label={`Diskon (${settings.symbol})`}
+              type="number"
+              value={formData.discount}
+              onChange={(e) =>
+                setFormData({ ...formData, discount: parseFloat(e.target.value) || 0 })
+              }
+              min="0"
+            />
+            <FormInput
+              label="Expired Date"
+              type="date"
+              value={formData.expiredDate}
+              onChange={(e) =>
+                setFormData({ ...formData, expiredDate: e.target.value })
+              }
+            />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <FormInput
               label="Stock"
@@ -770,6 +876,158 @@ export default function ProductsPage() {
               className="w-full sm:w-auto"
             >
               {editingProduct ? "Update Product" : "Add Product"}
+            </FormButton>
+          </div>
+        </form>
+      </Modal>
+
+      {/* History Modal */}
+      <Modal
+        isOpen={historyModalOpen}
+        onClose={() => setHistoryModalOpen(false)}
+        title={`Stock History: ${editingProduct?.name}`}
+      >
+        <div className="overflow-x-auto max-h-[60vh]">
+          {loadingHistory ? (
+            <div className="flex justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
+            </div>
+          ) : stockLogs.length === 0 ? (
+            <div className="text-center p-8 text-gray-500">
+              Belum ada riwayat stok
+            </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tanggal</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipe</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Perubahan</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Sisa</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {stockLogs.map((log: any) => (
+                  <tr key={log._id}>
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                      {new Date(log.createdAt).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        log.type === "in" ? "bg-green-100 text-green-800" :
+                        log.type === "out" ? "bg-red-100 text-red-800" :
+                        "bg-amber-100 text-amber-800"
+                      }`}>
+                        {log.type.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className={`px-4 py-3 text-sm text-right whitespace-nowrap font-medium ${
+                      log.quantity > 0 ? "text-green-600" : log.quantity < 0 ? "text-red-600" : "text-gray-900"
+                    }`}>
+                      {log.quantity > 0 ? `+${log.quantity}` : log.quantity}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 text-right whitespace-nowrap font-bold">
+                      {log.balanceAfter}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      <div>{log.note || "-"}</div>
+                      {log.performedBy && <div className="text-[10px] text-gray-400 mt-1">Oleh: {log.performedBy}</div>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={() => setHistoryModalOpen(false)}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+          >
+            Tutup
+          </button>
+        </div>
+      </Modal>
+
+      {/* Restock Modal */}
+      <Modal
+        isOpen={restockModalOpen}
+        onClose={() => setRestockModalOpen(false)}
+        title={`Tambah Stok: ${editingProduct?.name}`}
+      >
+        <form onSubmit={(e) => handleStockSubmit(e, "add")} className="space-y-4">
+          <FormInput
+            label="Jumlah Tambahan (+)"
+            type="number"
+            required
+            min="1"
+            value={stockFormData.quantity || ""}
+            onChange={(e) => setStockFormData({ ...stockFormData, quantity: parseInt(e.target.value) || 0 })}
+          />
+          <FormInput
+            label="Keterangan (Opsional)"
+            value={stockFormData.note}
+            onChange={(e) => setStockFormData({ ...stockFormData, note: e.target.value })}
+            placeholder="Contoh: Barang datang dari supplier"
+          />
+          <div className="flex justify-end gap-3 mt-6 pt-2">
+            <button
+              type="button"
+              onClick={() => setRestockModalOpen(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <FormButton type="submit" loading={submitting}>
+              Simpan Stok
+            </FormButton>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Adjustment Modal */}
+      <Modal
+        isOpen={adjustModalOpen}
+        onClose={() => setAdjustModalOpen(false)}
+        title={`Stock Adjustment (Opname): ${editingProduct?.name}`}
+      >
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex gap-3 text-amber-800">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <div className="text-sm">
+            Fungsi ini digunakan untuk menyesuaikan stok sistem dengan <strong>stok fisik aktual</strong>. Sistem akan otomatis menghitung selisih (kurang/lebih).
+          </div>
+        </div>
+        <form onSubmit={(e) => handleStockSubmit(e, "adjust")} className="space-y-4">
+          <div className="flex justify-between items-center px-4 py-3 bg-gray-50 rounded-lg mb-4 border border-gray-200">
+            <span className="text-sm text-gray-600 font-medium">Stok Tercatat di Sistem:</span>
+            <span className="text-lg font-bold text-gray-900">{editingProduct?.stock}</span>
+          </div>
+          <FormInput
+            label="Stok Fisik Aktual (Saat Ini)"
+            type="number"
+            required
+            min="0"
+            value={stockFormData.quantity === 0 && stockFormData.quantity.toString() === "" ? "" : stockFormData.quantity}
+            onChange={(e) => setStockFormData({ ...stockFormData, quantity: parseInt(e.target.value) || 0 })}
+          />
+          <FormInput
+            label="Keterangan Opname"
+            required
+            value={stockFormData.note}
+            onChange={(e) => setStockFormData({ ...stockFormData, note: e.target.value })}
+            placeholder="Contoh: Opname bulanan, ada barang rusak"
+          />
+          <div className="flex justify-end gap-3 mt-6 pt-2">
+            <button
+              type="button"
+              onClick={() => setAdjustModalOpen(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <FormButton type="submit" loading={submitting}>
+              Sesuaikan Stok
             </FormButton>
           </div>
         </form>
