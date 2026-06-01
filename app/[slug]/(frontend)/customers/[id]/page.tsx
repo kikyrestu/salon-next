@@ -25,6 +25,9 @@ import {
   ChevronDown,
   ChevronUp,
   Wallet,
+  Stethoscope,
+  ClipboardList,
+  Activity,
 } from "lucide-react";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import FormInput, { FormButton } from "@/components/dashboard/FormInput";
@@ -161,11 +164,12 @@ export default function CustomerDashboardPage() {
     [],
   );
   const [photos, setPhotos] = useState<BeforeAfterPhoto[]>([]);
+  const [medicalRecords, setMedicalRecords] = useState<any[]>([]);
 
   // UI state
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
-    "invoices" | "packages" | "photos" | "notes" | "wallet"
+    "invoices" | "packages" | "photos" | "notes" | "wallet" | "medical_records"
   >("invoices");
   const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
   const [walletTransactions, setWalletTransactions] = useState<any[]>([]);
@@ -184,6 +188,19 @@ export default function CustomerDashboardPage() {
     note: "",
   });
   const [savingPhoto, setSavingPhoto] = useState(false);
+
+  // Medical Record modal
+  const [isMedicalModalOpen, setIsMedicalModalOpen] = useState(false);
+  const [medicalForm, setMedicalForm] = useState({
+    _id: "",
+    date: new Date().toISOString().split("T")[0],
+    complaint: "",
+    diagnosis: "",
+    treatment: "",
+    prescription: "",
+    handledBy: "",
+  });
+  const [savingMedical, setSavingMedical] = useState(false);
 
   // Loyalty history
   const [isLoyaltyModalOpen, setIsLoyaltyModalOpen] = useState(false);
@@ -235,6 +252,12 @@ export default function CustomerDashboardPage() {
     if (data.success) setWalletTransactions(data.data || []);
   }, [customerId]);
 
+  const fetchMedicalRecords = useCallback(async () => {
+    const res = await fetch(`/api/customers/${customerId}/medical-records`, { headers: { "x-store-slug": slug } });
+    const data = await res.json();
+    if (data.success) setMedicalRecords(data.data || []);
+  }, [customerId]);
+
   const fetchLoyaltyHistory = useCallback(async () => {
     setLoadingLoyalty(true);
     try {
@@ -256,8 +279,9 @@ export default function CustomerDashboardPage() {
       fetchPhotos(),
       fetchLoyaltyHistory(),
       fetchWalletHistory(),
+      fetchMedicalRecords(),
     ]).finally(() => setLoading(false));
-  }, [customerId, fetchCustomer, fetchHistory, fetchPackages, fetchPhotos, fetchLoyaltyHistory]);
+  }, [customerId, fetchCustomer, fetchHistory, fetchPackages, fetchPhotos, fetchLoyaltyHistory, fetchWalletHistory, fetchMedicalRecords]);
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -343,6 +367,45 @@ export default function CustomerDashboardPage() {
     if (!confirm("Hapus foto ini?")) return;
     await fetch(`/api/customers/${customerId}/photos?photoId=${photoId}`, { headers: { "x-store-slug": slug }, method: "DELETE", });
     setPhotos((prev) => prev.filter((p) => p._id !== photoId));
+  };
+
+  const saveMedicalRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingMedical(true);
+    try {
+      const isEdit = !!medicalForm._id;
+      const url = `/api/customers/${customerId}/medical-records${isEdit ? `/${medicalForm._id}` : ""}`;
+      const res = await fetch(url, {
+        method: isEdit ? "PUT" : "POST",
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
+        body: JSON.stringify(medicalForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchMedicalRecords();
+        setIsMedicalModalOpen(false);
+      } else {
+        alert(data.error || "Gagal menyimpan rekam medis");
+      }
+    } finally {
+      setSavingMedical(false);
+    }
+  };
+
+  const deleteMedicalRecord = async (recordId: string) => {
+    if (!confirm("Hapus rekam medis ini?")) return;
+    try {
+      const res = await fetch(`/api/customers/${customerId}/medical-records/${recordId}`, {
+        method: "DELETE",
+        headers: { "x-store-slug": slug },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMedicalRecords((prev) => prev.filter((r) => r._id !== recordId));
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const copyReferral = () => {
@@ -904,6 +967,121 @@ export default function CustomerDashboardPage() {
               </div>
             )}
 
+            {/* ── Medical Records Tab ── */}
+            {activeTab === "medical_records" && (
+              <div>
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
+                      <Stethoscope className="w-4 h-4 text-blue-600" /> Rekam Medis & History Treatment
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Catatan lengkap keluhan, diagnosa, dan tindakan</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setMedicalForm({
+                        _id: "",
+                        date: new Date().toISOString().split("T")[0],
+                        complaint: "",
+                        diagnosis: "",
+                        treatment: "",
+                        prescription: "",
+                        handledBy: "",
+                      });
+                      setIsMedicalModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-900 text-white text-xs font-bold rounded-lg hover:bg-blue-800 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Tambah Rekam Medis
+                  </button>
+                </div>
+
+                {medicalRecords.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                    <ClipboardList className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p className="text-sm font-semibold text-gray-600">Belum ada rekam medis</p>
+                    <p className="text-xs text-gray-400 mt-1">Tambahkan catatan setelah customer selesai treatment</p>
+                  </div>
+                ) : (
+                  <div className="relative pl-4 sm:pl-6 border-l-2 border-blue-100 space-y-8 py-4">
+                    {medicalRecords.map((record) => (
+                      <div key={record._id} className="relative">
+                        {/* Timeline Dot */}
+                        <div className="absolute -left-[21px] sm:-left-[29px] top-1 w-3.5 h-3.5 bg-blue-500 rounded-full border-[3px] border-white shadow-sm ring-1 ring-blue-100"></div>
+                        
+                        <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                          <div className="bg-gray-50/50 border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-black text-gray-900 bg-white px-2.5 py-1 rounded-md border border-gray-200 shadow-sm">
+                                {fmtDate(record.date)}
+                              </span>
+                              {record.handledBy && (
+                                <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
+                                  Terapis: {record.handledBy}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setMedicalForm({
+                                    _id: record._id,
+                                    date: new Date(record.date).toISOString().split("T")[0],
+                                    complaint: record.complaint || "",
+                                    diagnosis: record.diagnosis || "",
+                                    treatment: record.treatment || "",
+                                    prescription: record.prescription || "",
+                                    handledBy: record.handledBy || "",
+                                  });
+                                  setIsMedicalModalOpen(true);
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => deleteMedicalRecord(record._id)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {record.complaint && (
+                              <div>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Keluhan / Masalah</p>
+                                <p className="text-sm text-gray-800 bg-gray-50 p-2.5 rounded-lg border border-gray-100">{record.complaint}</p>
+                              </div>
+                            )}
+                            {record.diagnosis && (
+                              <div>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Analisa / Diagnosa</p>
+                                <p className="text-sm text-gray-800 bg-blue-50/30 p-2.5 rounded-lg border border-blue-50">{record.diagnosis}</p>
+                              </div>
+                            )}
+                            {record.treatment && (
+                              <div className="md:col-span-2">
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Tindakan / Treatment</p>
+                                <p className="text-sm text-gray-800 bg-green-50/30 p-2.5 rounded-lg border border-green-50">{record.treatment}</p>
+                              </div>
+                            )}
+                            {record.prescription && (
+                              <div className="md:col-span-2">
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Resep / Saran Homecare</p>
+                                <p className="text-sm text-gray-800 bg-amber-50/30 p-2.5 rounded-lg border border-amber-50">{record.prescription}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ── Notes Tab ── */}
             {activeTab === "notes" && (
               <div>
@@ -1210,6 +1388,85 @@ export default function CustomerDashboardPage() {
         </div>
       </Modal>
 
+      {/* ── Medical Record Modal ── */}
+      <Modal
+        isOpen={isMedicalModalOpen}
+        onClose={() => !savingMedical && setIsMedicalModalOpen(false)}
+        title={medicalForm._id ? "Edit Rekam Medis" : "Tambah Rekam Medis Baru"}
+      >
+        <form onSubmit={saveMedicalRecord} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <FormInput
+              label="Tanggal Kunjungan"
+              type="date"
+              value={medicalForm.date}
+              onChange={(e) => setMedicalForm({ ...medicalForm, date: e.target.value })}
+              required
+            />
+            <FormInput
+              label="Staff / Terapis yang Menangani"
+              type="text"
+              placeholder="Contoh: dr. Sarah / Kapster Budi"
+              value={medicalForm.handledBy}
+              onChange={(e) => setMedicalForm({ ...medicalForm, handledBy: e.target.value })}
+            />
+          </div>
+          
+          <div className="space-y-1">
+            <label className="text-sm font-bold text-gray-700">Keluhan / Masalah</label>
+            <textarea
+              value={medicalForm.complaint}
+              onChange={(e) => setMedicalForm({ ...medicalForm, complaint: e.target.value })}
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
+              placeholder="Contoh: Rambut rontok parah sejak 2 minggu lalu..."
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-bold text-gray-700">Analisa / Diagnosa</label>
+            <textarea
+              value={medicalForm.diagnosis}
+              onChange={(e) => setMedicalForm({ ...medicalForm, diagnosis: e.target.value })}
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
+              placeholder="Contoh: Alopecia areata, kulit kepala sensitif..."
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-bold text-gray-700">Tindakan / Treatment yang Dilakukan</label>
+            <textarea
+              value={medicalForm.treatment}
+              onChange={(e) => setMedicalForm({ ...medicalForm, treatment: e.target.value })}
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
+              placeholder="Contoh: Scalp peeling, injeksi serum DHT blocker..."
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-bold text-gray-700">Resep / Saran Homecare</label>
+            <textarea
+              value={medicalForm.prescription}
+              onChange={(e) => setMedicalForm({ ...medicalForm, prescription: e.target.value })}
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
+              placeholder="Contoh: Shampoo anti-hairfall 3x seminggu, Hair tonic setiap habis keramas..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsMedicalModalOpen(false)}
+              className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-semibold"
+              disabled={savingMedical}
+            >
+              Batal
+            </button>
+            <FormButton loading={savingMedical} type="submit">
+              Simpan Rekam Medis
+            </FormButton>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

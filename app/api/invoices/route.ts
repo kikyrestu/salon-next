@@ -86,7 +86,7 @@ const normalizeSplitAssignments = (assignments: any[] = []) => {
 
 export async function POST(request: NextRequest, props: any) {
   const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-  const { Invoice, Customer, Product, Service, Settings, CashBalance, CashLog, WalletTransaction, LoyaltyTransaction, Voucher } = await getTenantModels(tenantSlug);
+  const { Invoice, Customer, Product, Service, Settings, CashBalance, CashLog, WalletTransaction, LoyaltyTransaction, Voucher, StockLog } = await getTenantModels(tenantSlug);
 
   try {
 
@@ -391,6 +391,20 @@ export async function POST(request: NextRequest, props: any) {
 
         if (!updatedProduct) continue;
 
+        // Log to StockLog
+        await StockLog.create({
+          product: updatedProduct._id,
+          storeSlug: tenantSlug,
+          type: "out",
+          quantity: quantity, // StockLog logic: change is just magnitude, or should we use the sign? Wait, the UI expects positive change for IN and negative for OUT usually, or just look at 'type'. In previous implementation, UI does `change = log.type === 'in' ? '+' + log.quantity : '-' + log.quantity`. So quantity should be positive.
+          balanceAfter: updatedProduct.stock,
+          note: `Penjualan via POS`,
+          invoice: invoice._id,
+          performedBy: (posSession as any)?.user?.id,
+        });
+
+        if (!updatedProduct) continue;
+
         if (
           updatedProduct.stock <= updatedProduct.alertQuantity &&
           !updatedProduct.lowStockNotifSent &&
@@ -446,6 +460,20 @@ export async function POST(request: NextRequest, props: any) {
             { $inc: { stock: -deductQty } },
             { new: true }
           );
+
+          if (!updatedProduct) continue;
+
+          // Log to StockLog
+          await StockLog.create({
+            product: updatedProduct._id,
+            storeSlug: tenantSlug,
+            type: "out",
+            quantity: deductQty,
+            balanceAfter: updatedProduct.stock,
+            note: `Pemakaian material service: ${serviceDoc.name}`,
+            invoice: invoice._id,
+            performedBy: (posSession as any)?.user?.id,
+          });
 
           if (!updatedProduct) continue;
           

@@ -14,6 +14,7 @@ export interface IServiceBundle extends Document {
   description?: string;
   price: number;
   image?: string;
+  icon?: string;
   isActive: boolean;
   services: IServiceBundleItem[];
 }
@@ -40,6 +41,7 @@ const ServiceBundleSchema = new Schema<IServiceBundle>(
     description: { type: String, trim: true },
     price: { type: Number, required: true, min: 0 },
     image: { type: String, trim: true },
+    icon: { type: String, trim: true },
     isActive: { type: Boolean, default: true },
     services: {
       type: [ServiceBundleItemSchema],

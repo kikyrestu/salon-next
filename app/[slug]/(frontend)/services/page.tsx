@@ -27,6 +27,7 @@ import SearchableSelect from "@/components/dashboard/SearchableSelect";
 import PermissionGate from "@/components/PermissionGate";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import ImageUpload from "@/components/dashboard/ImageUpload";
+import { IconPicker } from "@/components/ui/IconPicker";
 
 interface Category {
   _id: string;
@@ -44,6 +45,7 @@ interface Service {
   commissionValue?: number;
   gender: string;
   image?: string;
+  icon?: string;
   status: string;
   createdAt: string;
   parentService?: string;
@@ -121,6 +123,7 @@ export default function ServicesPage() {
     commissionType: "fixed",
     commissionValue: 0,
     image: "",
+    icon: "",
     parentService: "",
     isFavorite: false,
     materialsUsed: [] as { product: string; productName: string; quantityPerService: number }[],
@@ -157,6 +160,7 @@ export default function ServicesPage() {
     description: string;
     price: number;
     image: string;
+    icon: string;
     services: {
       service: string;
       serviceName: string;
@@ -170,6 +174,7 @@ export default function ServicesPage() {
     description: "",
     price: 0,
     image: "",
+    icon: "",
     services: [],
   });
   const [bundleSelectedService, setBundleSelectedService] = useState("");
@@ -399,6 +404,7 @@ export default function ServicesPage() {
         commissionType: "fixed",
         commissionValue: Number(service.commissionValue || 0),
         image: service.image || "",
+        icon: service.icon || "",
         parentService: service.parentService || "",
         isFavorite: service.isFavorite || false,
         materialsUsed: service.materialsUsed || [],
@@ -435,6 +441,7 @@ export default function ServicesPage() {
         commissionType: "fixed",
         commissionValue: 0,
         image: "",
+        icon: "",
         parentService: "",
         isFavorite: false,
         materialsUsed: [],
@@ -468,6 +475,7 @@ export default function ServicesPage() {
         description: bundle.description || "",
         price: bundle.price,
         image: bundle.image || "",
+        icon: (bundle as any).icon || "",
         services: bundle.services.map((s) => ({
           service: typeof s.service === "string" ? s.service : s.service._id,
           serviceName: s.serviceName,
@@ -484,6 +492,7 @@ export default function ServicesPage() {
         description: "",
         price: 0,
         image: "",
+        icon: "",
         services: [],
       });
     }
@@ -1204,12 +1213,18 @@ export default function ServicesPage() {
         size="lg"
       >
         <form onSubmit={handleBundleSubmit} className="space-y-4">
-          <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <ImageUpload
               label="Gambar Bundle"
               value={bundleFormData.image}
               onChange={(url) =>
                 setBundleFormData((prev) => ({ ...prev, image: url }))
+              }
+            />
+            <IconPicker
+              value={bundleFormData.icon}
+              onChange={(val) =>
+                setBundleFormData((prev) => ({ ...prev, icon: val }))
               }
             />
           </div>
@@ -1351,12 +1366,18 @@ export default function ServicesPage() {
         size="xl"
       >
         <form onSubmit={handleServiceSubmit}>
-          <div className="mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <ImageUpload
               label="Service Image"
               value={serviceFormData.image || ""}
               onChange={(url) =>
                 setServiceFormData((prev) => ({ ...prev, image: url }))
+              }
+            />
+            <IconPicker
+              value={serviceFormData.icon || ""}
+              onChange={(val) =>
+                setServiceFormData((prev) => ({ ...prev, icon: val }))
               }
             />
           </div>

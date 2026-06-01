@@ -7,6 +7,7 @@ export interface IStockLog extends Document {
   quantity: number;
   balanceAfter: number;
   note?: string;
+  invoice?: mongoose.Types.ObjectId;
   performedBy?: mongoose.Types.ObjectId | string;
   createdAt: Date;
   updatedAt: Date;
@@ -20,6 +21,7 @@ const stockLogSchema = new Schema<IStockLog>(
     quantity: { type: Number, required: true },
     balanceAfter: { type: Number, required: true },
     note: { type: String },
+    invoice: { type: Schema.Types.ObjectId, ref: "Invoice" },
     performedBy: { type: Schema.Types.Mixed }, // string or User ID
   },
   { timestamps: true },

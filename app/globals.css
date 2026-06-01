@@ -9,14 +9,41 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-outfit), sans-serif;
+  --font-body: var(--font-inter), sans-serif;
+  --font-sans: var(--font-body);
+
+  /* Override Blue with Khaki Palette */
+  --color-blue-50: #F9F6F0;
+  --color-blue-100: #F4ECE1;
+  --color-blue-200: #EBE3D5;
+  --color-blue-300: #D8CBB6;
+  --color-blue-400: #C2AE92;
+  --color-blue-500: #AB9472;
+  --color-blue-600: #8B7355;
+  --color-blue-700: #7A6652;
+  --color-blue-800: #594D41;
+  --color-blue-900: #2C2621;
+  --color-blue-950: #1C1917;
+
+  /* Override Indigo with Khaki Palette */
+  --color-indigo-50: #F9F6F0;
+  --color-indigo-100: #F4ECE1;
+  --color-indigo-200: #EBE3D5;
+  --color-indigo-300: #D8CBB6;
+  --color-indigo-400: #C2AE92;
+  --color-indigo-500: #AB9472;
+  --color-indigo-600: #8B7355;
+  --color-indigo-700: #7A6652;
+  --color-indigo-800: #594D41;
+  --color-indigo-900: #2C2621;
+  --color-indigo-950: #1C1917;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
 }
 
 /* Force all form elements to have readable text */

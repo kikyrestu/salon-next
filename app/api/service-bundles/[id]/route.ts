@@ -49,7 +49,7 @@ export async function PUT(request: NextRequest, props: any) {
     const { id } = await props.params;
     const body = await request.json();
 
-    const { name, description, price, image, services } = body;
+    const { name, description, price, image, icon, services } = body;
 
     if (name !== undefined && (!name || String(name).trim().length === 0)) {
       return NextResponse.json(
@@ -92,6 +92,7 @@ export async function PUT(request: NextRequest, props: any) {
       updateData.description = description?.trim() || undefined;
     if (price !== undefined) updateData.price = Number(price);
     if (image !== undefined) updateData.image = image?.trim() || undefined;
+    if (icon !== undefined) updateData.icon = icon?.trim() || undefined;
     if (services !== undefined) updateData.services = services;
 
     const bundle = await ServiceBundle.findByIdAndUpdate(id, updateData, {

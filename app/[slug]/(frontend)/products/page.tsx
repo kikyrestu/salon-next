@@ -29,6 +29,7 @@ import FormInput, {
 import PermissionGate from "@/components/PermissionGate";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import ImageUpload from "@/components/dashboard/ImageUpload";
+import { IconPicker } from "@/components/ui/IconPicker";
 
 interface Product {
   _id: string;
@@ -42,6 +43,7 @@ interface Product {
   alertQuantity: number;
   type: string;
   image?: string;
+  icon?: string;
   discount?: number;
   expiredDate?: string;
   status: string;
@@ -102,6 +104,7 @@ export default function ProductsPage() {
     type: "retail",
     alertQuantity: 5,
     image: "",
+    icon: "",
     discount: 0,
     expiredDate: "",
     status: "active",
@@ -248,6 +251,7 @@ export default function ProductsPage() {
         stock: product.stock,
         type: product.type,
         image: product.image || "",
+        icon: product.icon || "",
         discount: product.discount || 0,
         expiredDate: product.expiredDate ? new Date(product.expiredDate).toISOString().split('T')[0] : "",
         alertQuantity: product.alertQuantity ?? 5,
@@ -267,6 +271,7 @@ export default function ProductsPage() {
         costPrice: 0,
         stock: 0,
         image: "",
+        icon: "",
         discount: 0,
         expiredDate: "",
         type: "retail",
@@ -700,16 +705,17 @@ export default function ProductsPage() {
         title={editingProduct ? "Edit Product" : "Add Product"}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          {" "}
-          <div className="mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <ImageUpload
               label="Product Image"
               value={formData.image || ""}
-              onChange={(url) =>
-                setFormData((prev) => ({ ...prev, image: url }))
-              }
+              onChange={(url) => setFormData({ ...formData, image: url })}
             />
-          </div>{" "}
+            <IconPicker
+              value={formData.icon || ""}
+              onChange={(val) => setFormData({ ...formData, icon: val })}
+            />
+          </div>
           <FormInput
             label="Product Name"
             required
@@ -923,15 +929,36 @@ export default function ProductsPage() {
                       </span>
                     </td>
                     <td className={`px-4 py-3 text-sm text-right whitespace-nowrap font-medium ${
-                      log.quantity > 0 ? "text-green-600" : log.quantity < 0 ? "text-red-600" : "text-gray-900"
+                      log.type === "out" ? "text-red-600" :
+                      (log.type === "in" || log.quantity > 0) ? "text-green-600" :
+                      log.quantity < 0 ? "text-red-600" : "text-gray-900"
                     }`}>
-                      {log.quantity > 0 ? `+${log.quantity}` : log.quantity}
+                      {log.type === "out" ? `-${Math.abs(log.quantity)}` :
+                       (log.type === "in" || log.quantity > 0) ? `+${Math.abs(log.quantity)}` :
+                       log.quantity}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900 text-right whitespace-nowrap font-bold">
                       {log.balanceAfter}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      <div>{log.note || "-"}</div>
+                      <div>
+                        {log.invoice && log.invoice.invoiceNumber ? (
+                          <span>
+                            Nota:{" "}
+                            <a 
+                              href={`/${slug}/invoices/print/${log.invoice._id}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="font-bold text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              {log.invoice.invoiceNumber}
+                            </a>
+                            {log.invoice.customer?.name && ` (${log.invoice.customer.name})`}
+                            <br />
+                          </span>
+                        ) : null}
+                        {log.note || "-"}
+                      </div>
                       {log.performedBy && <div className="text-[10px] text-gray-400 mt-1">Oleh: {log.performedBy}</div>}
                     </td>
                   </tr>

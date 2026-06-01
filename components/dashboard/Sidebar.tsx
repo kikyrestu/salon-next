@@ -181,7 +181,7 @@ export default function Sidebar({
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200 transition-all duration-300 transform flex flex-col shadow-xl
+      className={`fixed inset-y-0 left-0 z-40 bg-[#F9F6F0] border-r border-gray-200 transition-all duration-300 transform flex flex-col shadow-xl
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
         md:translate-x-0
         ${isSidebarCollapsed ? "w-20" : "w-64"}
@@ -252,16 +252,16 @@ export default function Sidebar({
                     <TenantLink
                       href={item.href}
                       title={isSidebarCollapsed ? item.name : ""}
-                      className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200
+                      className={`group flex items-center px-3 py-2.5 text-sm rounded-xl transition-all duration-200
                                                 ${
                                                   isActive
-                                                    ? "bg-blue-900 text-white shadow-lg shadow-blue-900/20"
-                                                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                                    ? "bg-[#F4ECE1] text-[#2D251C] shadow-sm font-bold border border-[#EBE3D5]"
+                                                    : "font-medium text-[#7A6B5D] hover:bg-[#F0EBE1] hover:text-[#2D251C]"
                                                 } ${isSidebarCollapsed ? "justify-center" : ""}`}
                     >
                       <item.icon
                         className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110
-                                                ${isActive ? "text-white" : "text-gray-400 group-hover:text-blue-900"}
+                                                ${isActive ? "text-[#8B7355]" : "text-[#A89F91] group-hover:text-[#8B7355]"}
                                                 ${isSidebarCollapsed ? "" : "mr-3"}`}
                       />
                       {!isSidebarCollapsed && (

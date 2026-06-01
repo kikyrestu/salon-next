@@ -20,12 +20,12 @@ interface ServiceChartProps {
 }
 
 const COLORS = [
-    '#1e3a8a', // blue-900
-    '#2563eb', // blue-600
-    '#3b82f6', // blue-500
-    '#60a5fa', // blue-400
-    '#93c5fd', // blue-300
-    '#bfdbfe'  // blue-200
+    '#8B7355', // Khaki Dark / Brown
+    '#A08865',
+    '#B59D75', // Khaki Gold
+    '#C1A982',
+    '#D2BB94', // Khaki Light
+    '#E3CCA6'
 ];
 
 export default function ServiceChart({ data }: ServiceChartProps) {

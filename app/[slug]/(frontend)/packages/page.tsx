@@ -8,6 +8,7 @@ import SearchableSelect from "@/components/dashboard/SearchableSelect";
 import Modal from "@/components/dashboard/Modal";
 import { FormButton } from "@/components/dashboard/FormInput";
 import ImageUpload from "@/components/dashboard/ImageUpload";
+import { IconPicker } from "@/components/ui/IconPicker";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import PermissionGate from "@/components/PermissionGate";
 
@@ -35,6 +36,8 @@ interface ServicePackage {
   code: string;
   description?: string;
   price: number;
+  image?: string;
+  icon?: string;
   commissionType?: 'percentage' | 'fixed';
   commissionValue?: number;
   validityDays?: number;
@@ -76,6 +79,7 @@ export default function PackagesPage() {
   const [formName, setFormName] = useState("");
   const [formCode, setFormCode] = useState("");
   const [formImage, setFormImage] = useState("");
+  const [formIcon, setFormIcon] = useState("");
   const [formPrice, setFormPrice] = useState<number | string>("");
   const [formDescription, setFormDescription] = useState("");
   const [formItems, setFormItems] = useState<Array<{ serviceId: string; quota: number | string }>>([]);
@@ -140,6 +144,7 @@ export default function PackagesPage() {
     setFormName("");
     setFormCode("");
     setFormImage("");
+    setFormIcon("");
     setFormPrice("");
     setFormDescription("");
     setFormItems([]);
@@ -173,6 +178,7 @@ export default function PackagesPage() {
           description: formDescription,
           price: Number(formPrice),
           image: formImage || undefined,
+          icon: formIcon || undefined,
           commissionType: formCommissionType,
           commissionValue: Number(formCommissionValue || 0),
           validityDays: Number(formValidityDays || 0),
@@ -363,6 +369,8 @@ export default function PackagesPage() {
                         setEditingPackage(pkg);
                         setFormName(pkg.name);
                         setFormCode(pkg.code);
+                        setFormImage(pkg.image || "");
+                        setFormIcon((pkg as any).icon || "");
                         setFormPrice(pkg.price);
                         setFormDescription(pkg.description || "");
                         setFormCommissionType(pkg.commissionType || 'fixed');
@@ -424,11 +432,17 @@ export default function PackagesPage() {
 
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title={editingPackage ? "Edit Package" : "Buat Master Package"}>
         <div className="space-y-3">
-          <ImageUpload 
-            label="Package Image" 
-            value={formImage} 
-            onChange={(url) => setFormImage(url)} 
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <ImageUpload 
+              label="Package Image" 
+              value={formImage} 
+              onChange={(url) => setFormImage(url)} 
+            />
+            <IconPicker
+              value={formIcon}
+              onChange={setFormIcon}
+            />
+          </div>
           <input
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             placeholder="Nama package"

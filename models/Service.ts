@@ -10,6 +10,7 @@ export interface IService extends Document {
     memberPrice?: number;
     gender: 'male' | 'female' | 'unisex';
     image?: string;
+    icon?: string;
     commissionType: 'percentage' | 'fixed';
     commissionValue: number;
     waFollowUp?: {
@@ -51,6 +52,7 @@ const serviceSchema = new Schema<IService>(
             default: 'unisex',
         },
         image: { type: String },
+        icon: { type: String },
         commissionType: {
             type: String,
             enum: ['percentage', 'fixed'],

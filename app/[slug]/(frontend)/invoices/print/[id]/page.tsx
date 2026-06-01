@@ -122,35 +122,108 @@ export default function PrintInvoicePage() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {invoice.items.map((item: any, idx: number) => {
-                            // Bundle items: show individual service price as 0
-                            const isBundleChild = item.name && item.name.includes('(Bundle:');
-                            const displayPrice = isBundleChild ? 0 : item.price;
-                            const displayTotal = isBundleChild ? 0 : item.total;
-                            return (
-                                <tr key={idx} className="text-sm">
-                                    <td className="py-4 align-top">
-                                        <p className="font-bold text-gray-900">{item.name}</p>
-                                        <div className="mt-1 space-y-0.5">
-                                            {item.itemModel === 'Service' && (
-                                                <span className="inline-block px-1.5 py-0.5 bg-purple-50 text-purple-600 text-[9px] font-bold uppercase rounded">Service</span>
-                                            )}
-                                            {item.itemModel === 'Product' && (
-                                                <span className="inline-block px-1.5 py-0.5 bg-green-50 text-green-600 text-[9px] font-bold uppercase rounded">Product</span>
-                                            )}
-                                            {item.discount > 0 && (
-                                                <p className="text-[10px] text-red-600 font-medium italic">
-                                                    * Includes discount of -{currencySymbol}{item.discount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="py-4 text-center align-top font-medium">{item.quantity}</td>
-                                    <td className="py-4 text-right align-top pr-2">{isBundleChild ? '-' : `${currencySymbol}${displayPrice.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
-                                    <td className="py-4 text-right align-top font-black text-gray-900">{isBundleChild ? '-' : `${currencySymbol}${displayTotal.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
-                                </tr>
-                            );
-                        })}
+                        {(() => {
+                            const renderRows: React.ReactNode[] = [];
+                            const bundleGroups: Record<string, { children: any[]; totalPrice: number; totalAmount: number; totalDiscount: number }> = {};
+                            const renderOrder: { type: 'normal' | 'bundle'; key: string; item?: any }[] = [];
+                            const seenBundles = new Set<string>();
+
+                            invoice.items.forEach((item: any) => {
+                                const bundleMatch = item.name?.match(/\(Bundle:\s*(.+)\)$/);
+                                if (bundleMatch) {
+                                    const bundleName = bundleMatch[1].trim();
+                                    if (!bundleGroups[bundleName]) {
+                                        bundleGroups[bundleName] = { children: [], totalPrice: 0, totalAmount: 0, totalDiscount: 0 };
+                                    }
+                                    bundleGroups[bundleName].children.push(item);
+                                    bundleGroups[bundleName].totalPrice += (item.price || 0);
+                                    bundleGroups[bundleName].totalAmount += (item.total || 0);
+                                    bundleGroups[bundleName].totalDiscount += (item.discount || 0);
+                                    if (!seenBundles.has(bundleName)) {
+                                        seenBundles.add(bundleName);
+                                        renderOrder.push({ type: 'bundle', key: bundleName });
+                                    }
+                                } else {
+                                    renderOrder.push({ type: 'normal', key: 'normal', item });
+                                }
+                            });
+
+                            let globalIdx = 0;
+                            renderOrder.forEach((entry) => {
+                                if (entry.type === 'normal' && entry.item) {
+                                    const item = entry.item;
+                                    const rIdx = globalIdx++;
+                                    renderRows.push(
+                                        <tr key={`n-${rIdx}`} className="text-sm">
+                                            <td className="py-4 align-top">
+                                                <p className="font-bold text-gray-900">{item.name}</p>
+                                                <div className="mt-1 space-y-0.5">
+                                                    {item.itemModel === 'Service' && (
+                                                        <span className="inline-block px-1.5 py-0.5 bg-purple-50 text-purple-600 text-[9px] font-bold uppercase rounded">Service</span>
+                                                    )}
+                                                    {item.itemModel === 'Product' && (
+                                                        <span className="inline-block px-1.5 py-0.5 bg-green-50 text-green-600 text-[9px] font-bold uppercase rounded">Product</span>
+                                                    )}
+                                                    {item.itemModel === 'ServicePackage' && (
+                                                        <span className="inline-block px-1.5 py-0.5 bg-amber-50 text-amber-600 text-[9px] font-bold uppercase rounded">Package</span>
+                                                    )}
+                                                    {item.discount > 0 && (
+                                                        <p className="text-[10px] text-red-600 font-medium italic">
+                                                            * Includes discount of -{currencySymbol}{item.discount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="py-4 text-center align-top font-medium">{item.quantity}</td>
+                                            <td className="py-4 text-right align-top pr-2">{`${currencySymbol}${(item.price || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
+                                            <td className="py-4 text-right align-top font-black text-gray-900">{`${currencySymbol}${(item.total || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
+                                        </tr>
+                                    );
+                                } else if (entry.type === 'bundle') {
+                                    const group = bundleGroups[entry.key];
+                                    const bIdx = globalIdx++;
+                                    // Bundle header row
+                                    renderRows.push(
+                                        <tr key={`bh-${bIdx}`} className="text-sm">
+                                            <td className="py-4 align-top">
+                                                <p className="font-black text-gray-900">📦 Bundle: {entry.key}</p>
+                                                <div className="mt-1 space-y-0.5">
+                                                    <span className="inline-block px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-bold uppercase rounded">Bundle</span>
+                                                    {group.totalDiscount > 0 && (
+                                                        <p className="text-[10px] text-red-600 font-medium italic">
+                                                            * Includes discount of -{currencySymbol}{group.totalDiscount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="py-4 text-center align-top font-medium">1</td>
+                                            <td className="py-4 text-right align-top pr-2">{`${currencySymbol}${group.totalPrice.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
+                                            <td className="py-4 text-right align-top font-black text-gray-900">{`${currencySymbol}${group.totalAmount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
+                                        </tr>
+                                    );
+                                    // Bundle children rows (indented)
+                                    group.children.forEach((child: any, cIdx: number) => {
+                                        const serviceName = child.name.replace(/\s*\(Bundle:.*\)$/, '');
+                                        renderRows.push(
+                                            <tr key={`bc-${bIdx}-${cIdx}`} className="text-xs text-gray-500 border-0">
+                                                <td className="py-1.5 pl-6 align-top">
+                                                    <span className="text-gray-400 mr-1">↳</span>
+                                                    <span className="font-medium text-gray-700">{serviceName}</span>
+                                                    <div className="mt-0.5">
+                                                        <span className="inline-block px-1 py-0.5 bg-purple-50 text-purple-500 text-[8px] font-bold uppercase rounded">Service</span>
+                                                    </div>
+                                                </td>
+                                                <td className="py-1.5 text-center align-top">{child.quantity}</td>
+                                                <td className="py-1.5 text-right align-top pr-2">{`${currencySymbol}${(child.price || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
+                                                <td className="py-1.5 text-right align-top text-gray-400"></td>
+                                            </tr>
+                                        );
+                                    });
+                                }
+                            });
+
+                            return renderRows;
+                        })()}
                     </tbody>
                 </table>
 

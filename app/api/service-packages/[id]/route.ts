@@ -14,6 +14,7 @@ interface PackageUpdateBody {
   description?: string;
   price?: number;
   image?: string;
+  icon?: string;
   isActive?: boolean;
   commissionType?: 'percentage' | 'fixed';
   commissionValue?: number;
@@ -82,6 +83,7 @@ export async function PUT(request: NextRequest, props: any) {
     if (body.code !== undefined) updatePayload.code = sanitizeCode(String(body.code));
     if (body.isActive !== undefined) updatePayload.isActive = Boolean(body.isActive);
     if (body.image !== undefined) updatePayload.image = body.image ? String(body.image).trim() : undefined;
+    if (body.icon !== undefined) updatePayload.icon = body.icon ? String(body.icon).trim() : undefined;
     if (body.commissionType !== undefined) updatePayload.commissionType = body.commissionType;
     if (body.commissionValue !== undefined) updatePayload.commissionValue = Number(body.commissionValue || 0);
     if (body.validityDays !== undefined) updatePayload.validityDays = Number(body.validityDays || 0);

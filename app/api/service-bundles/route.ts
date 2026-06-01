@@ -32,7 +32,7 @@ export async function POST(request: NextRequest, props: any) {
     if (permissionErrorPOST) return permissionErrorPOST;
     const body = await request.json();
 
-    const { name, description, price, image, services } = body;
+    const { name, description, price, image, icon, services } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest, props: any) {
       description: description?.trim() || undefined,
       price: Number(price),
       image: image?.trim() || undefined,
+      icon: icon?.trim() || undefined,
       services,
     });
 

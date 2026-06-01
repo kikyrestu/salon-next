@@ -31,6 +31,7 @@ import WaGreetingLog from "@/models/WaGreetingLog";
 import WaFollowUpContact from "@/models/WaFollowUpContact";
 import ServiceBundle from "@/models/ServiceBundle";
 import Voucher from "@/models/Voucher";
+import MedicalRecord from "@/models/MedicalRecord";
 import WaBlastLog from "@/models/WaBlastLog";
 import CashBalance from "@/models/CashBalance";
 import CashSession from "@/models/CashSession";
@@ -74,6 +75,7 @@ export {
   WaFollowUpContact,
   ServiceBundle,
   Voucher,
+  MedicalRecord,
   WaBlastLog,
   CashBalance,
   CashSession,
@@ -120,6 +122,7 @@ export function initModels() {
     WaFollowUpContact,
     ServiceBundle,
     Voucher,
+    MedicalRecord,
     WaBlastLog,
     CashBalance,
     CashSession,

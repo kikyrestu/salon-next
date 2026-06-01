@@ -14,6 +14,7 @@ export interface IServicePackage extends Document {
     quota: number;
   }[];
   image?: string;
+  icon?: string;
   isActive: boolean;
 }
 
@@ -27,6 +28,7 @@ const servicePackageSchema = new Schema<IServicePackage>(
     commissionValue: { type: Number, default: 0, min: 0 },
     validityDays: { type: Number, default: 0, min: 0 }, // 0 = no expiry
     image: { type: String },
+    icon: { type: String },
     items: [
       {
         service: { type: Schema.Types.ObjectId, ref: 'Service', required: true },

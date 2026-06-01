@@ -413,9 +413,9 @@ export default function ReportsPage() {
                     if (activeTab === 'sales' || customColumns.service) {
                         row['Services'] = item ? item.name : (inv.items?.map((it: any) => it.name).join(', ') || '-');
                     }
-                    if (activeTab === 'sales' || customColumns.total) row['Total Amount'] = item ? ((item.price || 0) * (item.quantity || 1)) : inv.totalAmount;
-                    if (activeTab === 'sales' || customColumns.discount) row['Discount'] = item ? 0 : (inv.discount || 0); // Don't duplicate discount for items
-                    if (activeTab === 'sales' || customColumns.paid) row['Amount Paid'] = item ? ((item.price || 0) * (item.quantity || 1)) : inv.amountPaid; // Approximation for item paid
+                    if (activeTab === 'sales' || customColumns.total) row['Total Amount'] = item ? (item.total ?? ((item.price || 0) * (item.quantity || 1))) : inv.totalAmount;
+                    if (activeTab === 'sales' || customColumns.discount) row['Discount'] = item ? (item.discount || 0) : (inv.discount || 0);
+                    if (activeTab === 'sales' || customColumns.paid) row['Amount Paid'] = item ? (item.total ?? ((item.price || 0) * (item.quantity || 1))) : inv.amountPaid;
                     if (activeTab === 'sales' || customColumns.method) row['Payment Method'] = (inv.paymentMethods && inv.paymentMethods.length > 0)
                         ? inv.paymentMethods.map((pm: any) => `${pm.method} (${pm.amount})`).join(' + ')
                         : (inv.paymentMethod || 'N/A');
@@ -752,9 +752,9 @@ export default function ReportsPage() {
                                     if (activeTab === 'sales' || (activeTab === 'custom-sales' && customColumns.service)) {
                                         row.services = <span className="text-[10px] sm:text-xs truncate max-w-[150px] inline-block">{item ? item.name : (inv.items?.map((it: any) => it.name).join(', ') || '-')}</span>;
                                     }
-                                    if (activeTab === 'sales' || customColumns.total) row.total = formatCurrency(item ? ((item.price || 0) * (item.quantity || 1)) : displayTotal);
-                                    if (activeTab === 'sales' || customColumns.discount) row.discount = formatCurrency(item ? 0 : (inv.discount || 0));
-                                    if (activeTab === 'sales' || customColumns.paid) row.paid = formatCurrency(item ? ((item.price || 0) * (item.quantity || 1)) : displayPaid);
+                                    if (activeTab === 'sales' || customColumns.total) row.total = formatCurrency(item ? (item.total ?? ((item.price || 0) * (item.quantity || 1))) : displayTotal);
+                                    if (activeTab === 'sales' || customColumns.discount) row.discount = formatCurrency(item ? (item.discount || 0) : (inv.discount || 0));
+                                    if (activeTab === 'sales' || customColumns.paid) row.paid = formatCurrency(item ? (item.total ?? ((item.price || 0) * (item.quantity || 1))) : displayPaid);
                                     if (activeTab === 'sales' || customColumns.method) row.method = (inv.paymentMethods && inv.paymentMethods.length > 0)
                                         ? <div className="flex flex-col gap-1">{inv.paymentMethods.map((pm: any, idx: number) => <span key={idx} className={`text-[10px] px-1 rounded ${paymentFilter !== 'all' && (pm.method || '').toLowerCase() !== paymentFilter.toLowerCase() ? 'bg-gray-50 text-gray-400 line-through' : 'bg-gray-100 text-gray-900'}`}>{pm.method}: {formatCurrency(pm.amount)}</span>)}</div>
                                         : (inv.paymentMethod || 'N/A');

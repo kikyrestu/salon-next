@@ -14,6 +14,7 @@ interface PackageBody {
   description?: string;
   price: number;
   image?: string;
+  icon?: string;
   items: PackageInputItem[];
   isActive?: boolean;
   commissionType?: 'percentage' | 'fixed';
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest, props: any) {
       description: body.description?.trim() || '',
       price: Number(body.price),
       image: body.image?.trim() || undefined,
+      icon: body.icon?.trim() || undefined,
       isActive: body.isActive !== false,
       commissionType: body.commissionType || 'percentage',
       commissionValue: Number(body.commissionValue || 0),

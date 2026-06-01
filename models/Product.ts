@@ -14,6 +14,7 @@ export interface IProduct extends Document {
   barcode?: string;
   type: "retail" | "internal";
   image?: string;
+  icon?: string;
   discount?: number;
   expiredDate?: Date;
   supplier?: mongoose.Types.ObjectId;
@@ -44,6 +45,7 @@ const productSchema = new Schema<IProduct>(
       default: "retail",
     },
     image: { type: String },
+    icon: { type: String },
     discount: { type: Number, default: 0, min: 0 },
     expiredDate: { type: Date },
     commissionType: {

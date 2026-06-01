@@ -13,6 +13,11 @@ export async function GET(request: NextRequest, props: any) {
     const { id } = await props.params;
 
     const logs = await StockLog.find({ product: id, storeSlug: tenantSlug })
+      .populate({ 
+        path: "invoice", 
+        select: "invoiceNumber customer", 
+        populate: { path: "customer", select: "name" } 
+      })
       .sort({ createdAt: -1 })
       .limit(50); // Get last 50 logs
 

@@ -26,12 +26,18 @@ import {
   Clock,
   LogOut,
   FileText,
+  Store,
+  Sparkles,
+  Stethoscope,
+  Star,
+  Award,
 } from "lucide-react";
 import { FormButton } from "@/components/dashboard/FormInput";
 import SearchableSelect from "@/components/dashboard/SearchableSelect";
 import Modal from "@/components/dashboard/Modal";
 import CustomerForm from "@/components/dashboard/CustomerForm";
 import { useSettings } from "@/components/providers/SettingsProvider";
+import { ICONS } from "@/components/ui/IconPicker";
 import {
   calculateSplitCommission,
   type SplitMode,
@@ -43,6 +49,7 @@ interface Item {
   price: number;
   memberPrice?: number;
   image?: string;
+  icon?: string;
   category?: { _id: string; name: string };
   type: "Service" | "Product" | "Package" | "Bundle" | "TopUp";
   duration?: number; // Service only
@@ -1706,6 +1713,16 @@ export default function POSPage() {
     const typesRequiringStaff = ["Service", "Product", "Package", "Bundle"];
     const unassignedItems = cart.filter(item => {
       if (!typesRequiringStaff.includes(item.type)) return false;
+
+      if (item.type === "Bundle" && item.bundleServices) {
+        // Jika bundle, cek apakah ada minimal 1 anak service yang belum di-assign
+        return item.bundleServices.some((bs, idx) => {
+          const key = getCartItemKey(item._id, item.type, idx);
+          const assignments = serviceStaffAssignments[key] || [];
+          return assignments.length === 0 || assignments.some(a => !a.staffId);
+        });
+      }
+
       const key = getCartItemKey(item._id, item.type);
       const assignments = serviceStaffAssignments[key] || [];
       return assignments.length === 0 || assignments.some(a => !a.staffId);
@@ -2586,7 +2603,7 @@ export default function POSPage() {
   };
 
   return (
-    <div className="flex h-[100dvh] w-full bg-gray-50 overflow-hidden flex-col md:flex-row">
+    <div className="flex h-[100dvh] w-full bg-[#FCFAF8] overflow-hidden flex-col md:flex-row">
       {/* Left Side: Items Catalog */}
       <div
         className={`flex-1 flex flex-col min-w-0 border-r border-gray-200 bg-white ${mobileTab === "cart" ? "hidden md:flex" : "flex"}`}
@@ -2622,16 +2639,16 @@ export default function POSPage() {
                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
                   ONLINE
                 </span>
-                <span className="bg-gray-100 text-gray-700 font-bold text-[10px] px-2 py-1.5 rounded-full uppercase tracking-wide flex items-center gap-1 whitespace-nowrap border border-gray-200">
-                  🏛️ {settings.storeName || "CABANG PUSAT"}
+                <span className="bg-[#FAF7F2] text-[#8B7355] font-bold text-[10px] px-2 py-1.5 rounded-full uppercase tracking-wide flex items-center gap-1.5 whitespace-nowrap border border-[#F0EBE1]">
+                  <Store className="w-3 h-3" /> {settings.storeName || "CABANG PUSAT"}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setIsManualServiceModalOpen(true)} className="px-3 py-1.5 border border-gray-200 rounded-full text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-1.5 whitespace-nowrap">
-                  ✨ Layanan Manual
+                <button onClick={() => setIsManualServiceModalOpen(true)} className="px-3 py-1.5 border border-[#F0EBE1] rounded-full text-xs font-bold text-[#8B7355] hover:bg-[#FAF7F2] flex items-center gap-1.5 whitespace-nowrap transition-colors">
+                  <Sparkles className="w-3.5 h-3.5" /> Layanan Manual
                 </button>
                 <button onClick={() => setIsCustomerModalOpen(true)} className="px-3 py-1.5 border border-dashed border-gray-400 rounded-full text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-1.5 whitespace-nowrap bg-white">
-                  + Pilih Pelanggan
+                  <Plus className="w-3.5 h-3.5" /> Pilih Pelanggan
                 </button>
               </div>
               <div className="flex items-center gap-1.5 border-l border-gray-200 pl-3">
@@ -2644,10 +2661,10 @@ export default function POSPage() {
                     <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-white"></span>
                   )}
                 </button>
-                <button onClick={() => setIsMedicalNotesModalOpen(true)} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg relative transition-colors" title="Rekam Medis">
-                  <span className="text-xl leading-none">🩺</span>
+                <button onClick={() => setIsMedicalNotesModalOpen(true)} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg relative transition-colors flex items-center justify-center" title="Rekam Medis">
+                  <Stethoscope className="w-5 h-5" />
                   {medicalNotes && (
-                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white"></span>
+                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white"></span>
                   )}
                 </button>
                 <button onClick={() => { setIsReportsModalOpen(true); fetchTodayReport(); }} className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors" title="Laporan Hari Ini">
@@ -2668,7 +2685,7 @@ export default function POSPage() {
                 { id: "packages", label: "Paket" },
                 { id: "bundles", label: "Bundling" },
                 { id: "topup", label: "Top-Up" },
-                { id: "favorites", label: "⭐ Favorit" },
+                { id: "favorites", label: <span className="flex items-center gap-1.5"><Star className="w-3.5 h-3.5 fill-current" /> Favorit</span> },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -2715,7 +2732,7 @@ export default function POSPage() {
           </div>
 
           {/* Grid */}
-          <div className="flex-1 overflow-y-auto p-3 lg:p-4 bg-gray-50 pb-20 md:pb-4">
+          <div className="flex-1 overflow-y-auto p-3 lg:p-4 bg-[#FCFAF8] pb-20 md:pb-4">
             {loading ? (
               <div className="flex justify-center py-20">
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-900 border-t-transparent"></div>
@@ -2829,31 +2846,38 @@ export default function POSPage() {
                         className={`relative bg-white p-3 lg:p-4 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border cursor-pointer hover:shadow-md transition-shadow flex flex-col items-start group min-h-[160px] lg:min-h-[180px] active:scale-[0.98] duration-75 ${hasChildren ? 'border-purple-200 bg-purple-50/30' : 'border-gray-100 hover:border-gray-200'} ${isExpanded ? 'ring-2 ring-purple-400 border-purple-400' : ''}`}
                       >
                         {(item as any).isFavorite && (
-                          <span className="absolute top-2 left-2 text-amber-400 text-xs">⭐</span>
+                          <Star className="absolute top-2 left-2 text-amber-500 w-4 h-4 fill-current" />
                         )}
                         {hasChildren && (
                           <span className="absolute top-2 right-2 bg-purple-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
                             {children.length} varian
                           </span>
                         )}
-                        <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform overflow-hidden bg-gray-50 border border-gray-100 self-center shrink-0">
+                        <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center mb-3 group-hover:scale-105 transition-transform overflow-hidden bg-gray-50 border border-gray-100 self-center shrink-0">
                           {item.image ? (
                             <img
                               src={item.image}
                               alt={item.name}
                               className="w-full h-full object-cover"
                             />
+                          ) : item.icon && ICONS.find(i => i.id === item.icon) ? (
+                            <div className="w-full h-full bg-[#FAF7F2] rounded-full flex items-center justify-center border border-[#F0EBE1] shadow-sm">
+                              {(() => {
+                                const IconComp = ICONS.find(i => i.id === item.icon)!.icon;
+                                return <IconComp className="w-7 h-7 text-[#8B7355]" strokeWidth={1.5} />;
+                              })()}
+                            </div>
                           ) : item.type === "Service" ? (
-                            <div className="w-full h-full bg-purple-50 flex items-center justify-center">
-                              <ScissorsIcon className="w-6 h-6 text-purple-400" />
+                            <div className="w-full h-full bg-[#FAF7F2] flex items-center justify-center border-none">
+                              <ScissorsIcon className="w-6 h-6 text-[#8B7355]" />
                             </div>
                           ) : item.type === "Product" ? (
-                            <div className="w-full h-full bg-green-50 flex items-center justify-center">
-                              <Package className="w-6 h-6 text-green-400" />
+                            <div className="w-full h-full bg-[#FAF7F2] flex items-center justify-center border-none">
+                              <Package className="w-6 h-6 text-[#8B7355]" />
                             </div>
                           ) : (
-                            <div className="w-full h-full bg-amber-50 flex items-center justify-center">
-                              <Package className="w-6 h-6 text-amber-400" />
+                            <div className="w-full h-full bg-[#FAF7F2] flex items-center justify-center border-none">
+                              <Package className="w-6 h-6 text-[#8B7355]" />
                             </div>
                           )}
                         </div>
@@ -2867,8 +2891,8 @@ export default function POSPage() {
                                {settings.symbol}{(item.price || 0).toLocaleString("id-ID")}
                              </p>
                            </div>
-                           <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-gray-900 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:bg-gray-800 transition-colors">
-                             <Plus className="w-4 h-4" />
+                           <div className="w-7 h-7 lg:w-8 lg:h-8 flex items-center justify-center shrink-0 transition-colors">
+                             <Plus className="w-5 h-5 text-[#8B7355] group-hover:text-[#6a563f]" strokeWidth={2.5} />
                            </div>
                         </div>
                       </div>
@@ -2970,7 +2994,7 @@ export default function POSPage() {
                 <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-3 py-2 shadow-sm">
                   <div className="flex flex-col">
                     <span className="text-[12px] font-black text-amber-800 tracking-wide uppercase flex items-center gap-1">
-                      🌟 Premium Member Active
+                      <Award className="w-4 h-4 text-amber-600" /> Premium Member Active
                     </span>
                     <span className="text-[10px] text-amber-600 font-bold">
                       s/d {new Date(cust.membershipExpiry!).toLocaleDateString("id-ID")}
@@ -3088,16 +3112,16 @@ export default function POSPage() {
                     <div className="flex items-center gap-2 overflow-hidden flex-1">
                       <div className="flex-shrink-0">
                         {item.type === "Service" ? (
-                          <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center">
-                            <ScissorsIcon className="w-3 h-3 text-purple-600" />
+                          <div className="w-6 h-6 rounded-full bg-[#FAF7F2] border border-[#F0EBE1] flex items-center justify-center shadow-sm">
+                            <ScissorsIcon className="w-3 h-3 text-[#8B7355]" />
                           </div>
                         ) : item.type === "TopUp" ? (
-                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
-                            <Wallet className="w-3 h-3 text-emerald-600" />
+                          <div className="w-6 h-6 rounded-full bg-[#FAF7F2] border border-[#F0EBE1] flex items-center justify-center shadow-sm">
+                            <Wallet className="w-3 h-3 text-[#8B7355]" />
                           </div>
                         ) : (
-                          <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-                            <Package className="w-3 h-3 text-green-600" />
+                          <div className="w-6 h-6 rounded-full bg-[#FAF7F2] border border-[#F0EBE1] flex items-center justify-center shadow-sm">
+                            <Package className="w-3 h-3 text-[#8B7355]" />
                           </div>
                         )}
                       </div>
