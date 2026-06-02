@@ -33,19 +33,25 @@ export async function POST(request: NextRequest, props: any) {
                 return NextResponse.json({ success: false, error: "Password Otoritas Owner diperlukan untuk transaksi ini" }, { status: 401 });
             }
 
-            // Find an owner/super admin and verify password
-            // Or verify against the current user if they are an owner
-            // A generic approach: find any user with role 'Super Admin' whose password matches
-            const superAdmins = await User.find({}).select('+password').populate('role');
+            // 1. Check if the password matches the Stock Adjustment Password in Settings
+            const { Settings } = await getTenantModels(tenantSlug);
+            const settings = await Settings.findOne();
             let isAuthorized = false;
 
-            for (const admin of superAdmins) {
-                const isAdminOrOwner = (admin as any).role?.name === 'Super Admin' || (admin as any).role?.name === 'Owner';
-                if (isAdminOrOwner) {
-                    const isValid = await (admin as any).comparePassword(ownerPassword);
-                    if (isValid) {
-                        isAuthorized = true;
-                        break;
+            if (settings?.stockAdjustmentPassword && settings.stockAdjustmentPassword === ownerPassword) {
+                isAuthorized = true;
+            } else {
+                // 2. Fallback to check if it matches a Super Admin's login password
+                const superAdmins = await User.find({}).select('+password').populate('role');
+                
+                for (const admin of superAdmins) {
+                    const isAdminOrOwner = (admin as any).role?.name === 'Super Admin' || (admin as any).role?.name === 'Owner';
+                    if (isAdminOrOwner) {
+                        const isValid = await (admin as any).comparePassword(ownerPassword);
+                        if (isValid) {
+                            isAuthorized = true;
+                            break;
+                        }
                     }
                 }
             }
