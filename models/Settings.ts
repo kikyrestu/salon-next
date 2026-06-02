@@ -58,6 +58,10 @@ const SettingsSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    stockAdjustmentPassword: {
+        type: String,
+        default: ''
+    },
     showCommissionInPOS: {
         type: Boolean,
         default: false

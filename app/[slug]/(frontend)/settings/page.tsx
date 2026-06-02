@@ -43,6 +43,7 @@ interface Settings {
         cashFlow: boolean;
     };
     allowStaffDoubleBooking: boolean;
+    stockAdjustmentPassword?: string;
     termsAndConditions: string;
 
     // Premium Membership
@@ -150,6 +151,7 @@ export default function SettingsPage() {
             cashFlow: true
         },
         allowStaffDoubleBooking: false,
+        stockAdjustmentPassword: "",
         termsAndConditions: "",
         membershipPrice: 0,
         membershipDurationDays: 365,
@@ -692,6 +694,21 @@ export default function SettingsPage() {
                                 />
                                 <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                             </label>
+                        </div>
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <div className="flex-1 mr-4">
+                                <p className="text-sm font-bold text-gray-900">Password Stock Adjustment</p>
+                                <p className="text-xs text-gray-500 mt-0.5">Password yang harus dimasukkan kasir/staf saat mengubah jumlah stok barang secara manual (sama seperti fitur otoritas laci kasir). Kosongkan jika tidak ingin memakai password.</p>
+                            </div>
+                            <div className="w-1/3">
+                                <input
+                                    type="password"
+                                    value={settings.stockAdjustmentPassword}
+                                    onChange={(e) => setSettings({ ...settings, stockAdjustmentPassword: e.target.value })}
+                                    placeholder="Masukkan password..."
+                                    className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

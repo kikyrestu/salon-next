@@ -24,7 +24,18 @@ export async function POST(request: NextRequest, props: any) {
     }
 
     const { id } = await props.params;
-    const { quantity, note } = body;
+    const { quantity, note, password } = body;
+
+    if (actionType === "adjust") {
+      const { Settings } = await getTenantModels(tenantSlug);
+      const settings = await Settings.findOne();
+      if (settings?.stockAdjustmentPassword && settings.stockAdjustmentPassword !== password) {
+        return NextResponse.json(
+          { success: false, error: "Password Otoritas salah atau kosong!" },
+          { status: 401 }
+        );
+      }
+    }
 
     const product = await Product.findById(id);
     if (!product) {

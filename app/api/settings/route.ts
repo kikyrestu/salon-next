@@ -124,7 +124,7 @@ export async function PUT(request: NextRequest, props: any) {
             'twilioAuthToken', 'twilioPhoneNumber', 'emailEnabled', 'smtpHost', 'smtpPort',
             'smtpSecure', 'smtpUser', 'smtpPassword', 'smtpFrom', 'reminderDaysBefore',
             'reminderMethod', 'aiEnabled', 'openaiApiKey', 'openaiModel', 'walletExpiryDays',
-            'financialReportSections', 'allowStaffDoubleBooking'
+            'financialReportSections', 'allowStaffDoubleBooking', 'stockAdjustmentPassword'
         ];
 
         Object.keys(body).forEach(key => {

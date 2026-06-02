@@ -67,7 +67,7 @@ export default function ProductsPage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [restockModalOpen, setRestockModalOpen] = useState(false);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
-  const [stockFormData, setStockFormData] = useState({ quantity: 0, note: "" });
+  const [stockFormData, setStockFormData] = useState({ quantity: 0, note: "", password: "" });
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -196,13 +196,13 @@ export default function ProductsPage() {
 
   const openRestockModal = (product: Product) => {
     setEditingProduct(product);
-    setStockFormData({ quantity: 0, note: "" });
+    setStockFormData({ quantity: 0, note: "", password: "" });
     setRestockModalOpen(true);
   };
 
   const openAdjustmentModal = (product: Product) => {
     setEditingProduct(product);
-    setStockFormData({ quantity: product.stock, note: "" });
+    setStockFormData({ quantity: product.stock, note: "", password: "" });
     setAdjustModalOpen(true);
   };
 
@@ -1045,6 +1045,13 @@ export default function ProductsPage() {
             value={stockFormData.note}
             onChange={(e) => setStockFormData({ ...stockFormData, note: e.target.value })}
             placeholder="Contoh: Opname bulanan, ada barang rusak"
+          />
+          <FormInput
+            label="Password Otoritas"
+            type="password"
+            value={stockFormData.password}
+            onChange={(e) => setStockFormData({ ...stockFormData, password: e.target.value })}
+            placeholder="Masukkan password jika diatur di Settings"
           />
           <div className="flex justify-end gap-3 mt-6 pt-2">
             <button

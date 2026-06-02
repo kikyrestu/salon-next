@@ -177,6 +177,103 @@ export default function AdminCabangPage() {
         } catch (err) { alert('Terjadi kesalahan jaringan'); }
     };
 
+    // Manage Admins State
+    const [showManageAdminsModal, setShowManageAdminsModal] = useState(false);
+    const [manageBranchId, setManageBranchId] = useState('');
+    const [manageBranchName, setManageBranchName] = useState('');
+    const [adminList, setAdminList] = useState<any[]>([]);
+    const [isLoadingAdmins, setIsLoadingAdmins] = useState(false);
+
+    const [newAdminName, setNewAdminName] = useState('');
+    const [newAdminEmail, setNewAdminEmail] = useState('');
+    const [newAdminPassword, setNewAdminPassword] = useState('');
+    
+    const [resetAdminId, setResetAdminId] = useState('');
+    const [resetPassword, setResetPassword] = useState('');
+
+    const fetchAdmins = async (branchId: string) => {
+        setIsLoadingAdmins(true);
+        try {
+            const res = await fetch(`/api/admin/branches/${branchId}/admins`, {
+                headers: { 'x-admin-pin': pin }
+            });
+            const data = await res.json();
+            if (data.success) {
+                setAdminList(data.data || []);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsLoadingAdmins(false);
+        }
+    };
+
+    const openManageAdminsModal = (branchId: string, branchName: string) => {
+        setManageBranchId(branchId);
+        setManageBranchName(branchName);
+        setShowManageAdminsModal(true);
+        setNewAdminName('');
+        setNewAdminEmail('');
+        setNewAdminPassword('');
+        setResetAdminId('');
+        setResetPassword('');
+        fetchAdmins(branchId);
+    };
+
+    const handleAddAdminSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            const res = await fetch(`/api/admin/branches/${manageBranchId}/admins`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-pin': pin },
+                body: JSON.stringify({ name: newAdminName, email: newAdminEmail, password: newAdminPassword })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Super Admin baru berhasil ditambahkan');
+                setNewAdminName('');
+                setNewAdminEmail('');
+                setNewAdminPassword('');
+                fetchAdmins(manageBranchId);
+            } else {
+                alert(`Gagal: ${data.error}`);
+            }
+        } catch (err: any) {
+            alert(`Error: ${err.message}`);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!resetAdminId) {
+            alert('Pilih admin yang ingin direset passwordnya');
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const res = await fetch(`/api/admin/branches/${manageBranchId}/admins`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'x-admin-pin': pin },
+                body: JSON.stringify({ adminId: resetAdminId, password: resetPassword })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Password berhasil direset');
+                setResetAdminId('');
+                setResetPassword('');
+            } else {
+                alert(`Gagal: ${data.error}`);
+            }
+        } catch (err: any) {
+            alert(`Error: ${err.message}`);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handleSaveSettings = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -416,6 +513,7 @@ export default function AdminCabangPage() {
                                                         <a href={`/${b.slug}/login`} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800">Login →</a>
                                                         {b.slug !== 'pusat' && (
                                                             <>
+                                                                <button onClick={() => openManageAdminsModal(b._id, b.name)} className="text-blue-600 hover:text-blue-800">Kelola Admin</button>
                                                                 <button onClick={() => handleToggleStatus(b._id, b.isActive, b.slug)} className={b.isActive ? 'text-orange-500 hover:text-orange-700' : 'text-green-600 hover:text-green-800'}>
                                                                     {b.isActive ? 'Nonaktifkan' : 'Aktifkan'}
                                                                 </button>
@@ -468,6 +566,120 @@ export default function AdminCabangPage() {
                     </div>
                 )}
             </div>
+
+            {/* Manage Admins Modal */}
+            {showManageAdminsModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in-up">
+                        <div className="sticky top-0 p-6 border-b border-slate-100 flex items-center justify-between bg-white z-10">
+                            <h3 className="text-xl font-bold text-slate-800">Kelola Admin: {manageBranchName}</h3>
+                            <button onClick={() => setShowManageAdminsModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-2 hover:bg-slate-100 rounded-lg">
+                                ✕
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 space-y-8">
+                            {/* Section: Tambah Admin Baru */}
+                            <div>
+                                <h4 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">Tambah Super Admin Baru</h4>
+                                <form onSubmit={handleAddAdminSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Nama</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            value={newAdminName}
+                                            onChange={(e) => setNewAdminName(e.target.value)}
+                                            className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-800" 
+                                            placeholder="Nama Admin" 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Email</label>
+                                        <input 
+                                            type="email" 
+                                            required
+                                            value={newAdminEmail}
+                                            onChange={(e) => setNewAdminEmail(e.target.value)}
+                                            className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-800" 
+                                            placeholder="admin@cabang.com" 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            value={newAdminPassword}
+                                            onChange={(e) => setNewAdminPassword(e.target.value)}
+                                            className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-800" 
+                                            placeholder="Password Baru" 
+                                        />
+                                    </div>
+                                    <div className="md:col-span-3 flex justify-end">
+                                        <button 
+                                            type="submit"
+                                            disabled={isSubmitting}
+                                            className="bg-blue-600 text-white font-semibold py-2 px-6 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                        >
+                                            {isSubmitting ? 'Memproses...' : 'Tambah Admin'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            {/* Section: Daftar Admin */}
+                            <div>
+                                <h4 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">Daftar Super Admin</h4>
+                                {isLoadingAdmins ? (
+                                    <div className="text-center py-4 text-slate-500">Memuat daftar admin...</div>
+                                ) : adminList.length === 0 ? (
+                                    <div className="text-center py-4 text-slate-500 border border-dashed rounded-xl">Belum ada Super Admin di cabang ini.</div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {adminList.map((admin) => (
+                                            <div key={admin._id} className="p-4 border border-slate-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50">
+                                                <div>
+                                                    <div className="font-bold text-slate-800">{admin.name}</div>
+                                                    <div className="text-sm text-slate-500">{admin.email}</div>
+                                                </div>
+                                                <div className="w-full md:w-auto">
+                                                    <form onSubmit={handleResetPasswordSubmit} className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            required
+                                                            placeholder="Password Baru"
+                                                            value={resetAdminId === admin._id ? resetPassword : ''}
+                                                            onChange={(e) => {
+                                                                setResetAdminId(admin._id);
+                                                                setResetPassword(e.target.value);
+                                                            }}
+                                                            onFocus={() => {
+                                                                if (resetAdminId !== admin._id) {
+                                                                    setResetAdminId(admin._id);
+                                                                    setResetPassword('');
+                                                                }
+                                                            }}
+                                                            className="w-full md:w-48 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                                                        />
+                                                        <button 
+                                                            type="submit"
+                                                            disabled={isSubmitting || resetAdminId !== admin._id}
+                                                            className="bg-orange-500 text-white text-sm font-semibold py-2 px-4 rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors whitespace-nowrap"
+                                                        >
+                                                            Reset Password
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

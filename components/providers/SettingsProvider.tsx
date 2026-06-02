@@ -34,6 +34,8 @@ interface Settings {
       netProfit: boolean;
       cashFlow: boolean;
     };
+    allowStaffDoubleBooking?: boolean;
+    stockAdjustmentPassword?: string;
 }
 
 interface SettingsContextType {
@@ -48,7 +50,9 @@ const defaultSettings: Settings = {
     timezone: 'Asia/Jakarta',
     taxRate: 0,
     logoUrl: '',
-    symbol: 'Rp'
+    symbol: 'Rp',
+    allowStaffDoubleBooking: false,
+    stockAdjustmentPassword: '',
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -104,7 +108,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                         walletTopups: false,
                         netProfit: true,
                         cashFlow: true
-                    }
+                    },
+                    allowStaffDoubleBooking: data.data.allowStaffDoubleBooking || false,
+                    stockAdjustmentPassword: data.data.stockAdjustmentPassword || '',
                 });
             }
         } catch (error) {
