@@ -1,28 +1,12 @@
 import { getTenantModels } from "@/lib/tenantDb";
 import { NextRequest, NextResponse } from 'next/server';
 import { checkPermission } from '@/lib/rbac';
-
-
-
-interface PatchBody {
+import { generateInvoiceNumber } from "@/lib/invoiceNumber";interface PatchBody {
   paid?: boolean;
   paymentMethod?: string;
 }
 
-async function generateInvoiceNumber(models: any): Promise<string> {
-  const { Invoice } = models;
-  const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });
-  let nextNum = 1;
 
-  if (lastInvoice && lastInvoice.invoiceNumber) {
-    const lastNum = parseInt(lastInvoice.invoiceNumber.split('-').pop() || '0');
-    if (!isNaN(lastNum)) {
-      nextNum = lastNum + 1;
-    }
-  }
-
-  return `INV-${new Date().getFullYear()}-${nextNum.toString().padStart(5, '0')}`;
-}
 
 export async function PATCH(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
@@ -93,7 +77,7 @@ export async function PATCH(request: NextRequest, props: any) {
         commissionAmount = commissionValue;
       }
 
-      const invoiceNumber = await generateInvoiceNumber({ Invoice });
+      const invoiceNumber = await generateInvoiceNumber(tenantSlug);
 
       createdInvoice = await Invoice.create({
         invoiceNumber,
@@ -102,14 +86,14 @@ export async function PATCH(request: NextRequest, props: any) {
           item: typeof order.package === 'object' && order.package?._id ? order.package._id : order.package,
           itemModel: 'Service', // Use Service as fallback since Invoice only supports Service/Product
           name: `Paket: ${packageName}${packageCode ? ` (${packageCode})` : ''}`,
-          price: amount,
+          price: order.packageSnapshot?.price || amount,
           quantity: 1,
-          discount: 0,
+          discount: order.discount || 0,
           total: amount,
         }],
-        subtotal: amount,
+        subtotal: order.packageSnapshot?.price || amount,
         tax: 0,
-        discount: 0,
+        discount: order.discount || 0,
         totalAmount: amount,
         amountPaid: amount,
         tips: 0,

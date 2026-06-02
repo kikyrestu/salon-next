@@ -25,7 +25,7 @@ function generateTimeSlots(startTime: string, endTime: string, slotDuration: num
 // Get available slots for a staff member on a specific date or day
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { StaffSlot, Appointment, Staff } = await getTenantModels(tenantSlug);
+    const { StaffSlot, Appointment, Staff, Settings } = await getTenantModels(tenantSlug);
 
     try {
     const permissionErrorGET = await checkPermission(request, 'staffSlots', 'view');
@@ -139,6 +139,10 @@ export async function GET(request: NextRequest, props: any) {
             date: s.date
         }));
 
+        // Get settings for double booking
+        const settings = await Settings.findOne();
+        const allowDoubleBooking = settings?.allowStaffDoubleBooking || false;
+
         // Mark slots as booked if they conflict with existing appointments
         const bookedSlots: string[] = [];
         const processedSlots = allSlots.map((slot: any) => {
@@ -157,7 +161,9 @@ export async function GET(request: NextRequest, props: any) {
 
                 if (isBooked) {
                     bookedSlots.push(slot.startTime);
-                    return { ...slot, isAvailable: false };
+                    if (!allowDoubleBooking) {
+                        return { ...slot, isAvailable: false };
+                    }
                 }
             }
             return slot;

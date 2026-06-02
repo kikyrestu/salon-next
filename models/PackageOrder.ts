@@ -18,6 +18,7 @@ export interface IPackageOrder extends Document {
     validityDays?: number;
   };
   amount: number;
+  discount: number;
   status: PackageOrderStatus;
   paymentTransaction?: mongoose.Types.ObjectId;
   activatedCustomerPackage?: mongoose.Types.ObjectId;
@@ -42,6 +43,7 @@ const packageOrderSchema = new Schema<IPackageOrder>(
       validityDays: { type: Number },
     },
     amount: { type: Number, required: true, min: 0 },
+    discount: { type: Number, default: 0 },
     status: {
       type: String,
       enum: ['pending', 'paid', 'failed', 'expired', 'cancelled'],

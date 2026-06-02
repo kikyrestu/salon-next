@@ -7,6 +7,7 @@ import { checkPermission } from '@/lib/rbac';
 interface PackageOrderBody {
   customerId: string;
   packageId: string;
+  discount?: number;
 }
 
 function makeOrderNumber(): string {
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest, props: any) {
     
 
     const body = (await request.json()) as PackageOrderBody;
-    const { customerId, packageId } = body;
+    const { customerId, packageId, discount = 0 } = body;
 
     if (!customerId || !packageId) {
       return NextResponse.json({ success: false, error: 'customerId and packageId are required' }, { status: 400 });
@@ -99,7 +100,8 @@ export async function POST(request: NextRequest, props: any) {
         })),
         validityDays: servicePackage.validityDays,
       },
-      amount: Number(servicePackage.price || 0),
+      amount: Math.max(0, Number(servicePackage.price || 0) - discount),
+      discount: discount,
       status: 'pending',
     });
 

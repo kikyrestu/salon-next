@@ -913,20 +913,17 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="border-t border-gray-100 pt-4 mt-4">
-                        <h4 className="text-sm font-bold text-gray-700 mb-2">Masa Berlaku Saldo E-Wallet</h4>
-                        <select
-                            value={settings.walletExpiryDays || 0}
-                            onChange={(e) => setSettings({...settings, walletExpiryDays: parseInt(e.target.value)})}
-                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-lg bg-white font-medium"
-                        >
-                            <option value={0}>Tidak pernah hangus</option>
-                            <option value={30}>30 hari sejak transaksi terakhir</option>
-                            <option value={60}>60 hari sejak transaksi terakhir</option>
-                            <option value={90}>90 hari sejak transaksi terakhir</option>
-                            <option value={180}>180 hari sejak transaksi terakhir</option>
-                            <option value={365}>365 hari sejak transaksi terakhir</option>
-                        </select>
-                        <p className="text-[11px] text-gray-500 mt-1">Saldo customer akan otomatis hangus jika tidak ada transaksi wallet dalam jangka waktu yang dipilih.</p>
+                        <FormInput
+                            label="Masa Berlaku Saldo E-Wallet (Hari)"
+                            type="number"
+                            value={(settings.walletExpiryDays || 0).toString()}
+                            onChange={(e) => setSettings({ ...settings, walletExpiryDays: parseInt(e.target.value) || 0 })}
+                            min="0"
+                            placeholder="Isi 0 untuk tidak pernah hangus"
+                        />
+                        <p className="text-[11px] text-gray-500 mt-1">
+                            Isi angka 0 jika saldo tidak pernah hangus. Jika diisi angka lain (misal: 30), saldo customer akan otomatis hangus jika tidak ada transaksi wallet dalam jangka waktu tersebut sejak top-up terakhir.
+                        </p>
                     </div>
 
                     <div className="mt-8 pt-6 border-t border-gray-200">

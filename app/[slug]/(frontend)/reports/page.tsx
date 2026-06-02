@@ -1218,7 +1218,7 @@ export default function ReportsPage() {
                             Detailed logs of all user actions, security events, and system changes are stored in the dedicated audit module.
                         </p>
                         <a
-                            href="/reports/activity-log"
+                            href={`/${slug}/reports/activity-log`}
                             className="inline-flex items-center gap-2 px-6 py-3 bg-blue-900 text-white rounded-xl font-bold shadow-lg hover:bg-blue-800 transition-all"
                         >
                             <FileText className="w-5 h-5" />

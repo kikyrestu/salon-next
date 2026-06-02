@@ -892,6 +892,7 @@ export default function ProductsPage() {
         isOpen={historyModalOpen}
         onClose={() => setHistoryModalOpen(false)}
         title={`Stock History: ${editingProduct?.name}`}
+        size="xl"
       >
         <div className="overflow-x-auto max-h-[60vh]">
           {loadingHistory ? (

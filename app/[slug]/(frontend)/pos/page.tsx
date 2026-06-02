@@ -165,6 +165,42 @@ interface ParkedBill {
 }
 
 
+const DebouncedNumberInput = ({ value, onChange, className, min, placeholder, max }: any) => {
+  const [localVal, setLocalVal] = useState(value);
+
+  useEffect(() => {
+    setLocalVal(value);
+  }, [value]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      const parsed = parseFloat(localVal);
+      if (!isNaN(parsed) && parsed !== value) {
+        onChange(parsed);
+      } else if (localVal === "") {
+        onChange(0);
+      }
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [localVal, onChange, value]);
+
+  return (
+    <input
+      type="number"
+      value={localVal}
+      onChange={(e) => setLocalVal(e.target.value)}
+      onBlur={(e) => {
+        const parsed = parseFloat(e.target.value);
+        onChange(isNaN(parsed) ? 0 : parsed);
+      }}
+      className={className}
+      min={min}
+      max={max}
+      placeholder={placeholder}
+    />
+  );
+};
+
 export default function POSPage() {
   const router = useTenantRouter();
   const searchParams = useSearchParams();
@@ -1620,6 +1656,18 @@ export default function POSPage() {
     setMedicalNotes("");
   };
 
+  const {
+    subtotal,
+    payableSubtotal,
+    tax,
+    total,
+    tips,
+    commission,
+    assignments,
+    maxWalletPaymentAllowed,
+    effectiveDiscount,
+  } = calculateTotal();
+
   const fetchTodayAppointments = async () => {
     setLoadingAppointments(true);
     try {
@@ -1744,6 +1792,9 @@ export default function POSPage() {
 
   const handleCheckout = async (nonQrisPaid?: boolean) => {
     if (submitting) return;
+    const computedTotals = calculateTotal();
+    const { total, effectiveDiscount, payableSubtotal, maxWalletPaymentAllowed, subtotal, tax, tips, commission, assignments, lineItemSplits, redeemItems, referralDiscount } = computedTotals;
+
     if (referralCode.trim() && !referralValidated && isFirstTimer) {
       alert("Peringatan: Anda mengisi Kode Referral tetapi belum divalidasi. Klik tombol 'Cek Kode' terlebih dahulu.");
       return;
@@ -1996,6 +2047,12 @@ export default function POSPage() {
     setSubmitting(true);
     try {
       if (packageItems.length > 0) {
+        if (cart.length > packageItems.length) {
+          alert("Pembelian paket dan layanan/produk reguler tidak dapat digabung dalam satu kali bayar. Mohon pisahkan menjadi dua transaksi.");
+          setSubmitting(false);
+          return;
+        }
+
         const customerId =
           selectedCustomer === "walking-customer"
             ? undefined
@@ -2003,13 +2060,20 @@ export default function POSPage() {
 
         if (!customerId) {
           alert("Pembelian paket wajib pilih customer terdaftar.");
+          setSubmitting(false);
           return;
         }
+
+        const isMarkedPaid = nonQrisPaid ?? false;
 
         const expandedPackageItems = packageItems.flatMap((item) => {
           const qty = Math.max(1, Number(item.quantity || 1));
           return Array.from({ length: qty }, () => item);
         });
+
+        const packageGlobalDiscount = expandedPackageItems.length > 0 
+          ? effectiveDiscount / expandedPackageItems.length 
+          : 0;
 
         const createdPayments: Array<{
           sourceId: string;
@@ -2019,12 +2083,14 @@ export default function POSPage() {
         }> = [];
 
         for (const packageItem of expandedPackageItems) {
+          const totalDiscountForThisPackage = (packageItem.discountAmount || 0) + packageGlobalDiscount;
           const orderRes = await fetch("/api/package-orders", {
             method: "POST",
             headers: { "Content-Type": "application/json", ...storeHeaders },
             body: JSON.stringify({
               customerId,
               packageId: packageItem._id,
+              discount: totalDiscountForThisPackage,
             }),
           });
 
@@ -2103,18 +2169,6 @@ export default function POSPage() {
         return;
       }
 
-      const {
-        payableSubtotal,
-        tax,
-        total,
-        tips,
-        commission,
-        assignments,
-        lineItemSplits,
-        redeemItems,
-        referralDiscount,
-        effectiveDiscount,
-      } = calculateTotal();
 
       // amountPaid di-cap ke totalAmount — nominal kasir boleh lebih (kembalian),
       // tapi yang tersimpan sebagai 'dibayar' tidak boleh melebihi total transaksi.
@@ -2459,18 +2513,6 @@ export default function POSPage() {
     }
   };
 
-
-  const {
-    subtotal,
-    payableSubtotal,
-    tax,
-    total,
-    tips,
-    commission,
-    assignments,
-    maxWalletPaymentAllowed,
-    effectiveDiscount,
-  } = calculateTotal();
   const hasInvalidSplitInCart = cart.some((item) => {
     if (item.type !== "Service") return false;
     return !getSplitCommissionPreviewForItem(item).isValid;
@@ -2887,12 +2929,12 @@ export default function POSPage() {
                         <div className="flex items-end justify-between w-full mt-3 gap-2">
                            <div className="min-w-0 flex-1">
                              <p className="text-[9px] lg:text-[10px] text-gray-400 font-semibold leading-none mb-1">Mulai dari</p>
-                             <p className="text-amber-600 font-black text-sm lg:text-base leading-none truncate">
+                             <p className="text-amber-600 font-black text-[11px] lg:text-xs tracking-tight leading-none truncate">
                                {settings.symbol}{(item.price || 0).toLocaleString("id-ID")}
                              </p>
                            </div>
-                           <div className="w-7 h-7 lg:w-8 lg:h-8 flex items-center justify-center shrink-0 transition-colors">
-                             <Plus className="w-5 h-5 text-[#8B7355] group-hover:text-[#6a563f]" strokeWidth={2.5} />
+                           <div className="w-7 h-7 lg:w-8 lg:h-8 bg-[#D2B48C]/20 rounded-full flex items-center justify-center shrink-0 transition-all group-hover:bg-[#D2B48C]/40">
+                             <Plus className="w-4 h-4 lg:w-5 lg:h-5 text-[#8B4513]" strokeWidth={2.5} />
                            </div>
                         </div>
                       </div>
@@ -2922,12 +2964,12 @@ export default function POSPage() {
                             <div className="flex items-end justify-between w-full mt-3 gap-2">
                                <div className="min-w-0 flex-1">
                                  <p className="text-[9px] lg:text-[10px] text-gray-400 font-semibold leading-none mb-1">Harga Varian</p>
-                                 <p className="text-amber-600 font-black text-sm lg:text-base leading-none truncate">
+                                 <p className="text-amber-600 font-black text-xs lg:text-sm leading-none truncate">
                                    {settings.symbol}{(child.price || 0).toLocaleString("id-ID")}
                                  </p>
                                </div>
-                               <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:bg-purple-700 transition-colors">
-                                 <Plus className="w-4 h-4" />
+                               <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-[#D2B48C]/20 flex items-center justify-center shrink-0 shadow-sm group-hover:bg-[#D2B48C]/40 transition-colors">
+                                 <Plus className="w-4 h-4 text-[#8B4513]" />
                                </div>
                             </div>
                           </div>
@@ -3598,10 +3640,9 @@ export default function POSPage() {
                   <option value="percentage">%</option>
                 </select>
               </div>
-              <input
-                type="number"
+              <DebouncedNumberInput
                 value={discount}
-                onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                onChange={(val: number) => setDiscount(val)}
                 className="w-24 text-right text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-900 outline-none bg-white font-bold"
                 min="0"
               />
@@ -3635,10 +3676,9 @@ export default function POSPage() {
                       <option key={m} value={m}>{m}</option>
                     ))}
                   </select>
-                  <input
-                    type="number"
+                  <DebouncedNumberInput
                     value={payment.amount}
-                    onChange={(e) => updateSplitAmount(index, e.target.value)}
+                    onChange={(val: number) => updateSplitAmount(index, val.toString())}
                     className="w-32 text-right text-sm font-black border border-gray-300 rounded px-2 py-2 focus:ring-1 focus:ring-blue-900 outline-none"
                   />
                   {splitPayments.length > 1 && (
