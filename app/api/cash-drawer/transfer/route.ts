@@ -36,7 +36,7 @@ export async function POST(request: NextRequest, props: any) {
             // Find an owner/super admin and verify password
             // Or verify against the current user if they are an owner
             // A generic approach: find any user with role 'Super Admin' whose password matches
-            const superAdmins = await User.find({}).populate('role');
+            const superAdmins = await User.find({}).select('+password').populate('role');
             let isAuthorized = false;
 
             for (const admin of superAdmins) {
