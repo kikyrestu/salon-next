@@ -415,7 +415,7 @@ export default function POSPage() {
         // Wait, yes it does in ParkedBill, but for checkout let's see. 
         // Oh wait, there is no appointmentId state? Wait, let's check.
         // Actually, there's `appointmentId` from searchParams. We should update the URL so that onCheckout it uses it.
-        router.replace(`/${slug}/pos?appointmentId=${aptId}`);
+        router.replace(`/pos?appointmentId=${aptId}`);
 
         showToast("Appointment loaded to POS successfully");
         setAppointmentLoaded(true);
