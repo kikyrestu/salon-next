@@ -128,6 +128,18 @@ export default function CashDrawerPage() {
         }
     };
 
+    const getAmountColor = (log: any) => {
+        const isOut = ['bank', 'owner'].includes(log.destinationLocation) || 
+                      log.type === 'expense' || 
+                      (log.sourceLocation === 'kasir' && log.destinationLocation === 'system');
+        const isIn = log.type === 'sale' || log.type === 'deposit' || 
+                     (log.sourceLocation === 'system' && log.destinationLocation === 'kasir');
+        
+        if (isOut) return 'text-red-600';
+        if (isIn) return 'text-green-600';
+        return 'text-gray-900';
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -164,8 +176,8 @@ export default function CashDrawerPage() {
             </div>
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-                {/* 3 Posisi Uang */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* 4 Posisi Uang */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 flex items-center gap-5">
                         <div className="p-4 bg-blue-50 text-blue-600 rounded-xl"><Wallet className="w-8 h-8" /></div>
                         <div>
@@ -183,8 +195,15 @@ export default function CashDrawerPage() {
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-green-100 flex items-center gap-5">
                         <div className="p-4 bg-green-50 text-green-600 rounded-xl"><Landmark className="w-8 h-8" /></div>
                         <div>
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Sudah Disetor/Diambil</p>
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Disetor Ke Bank</p>
                             <p className="text-3xl font-black text-gray-900">{formatCurrency(balance.bankBalance)}</p>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 flex items-center gap-5">
+                        <div className="p-4 bg-orange-50 text-orange-600 rounded-xl"><Lock className="w-8 h-8" /></div>
+                        <div>
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Diambil Owner (Cash)</p>
+                            <p className="text-3xl font-black text-gray-900">{formatCurrency((balance as any).ownerBalance || 0)}</p>
                         </div>
                     </div>
                 </div>
@@ -260,7 +279,7 @@ export default function CashDrawerPage() {
                                         <td className="px-6 py-4 text-sm text-gray-600 capitalize">
                                             {log.sourceLocation} <ArrowRightLeft className="w-3 h-3 inline mx-1 text-gray-400" /> {log.destinationLocation}
                                         </td>
-                                        <td className={`px-6 py-4 text-sm font-bold ${(log.destinationLocation === 'kasir' || log.destinationLocation === 'brankas') && log.type !== 'expense' ? 'text-green-600' : 'text-gray-900'}`}>
+                                        <td className={`px-6 py-4 text-sm font-bold ${getAmountColor(log)}`}>
                                             {formatCurrency(log.amount)}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-600">{log.performedBy?.name || 'Sistem'}</td>
@@ -351,17 +370,17 @@ export default function CashDrawerPage() {
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Nominal Transfer (Rp)</label>
                                         <input type="number" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 font-bold focus:border-blue-600" />
                                     </div>
-                                    {transferSource === 'brankas' && (
+                                    {transferSource === 'brankas' && (transferDestination === 'bank' || transferDestination === 'owner') && (
                                         <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl">
-                                            <label className="block text-sm font-bold text-orange-900 mb-1 flex items-center gap-2"><Lock className="w-4 h-4"/> Password Otoritas Owner</label>
-                                            <input type="password" value={ownerPassword} onChange={e => setOwnerPassword(e.target.value)} className="w-full border-2 border-orange-200 rounded-lg px-4 py-2 mt-1 focus:border-orange-500" placeholder="Masukkan password super admin" />
+                                            <label className="block text-sm font-bold text-orange-900 mb-1 flex items-center gap-2"><Lock className="w-4 h-4"/> {transferDestination === 'bank' ? 'Password Setor Bank' : 'Password Ambil Cash Owner'}</label>
+                                            <input type="password" value={ownerPassword} onChange={e => setOwnerPassword(e.target.value)} className="w-full border-2 border-orange-200 rounded-lg px-4 py-2 mt-1 focus:border-orange-500" placeholder="Masukkan password otoritas" />
                                         </div>
                                     )}
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1">Catatan</label>
                                         <input type="text" value={notes} onChange={e => setNotes(e.target.value)} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-blue-600" placeholder="Cth: Setoran harian Bank BCA" />
                                     </div>
-                                    <button onClick={handleTransfer} disabled={actionLoading || !transferAmount || (transferSource === 'brankas' && !ownerPassword)} className="w-full bg-gray-900 hover:bg-black text-white font-bold py-3 rounded-xl disabled:opacity-50">
+                                    <button onClick={handleTransfer} disabled={actionLoading || !transferAmount || (transferSource === 'brankas' && (transferDestination === 'bank' || transferDestination === 'owner') && !ownerPassword)} className="w-full bg-gray-900 hover:bg-black text-white font-bold py-3 rounded-xl disabled:opacity-50">
                                         {actionLoading ? 'Memproses...' : 'Proses Pindah Uang'}
                                     </button>
                                 </>

@@ -36,6 +36,8 @@ interface Settings {
     };
     allowStaffDoubleBooking?: boolean;
     stockAdjustmentPassword?: string;
+    bankTransferPassword?: string;
+    ownerTransferPassword?: string;
 }
 
 interface SettingsContextType {
@@ -53,6 +55,8 @@ const defaultSettings: Settings = {
     symbol: 'Rp',
     allowStaffDoubleBooking: false,
     stockAdjustmentPassword: '',
+    bankTransferPassword: '',
+    ownerTransferPassword: '',
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -111,6 +115,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                     },
                     allowStaffDoubleBooking: data.data.allowStaffDoubleBooking || false,
                     stockAdjustmentPassword: data.data.stockAdjustmentPassword || '',
+                    bankTransferPassword: data.data.bankTransferPassword || '',
+                    ownerTransferPassword: data.data.ownerTransferPassword || '',
                 });
             }
         } catch (error) {

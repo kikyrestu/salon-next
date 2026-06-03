@@ -367,63 +367,70 @@ export default function POSPage() {
   const appointmentId = searchParams.get("appointmentId");
   const [appointmentLoaded, setAppointmentLoaded] = useState(false);
 
+  const handleLoadAppointment = async (aptId: string) => {
+    try {
+      const res = await fetch(`/api/appointments/${aptId}`, { headers: storeHeaders });
+      const data = await res.json();
+
+      if (data.success && data.data) {
+        const apt = data.data;
+
+        // Set Customer
+        const customerId = apt.customer?._id || apt.customer;
+        if (customerId) {
+          setSelectedCustomer(customerId);
+        }
+
+        // Add items to cart
+        const tempCart: CartItem[] = [];
+        const tempAssignments: Record<string, StaffAssignment[]> = {};
+        const tempSplitModes: Record<string, SplitMode> = {};
+
+        // Appointment services
+        apt.services.forEach((s: any) => {
+          const sId = s.service?._id || s.service;
+          const matchedService = services.find((svc) => svc._id === sId);
+          if (matchedService) {
+            const cartKey = getCartItemKey(matchedService._id, "Service");
+            tempCart.push({ ...matchedService, quantity: 1, price: s.price }); // use appointment price
+
+            // Assign staff from appointment
+            const staffId = apt.staff?._id || apt.staff;
+            if (staffId) {
+              tempAssignments[cartKey] = [{ staffId, percentage: 100 }];
+              tempSplitModes[cartKey] = "auto";
+            }
+          }
+        });
+
+        if (tempCart.length > 0) {
+          setCart(tempCart);
+          setServiceStaffAssignments(tempAssignments);
+          setServiceSplitModes((prev) => ({ ...prev, ...tempSplitModes }));
+          setDiscount(apt.discount || 0);
+        }
+
+        // Attach appointmentId to the POS state so we can complete it later
+        // Note: The UI doesn't seem to store the appointmentId in state for checkout directly,
+        // Wait, yes it does in ParkedBill, but for checkout let's see. 
+        // Oh wait, there is no appointmentId state? Wait, let's check.
+        // Actually, there's `appointmentId` from searchParams. We should update the URL so that onCheckout it uses it.
+        router.replace(`/${slug}/pos?appointmentId=${aptId}`);
+
+        showToast("Appointment loaded to POS successfully");
+        setAppointmentLoaded(true);
+        setIsAppointmentsModalOpen(false);
+      }
+    } catch (err) {
+      console.error("Failed to load appointment", err);
+    }
+  };
+
   // Auto-load appointment data to cart if appointmentId is present
   useEffect(() => {
     if (!appointmentId || loading || services.length === 0 || appointmentLoaded)
       return;
-
-    const loadAppointment = async () => {
-      try {
-        const res = await fetch(`/api/appointments/${appointmentId}`, { headers: storeHeaders });
-        const data = await res.json();
-
-        if (data.success && data.data) {
-          const apt = data.data;
-
-          // Set Customer
-          const customerId = apt.customer?._id || apt.customer;
-          if (customerId) {
-            setSelectedCustomer(customerId);
-          }
-
-          // Add items to cart
-          const tempCart: CartItem[] = [];
-          const tempAssignments: Record<string, StaffAssignment[]> = {};
-          const tempSplitModes: Record<string, SplitMode> = {};
-
-          // Appointment services
-          apt.services.forEach((s: any) => {
-            const sId = s.service?._id || s.service;
-            const matchedService = services.find((svc) => svc._id === sId);
-            if (matchedService) {
-              const cartKey = getCartItemKey(matchedService._id, "Service");
-              tempCart.push({ ...matchedService, quantity: 1, price: s.price }); // use appointment price
-
-              // Assign staff from appointment
-              const staffId = apt.staff?._id || apt.staff;
-              if (staffId) {
-                tempAssignments[cartKey] = [{ staffId, percentage: 100 }];
-                tempSplitModes[cartKey] = "auto";
-              }
-            }
-          });
-
-          if (tempCart.length > 0) {
-            setCart(tempCart);
-            setServiceStaffAssignments(tempAssignments);
-            setServiceSplitModes((prev) => ({ ...prev, ...tempSplitModes }));
-            setDiscount(apt.discount || 0);
-          }
-
-          showToast("Appointment loaded to POS successfully");
-          setAppointmentLoaded(true);
-        }
-      } catch (err) {
-        console.error("Failed to load appointment", err);
-      }
-    };
-
-    loadAppointment();
+    handleLoadAppointment(appointmentId);
   }, [appointmentId, loading, services, appointmentLoaded]);
 
   useEffect(() => {
@@ -3396,18 +3403,38 @@ export default function POSPage() {
             <div className="text-center py-4 text-sm text-gray-500">Tidak ada jadwal hari ini.</div>
           ) : (
             <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
-              {todayAppointments.map((apt: any) => (
-                <div key={apt._id} className="p-3 border border-gray-200 rounded-lg flex justify-between items-start">
-                  <div>
-                    <div className="font-bold text-gray-800 text-sm">{apt.customer?.name || "Pelanggan Tanpa Nama"}</div>
-                    <div className="text-xs text-gray-500 mt-1">Staf: {apt.staff?.name || "-"}</div>
-                    <div className="text-xs text-gray-500">Status: <span className="uppercase text-[10px] bg-gray-100 px-2 py-0.5 rounded-full">{apt.status}</span></div>
+              {todayAppointments.map((apt: any) => {
+                const isCompleted = apt.status === 'COMPLETED';
+                return (
+                  <div 
+                    key={apt._id} 
+                    onClick={() => {
+                      if (!isCompleted) {
+                        handleLoadAppointment(apt._id);
+                      }
+                    }}
+                    className={`p-3 border border-gray-200 rounded-lg flex justify-between items-start transition-colors ${!isCompleted ? 'cursor-pointer hover:border-blue-300 hover:bg-blue-50/50' : 'opacity-70'}`}
+                  >
+                    <div>
+                      <div className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                        {apt.customer?.name || "Pelanggan Tanpa Nama"}
+                        {!isCompleted && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full flex items-center gap-1">
+                            <ShoppingCart className="w-3 h-3" /> Buka di POS
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">Staf: {apt.staff?.name || "-"}</div>
+                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                        Status: <span className={`uppercase text-[10px] px-2 py-0.5 rounded-full font-bold ${isCompleted ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{apt.status}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-blue-600 text-sm">{apt.startTime} - {apt.endTime}</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold text-blue-600 text-sm">{apt.startTime} - {apt.endTime}</div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
           <div className="flex justify-end pt-2">

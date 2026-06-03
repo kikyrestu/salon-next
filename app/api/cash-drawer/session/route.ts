@@ -39,8 +39,9 @@ export async function POST(request: NextRequest, props: any) {
             // If startingCash is different from kasirBalance, it means they adjusted the modal
             const discrepancy = startingCash - balance.kasirBalance;
 
-            // Update balance to match starting cash
+            // Update balance to match starting cash AND adjust brankas
             balance.kasirBalance = startingCash;
+            balance.brankasBalance -= discrepancy; // Force pindah ke/dari brankas
             balance.lastUpdatedAt = new Date();
             await balance.save();
 
@@ -56,12 +57,14 @@ export async function POST(request: NextRequest, props: any) {
             // Log if there was an adjustment
             if (discrepancy !== 0) {
                 await CashLog.create({
-                    type: 'adjustment',
+                    type: 'transfer',
                     amount: Math.abs(discrepancy),
-                    sourceLocation: discrepancy > 0 ? 'owner' : 'kasir',
-                    destinationLocation: discrepancy > 0 ? 'kasir' : 'system',
+                    sourceLocation: discrepancy > 0 ? 'brankas' : 'kasir',
+                    destinationLocation: discrepancy > 0 ? 'kasir' : 'brankas',
                     performedBy: userId,
-                    description: `Modal adjustment during shift open (Discrepancy: ${discrepancy})`,
+                    description: discrepancy > 0 
+                        ? `Auto-transfer dari Brankas untuk penyesuaian modal awal kasir (Selisih: +${discrepancy})`
+                        : `Auto-transfer ke Brankas untuk penyesuaian modal awal kasir (Selisih: ${discrepancy})`,
                     referenceModel: 'CashSession',
                     referenceId: cashSession._id,
                     balanceAfter: {

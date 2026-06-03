@@ -44,6 +44,8 @@ interface Settings {
     };
     allowStaffDoubleBooking: boolean;
     stockAdjustmentPassword?: string;
+    bankTransferPassword?: string;
+    ownerTransferPassword?: string;
     termsAndConditions: string;
 
     // Premium Membership
@@ -148,10 +150,12 @@ export default function SettingsPage() {
             payroll: false,
             walletTopups: false,
             netProfit: true,
-            cashFlow: true
+            cashFlow: true,
         },
         allowStaffDoubleBooking: false,
         stockAdjustmentPassword: "",
+        bankTransferPassword: "",
+        ownerTransferPassword: "",
         termsAndConditions: "",
         membershipPrice: 0,
         membershipDurationDays: 365,
@@ -307,6 +311,9 @@ export default function SettingsPage() {
                         cashFlow: true
                     },
                     allowStaffDoubleBooking: data.data.allowStaffDoubleBooking || false,
+                    stockAdjustmentPassword: data.data.stockAdjustmentPassword || "",
+                    bankTransferPassword: data.data.bankTransferPassword || "",
+                    ownerTransferPassword: data.data.ownerTransferPassword || "",
                     termsAndConditions: data.data.termsAndConditions || "",
                     loyaltyPointPerSpend: data.data.loyaltyPointPerSpend || 0,
                     loyaltyPointValue: data.data.loyaltyPointValue || 0,
@@ -698,13 +705,45 @@ export default function SettingsPage() {
                         <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
                             <div className="flex-1 mr-4">
                                 <p className="text-sm font-bold text-gray-900">Password Stock Adjustment</p>
-                                <p className="text-xs text-gray-500 mt-0.5">Password yang harus dimasukkan kasir/staf saat mengubah jumlah stok barang secara manual (sama seperti fitur otoritas laci kasir). Kosongkan jika tidak ingin memakai password.</p>
+                                <p className="text-xs text-gray-500 mt-0.5">Password yang harus dimasukkan kasir/staf saat mengubah jumlah stok barang secara manual. Kosongkan jika tidak ingin memakai password.</p>
                             </div>
                             <div className="w-1/3">
                                 <input
                                     type="password"
                                     value={settings.stockAdjustmentPassword}
                                     onChange={(e) => setSettings({ ...settings, stockAdjustmentPassword: e.target.value })}
+                                    placeholder="Masukkan password..."
+                                    className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <div className="flex-1 mr-4">
+                                <p className="text-sm font-bold text-gray-900">Password Setor Bank</p>
+                                <p className="text-xs text-gray-500 mt-0.5">Password untuk kasir/staf saat mentransfer uang dari Brankas ke Bank. Kosongkan jika tidak wajib.</p>
+                            </div>
+                            <div className="w-1/3">
+                                <input
+                                    type="password"
+                                    value={settings.bankTransferPassword}
+                                    onChange={(e) => setSettings({ ...settings, bankTransferPassword: e.target.value })}
+                                    placeholder="Masukkan password..."
+                                    className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <div className="flex-1 mr-4">
+                                <p className="text-sm font-bold text-gray-900">Password Ambil Cash (Owner)</p>
+                                <p className="text-xs text-gray-500 mt-0.5">Password untuk menarik uang tunai dari Brankas oleh Owner. Kosongkan jika tidak wajib.</p>
+                            </div>
+                            <div className="w-1/3">
+                                <input
+                                    type="password"
+                                    value={settings.ownerTransferPassword}
+                                    onChange={(e) => setSettings({ ...settings, ownerTransferPassword: e.target.value })}
                                     placeholder="Masukkan password..."
                                     className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none"
                                 />

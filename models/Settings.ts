@@ -62,6 +62,14 @@ const SettingsSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    bankTransferPassword: {
+        type: String,
+        default: ''
+    },
+    ownerTransferPassword: {
+        type: String,
+        default: ''
+    },
     showCommissionInPOS: {
         type: Boolean,
         default: false

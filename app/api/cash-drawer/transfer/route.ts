@@ -33,12 +33,20 @@ export async function POST(request: NextRequest, props: any) {
                 return NextResponse.json({ success: false, error: "Password Otoritas Owner diperlukan untuk transaksi ini" }, { status: 401 });
             }
 
-            // 1. Check if the password matches the Stock Adjustment Password in Settings
+            // 1. Check if the password matches the specific Transfer Password in Settings
             const { Settings } = await getTenantModels(tenantSlug);
             const settings = await Settings.findOne();
             let isAuthorized = false;
 
-            if (settings?.stockAdjustmentPassword && settings.stockAdjustmentPassword === ownerPassword) {
+            const bankPass = settings?.bankTransferPassword;
+            const ownerPass = settings?.ownerTransferPassword;
+
+            if (destination === 'bank' && bankPass && bankPass === ownerPassword) {
+                isAuthorized = true;
+            } else if (destination === 'owner' && ownerPass && ownerPass === ownerPassword) {
+                isAuthorized = true;
+            } else if (!bankPass && !ownerPass && settings?.stockAdjustmentPassword === ownerPassword) {
+                // Fallback to stock adjustment password if specific passwords are not set (backward compatibility)
                 isAuthorized = true;
             } else {
                 // 2. Fallback to check if it matches a Super Admin's login password
@@ -62,7 +70,7 @@ export async function POST(request: NextRequest, props: any) {
         }
 
         let balance = await CashBalance.findOne();
-        if (!balance) balance = await CashBalance.create({ kasirBalance: 0, brankasBalance: 0, bankBalance: 0 });
+        if (!balance) balance = await CashBalance.create({ kasirBalance: 0, brankasBalance: 0, bankBalance: 0, ownerBalance: 0 });
 
         // Check if sufficient funds
         if (source === 'kasir' && balance.kasirBalance < amount) {
@@ -79,7 +87,7 @@ export async function POST(request: NextRequest, props: any) {
         // Add to destination
         if (destination === 'brankas') balance.brankasBalance += amount;
         else if (destination === 'bank') balance.bankBalance += amount;
-        // if destination === 'owner', money is taken out completely from the business tracking (or kept track in owner equity, but we just deduct it).
+        else if (destination === 'owner') balance.ownerBalance += amount;
 
         balance.lastUpdatedAt = new Date();
         await balance.save();

@@ -23,7 +23,8 @@ export async function GET(request: NextRequest, props: any) {
             balance = await CashBalance.create({
                 kasirBalance: 0,
                 brankasBalance: 0,
-                bankBalance: 0
+                bankBalance: 0,
+                ownerBalance: 0
             });
         }
 

@@ -4,6 +4,7 @@ export interface ICashBalance extends Document {
     kasirBalance: number;
     brankasBalance: number;
     bankBalance: number;
+    ownerBalance: number;
     lastUpdatedAt: Date;
 }
 
@@ -11,6 +12,7 @@ const cashBalanceSchema = new Schema<ICashBalance>({
     kasirBalance: { type: Number, default: 0 },
     brankasBalance: { type: Number, default: 0 },
     bankBalance: { type: Number, default: 0 },
+    ownerBalance: { type: Number, default: 0 },
     lastUpdatedAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
