@@ -3404,21 +3404,34 @@ export default function POSPage() {
           ) : (
             <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
               {todayAppointments.map((apt: any) => {
-                const isCompleted = apt.status === 'COMPLETED';
+                const statusLower = apt.status?.toLowerCase();
+                const isCompleted = statusLower === 'completed';
+                const isConfirmed = statusLower === 'confirmed';
+                const isCancelled = statusLower === 'cancelled';
+                
+                let statusColorClass = 'bg-gray-100 text-gray-700';
+                if (isCompleted) {
+                  statusColorClass = 'bg-green-100 text-green-700';
+                } else if (isConfirmed) {
+                  statusColorClass = 'bg-blue-100 text-blue-700';
+                } else if (isCancelled) {
+                  statusColorClass = 'bg-red-100 text-red-700';
+                }
+
                 return (
                   <div 
                     key={apt._id} 
                     onClick={() => {
-                      if (!isCompleted) {
+                      if (!isCompleted && !isCancelled) {
                         handleLoadAppointment(apt._id);
                       }
                     }}
-                    className={`p-3 border border-gray-200 rounded-lg flex justify-between items-start transition-colors ${!isCompleted ? 'cursor-pointer hover:border-blue-300 hover:bg-blue-50/50' : 'opacity-70'}`}
+                    className={`p-3 border border-gray-200 rounded-lg flex justify-between items-start transition-colors ${(!isCompleted && !isCancelled) ? 'cursor-pointer hover:border-blue-300 hover:bg-blue-50/50' : 'opacity-70'}`}
                   >
                     <div>
                       <div className="font-bold text-gray-800 text-sm flex items-center gap-2">
                         {apt.customer?.name || "Pelanggan Tanpa Nama"}
-                        {!isCompleted && (
+                        {(!isCompleted && !isCancelled) && (
                           <span className="text-[10px] font-medium px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full flex items-center gap-1">
                             <ShoppingCart className="w-3 h-3" /> Buka di POS
                           </span>
@@ -3426,7 +3439,7 @@ export default function POSPage() {
                       </div>
                       <div className="text-xs text-gray-500 mt-1">Staf: {apt.staff?.name || "-"}</div>
                       <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                        Status: <span className={`uppercase text-[10px] px-2 py-0.5 rounded-full font-bold ${isCompleted ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{apt.status}</span>
+                        Status: <span className={`uppercase text-[10px] px-2 py-0.5 rounded-full font-bold ${statusColorClass}`}>{apt.status}</span>
                       </div>
                     </div>
                     <div className="text-right">
