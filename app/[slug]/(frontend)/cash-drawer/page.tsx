@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import { 
     Wallet, Lock, Unlock, ArrowRightLeft, 
     Landmark, CircleDollarSign, History, Shield,
-    CheckCircle2, XCircle
+    CheckCircle2, XCircle, Pencil
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useSettings } from "@/components/providers/SettingsProvider";
@@ -24,7 +24,9 @@ export default function CashDrawerPage() {
     const [logs, setLogs] = useState<any[]>([]);
     const [logLimit, setLogLimit] = useState(20);
 
-    const [openModal, setOpenModal] = useState<'open' | 'close' | 'transfer' | null>(null);
+    const [openModal, setOpenModal] = useState<'open' | 'close' | 'transfer' | 'adjust' | null>(null);
+    const [adjustTarget, setAdjustTarget] = useState<'bank' | 'owner'>('bank');
+    const [adjustNewBalance, setAdjustNewBalance] = useState("");
     const [actionLoading, setActionLoading] = useState(false);
 
     // Form states
@@ -128,6 +130,37 @@ export default function CashDrawerPage() {
         }
     };
 
+    const handleAdjust = async () => {
+        setActionLoading(true);
+        try {
+            const res = await fetch('/api/cash-drawer/adjust', {
+                method: 'POST',
+                headers: { "x-store-slug": slug, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target: adjustTarget,
+                    newBalance: Number(adjustNewBalance),
+                    notes,
+                    ownerPassword
+                })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                setOpenModal(null);
+                setAdjustNewBalance("");
+                setNotes("");
+                setOwnerPassword("");
+                fetchData();
+            } else {
+                alert(data.error || "Gagal menyesuaikan saldo");
+            }
+        } catch (error) {
+            alert("Terjadi kesalahan sistem");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const getAmountColor = (log: any) => {
         const isOut = ['bank', 'owner'].includes(log.destinationLocation) || 
                       log.type === 'expense' || 
@@ -177,33 +210,39 @@ export default function CashDrawerPage() {
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
                 {/* 4 Posisi Uang */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 flex items-center gap-5">
-                        <div className="p-4 bg-blue-50 text-blue-600 rounded-xl"><Wallet className="w-8 h-8" /></div>
-                        <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-blue-100 flex items-center gap-4">
+                        <div className="p-3 bg-blue-50 text-blue-600 rounded-xl shrink-0"><Wallet className="w-7 h-7" /></div>
+                        <div className="min-w-0">
                             <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Saldo Laci Kasir</p>
-                            <p className="text-3xl font-black text-gray-900">{formatCurrency(balance.kasirBalance)}</p>
+                            <p className="text-xl lg:text-2xl font-black text-gray-900 truncate">{formatCurrency(balance.kasirBalance)}</p>
                         </div>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-purple-100 flex items-center gap-5">
-                        <div className="p-4 bg-purple-50 text-purple-600 rounded-xl"><Shield className="w-8 h-8" /></div>
-                        <div>
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-purple-100 flex items-center gap-4">
+                        <div className="p-3 bg-purple-50 text-purple-600 rounded-xl shrink-0"><Shield className="w-7 h-7" /></div>
+                        <div className="min-w-0">
                             <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Saldo Brankas</p>
-                            <p className="text-3xl font-black text-gray-900">{formatCurrency(balance.brankasBalance)}</p>
+                            <p className="text-xl lg:text-2xl font-black text-gray-900 truncate">{formatCurrency(balance.brankasBalance)}</p>
                         </div>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-green-100 flex items-center gap-5">
-                        <div className="p-4 bg-green-50 text-green-600 rounded-xl"><Landmark className="w-8 h-8" /></div>
-                        <div>
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Disetor Ke Bank</p>
-                            <p className="text-3xl font-black text-gray-900">{formatCurrency(balance.bankBalance)}</p>
+                    <div 
+                        onClick={() => { setAdjustTarget('bank'); setAdjustNewBalance(String(balance.bankBalance)); setOpenModal('adjust'); }}
+                        className="bg-white p-5 rounded-2xl shadow-sm border border-green-100 flex items-center gap-4 cursor-pointer hover:border-green-300 hover:shadow-md transition-all group"
+                    >
+                        <div className="p-3 bg-green-50 text-green-600 rounded-xl shrink-0"><Landmark className="w-7 h-7" /></div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-1">Disetor Ke Bank <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" /></p>
+                            <p className="text-xl lg:text-2xl font-black text-gray-900 truncate">{formatCurrency(balance.bankBalance)}</p>
                         </div>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 flex items-center gap-5">
-                        <div className="p-4 bg-orange-50 text-orange-600 rounded-xl"><Lock className="w-8 h-8" /></div>
-                        <div>
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Diambil Owner (Cash)</p>
-                            <p className="text-3xl font-black text-gray-900">{formatCurrency((balance as any).ownerBalance || 0)}</p>
+                    <div 
+                        onClick={() => { setAdjustTarget('owner'); setAdjustNewBalance(String((balance as any).ownerBalance || 0)); setOpenModal('adjust'); }}
+                        className="bg-white p-5 rounded-2xl shadow-sm border border-orange-100 flex items-center gap-4 cursor-pointer hover:border-orange-300 hover:shadow-md transition-all group"
+                    >
+                        <div className="p-3 bg-orange-50 text-orange-600 rounded-xl shrink-0"><Lock className="w-7 h-7" /></div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-1">Diambil Owner <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" /></p>
+                            <p className="text-xl lg:text-2xl font-black text-gray-900 truncate">{formatCurrency((balance as any).ownerBalance || 0)}</p>
                         </div>
                     </div>
                 </div>
@@ -297,7 +336,7 @@ export default function CashDrawerPage() {
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                         <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="font-bold text-gray-900">
-                                {openModal === 'open' ? 'Buka Laci Kasir' : openModal === 'close' ? 'Tutup Laci Kasir' : 'Transfer Uang'}
+                                {openModal === 'open' ? 'Buka Laci Kasir' : openModal === 'close' ? 'Tutup Laci Kasir' : openModal === 'adjust' ? `Adjust Saldo: ${adjustTarget === 'bank' ? 'Disetor Ke Bank' : 'Diambil Owner'}` : 'Transfer Uang'}
                             </h3>
                             <button onClick={() => setOpenModal(null)} className="text-gray-400 hover:text-gray-600"><XCircle className="w-6 h-6" /></button>
                         </div>
@@ -382,6 +421,30 @@ export default function CashDrawerPage() {
                                     </div>
                                     <button onClick={handleTransfer} disabled={actionLoading || !transferAmount || (transferSource === 'brankas' && (transferDestination === 'bank' || transferDestination === 'owner') && !ownerPassword)} className="w-full bg-gray-900 hover:bg-black text-white font-bold py-3 rounded-xl disabled:opacity-50">
                                         {actionLoading ? 'Memproses...' : 'Proses Pindah Uang'}
+                                    </button>
+                                </>
+                            )}
+
+                            {openModal === 'adjust' && (
+                                <>
+                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                        <p className="text-xs text-gray-500 font-bold uppercase mb-1">Saldo Saat Ini</p>
+                                        <p className="text-2xl font-black text-gray-900">{formatCurrency(adjustTarget === 'bank' ? balance.bankBalance : ((balance as any).ownerBalance || 0))}</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Saldo Baru (Rp)</label>
+                                        <input type="number" value={adjustNewBalance} onChange={e => setAdjustNewBalance(e.target.value)} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 font-bold focus:border-blue-600 focus:ring-0 transition-colors" placeholder="Masukkan angka saldo yang benar" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Alasan Penyesuaian <span className="text-red-500">*</span></label>
+                                        <input type="text" value={notes} onChange={e => setNotes(e.target.value)} className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-blue-600" placeholder="Cth: Koreksi data karena salah input sebelumnya" />
+                                    </div>
+                                    <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                                        <label className="block text-sm font-bold text-orange-900 mb-1 flex items-center gap-2"><Lock className="w-4 h-4"/> Password Owner</label>
+                                        <input type="password" value={ownerPassword} onChange={e => setOwnerPassword(e.target.value)} className="w-full border-2 border-orange-200 rounded-lg px-4 py-2 mt-1 focus:border-orange-500" placeholder="Masukkan password otoritas" />
+                                    </div>
+                                    <button onClick={handleAdjust} disabled={actionLoading || adjustNewBalance === '' || !notes.trim() || !ownerPassword} className="w-full bg-gray-900 hover:bg-black text-white font-bold py-3 rounded-xl disabled:opacity-50">
+                                        {actionLoading ? 'Memproses...' : 'Simpan Penyesuaian'}
                                     </button>
                                 </>
                             )}
