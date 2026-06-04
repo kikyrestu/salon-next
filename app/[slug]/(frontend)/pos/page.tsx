@@ -3406,6 +3406,7 @@ export default function POSPage() {
               {todayAppointments.map((apt: any) => {
                 const statusStr = String(apt.status || '').toUpperCase();
                 const isCompleted = statusStr === 'COMPLETED';
+                const isCancelled = statusStr === 'CANCELLED';
                 
                 // Color Helper
                 let statusColorClass = 'bg-gray-100 text-gray-700';
@@ -3414,20 +3415,21 @@ export default function POSPage() {
                 else if (statusStr === 'PENDING') statusColorClass = 'bg-orange-100 text-orange-700';
                 else if (statusStr === 'CANCELLED') statusColorClass = 'bg-red-100 text-red-700';
 
+
                 return (
                   <div 
                     key={apt._id} 
                     onClick={() => {
-                      if (!isCompleted) {
+                      if (!isCompleted && !isCancelled) {
                         handleLoadAppointment(apt._id);
                       }
                     }}
-                    className={`p-3 border border-gray-200 rounded-lg flex justify-between items-start transition-colors ${!isCompleted ? 'cursor-pointer hover:border-blue-300 hover:bg-blue-50/50' : 'opacity-70'}`}
+                    className={`p-3 border border-gray-200 rounded-lg flex justify-between items-start transition-colors ${(!isCompleted && !isCancelled) ? 'cursor-pointer hover:border-blue-300 hover:bg-blue-50/50' : 'opacity-70'}`}
                   >
                     <div>
                       <div className="font-bold text-gray-800 text-sm flex items-center gap-2">
                         {apt.customer?.name || "Pelanggan Tanpa Nama"}
-                        {!isCompleted && (
+                        {(!isCompleted && !isCancelled) && (
                           <span className="text-[10px] font-medium px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full flex items-center gap-1">
                             <ShoppingCart className="w-3 h-3" /> Buka di POS
                           </span>
