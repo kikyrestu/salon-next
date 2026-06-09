@@ -113,7 +113,7 @@ export async function PUT(request: NextRequest, props: any) {
  */
 export async function DELETE(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Invoice, Customer } = await getTenantModels(tenantSlug);
+    const { Invoice, Customer, PackageOrder, CustomerPackage } = await getTenantModels(tenantSlug);
 
     try {
         // Must be Super Admin to void an invoice
@@ -158,12 +158,32 @@ export async function DELETE(request: NextRequest, props: any) {
             // No body is fine, use default reason
         }
 
-        // Soft-delete: mark as voided with full audit trail
         invoice.status = 'voided';
         invoice.voidedBy = session.user.id;
         invoice.voidedAt = new Date();
         invoice.voidReason = voidReason;
         await invoice.save();
+
+        // [BUG FIX] Jika ini pembelian paket, otomatis hanguskan paket pelanggan (CustomerPackage)
+        if (invoice.sourceType === 'package_purchase' && invoice.notes) {
+            const match = invoice.notes.match(/\(Order:\s*([^)]+)\)/);
+            if (match && match[1]) {
+                const orderNumber = match[1];
+                const order = await PackageOrder.findOne({ orderNumber });
+                if (order) {
+                    order.status = 'cancelled';
+                    await order.save();
+                    
+                    if (order.activatedCustomerPackage) {
+                        const custPkg = await CustomerPackage.findById(order.activatedCustomerPackage);
+                        if (custPkg) {
+                            custPkg.status = 'cancelled';
+                            await custPkg.save();
+                        }
+                    }
+                }
+            }
+        }
 
         // Log activity with detailed audit
         await logActivity({
