@@ -7,6 +7,8 @@ export interface IServicePackage extends Document {
   price: number;
   commissionType: 'percentage' | 'fixed';
   commissionValue: number;
+  sellingCommissionType?: 'percentage' | 'fixed';
+  sellingCommissionValue?: number;
   validityDays: number; // 0 = no expiry
   items: {
     service: mongoose.Types.ObjectId;
@@ -26,6 +28,8 @@ const servicePackageSchema = new Schema<IServicePackage>(
     price: { type: Number, required: true, min: 0 },
     commissionType: { type: String, enum: ['percentage', 'fixed'], default: 'fixed' },
     commissionValue: { type: Number, default: 0, min: 0 },
+    sellingCommissionType: { type: String, enum: ['percentage', 'fixed'], default: 'fixed' },
+    sellingCommissionValue: { type: Number, default: 0, min: 0 },
     validityDays: { type: Number, default: 0, min: 0 }, // 0 = no expiry
     image: { type: String },
     icon: { type: String },

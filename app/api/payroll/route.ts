@@ -175,28 +175,49 @@ export async function POST(request: NextRequest, props: any) {
             invoices: (await Invoice.find({
                 $or: [
                     { staff: staffId },
-                    { "staffAssignments.staff": staffId }
+                    { "staffAssignments.staff": staffId },
+                    { "items.staffAssignments.staff": staffId },
+                    { "items.sellingBy": staffId }
                 ],
                 date: { $gte: startDate, $lte: endDate },
                 status: { $in: ["paid", "partially_paid", "pending"] }
             })).map((inv: any) => {
-                // Find the specific commission and tip for this staff member
                 let specificCommission = 0;
                 let specificTip = 0;
-                if (inv.staffAssignments && inv.staffAssignments.length > 0) {
-                    const assignment = inv.staffAssignments.find((a: any) => a.staff.toString() === staffId.toString());
-                    if (assignment) {
-                        specificCommission = assignment.commission;
-                        specificTip = assignment.tip || 0;
+                let sellingCommission = 0;
+                
+                // Process Item-level assignments first (V3.0 feature)
+                let hasItemLevelStaff = false;
+                if (inv.items && inv.items.length > 0) {
+                    inv.items.forEach((item: any) => {
+                        if (item.sellingBy?.toString() === staffId.toString()) {
+                            sellingCommission += (item.sellingCommission || 0);
+                        }
+                        if (item.staffAssignments && item.staffAssignments.length > 0) {
+                            hasItemLevelStaff = true;
+                            const assignment = item.staffAssignments.find((a: any) => a.staff.toString() === staffId.toString());
+                            if (assignment) {
+                                specificCommission += (assignment.komisiNominal || assignment.commission || 0);
+                            }
+                        }
+                    });
+                }
+                
+                // Fallback to Invoice-level assignments if no items have staff (V2 compatibility)
+                if (!hasItemLevelStaff) {
+                    if (inv.staffAssignments && inv.staffAssignments.length > 0) {
+                        const assignment = inv.staffAssignments.find((a: any) => a.staff.toString() === staffId.toString());
+                        if (assignment) {
+                            specificCommission += (assignment.komisiNominal || assignment.commission || 0);
+                            specificTip = assignment.tip || 0;
+                        } else if (inv.staff?.toString() === staffId.toString()) {
+                            specificCommission += inv.commission || 0;
+                            specificTip = inv.tips || 0;
+                        }
                     } else if (inv.staff?.toString() === staffId.toString()) {
-                        // Fallback: If they are the primary staff but not in assignments (old invoice)
-                        specificCommission = inv.commission || 0;
+                        specificCommission += inv.commission || 0;
                         specificTip = inv.tips || 0;
                     }
-                } else if (inv.staff?.toString() === staffId.toString()) {
-                    // Modern invoice but single staff (compatibility)
-                    specificCommission = inv.commission || 0;
-                    specificTip = inv.tips || 0;
                 }
 
                 return {
@@ -205,6 +226,7 @@ export async function POST(request: NextRequest, props: any) {
                     date: inv.date,
                     totalAmount: inv.totalAmount,
                     commission: specificCommission,
+                    sellingCommission,
                     tip: specificTip
                 };
             })
@@ -219,7 +241,12 @@ export async function POST(request: NextRequest, props: any) {
             (sum: number, inv: any) => sum + inv.commission,
             0
         );
+        const invoiceSellingCommission = breakdown.invoices.reduce(
+            (sum: number, inv: any) => sum + (inv.sellingCommission || 0),
+            0
+        );
         const totalCommission = appointmentCommission + invoiceCommission;
+        const totalSellingCommission = invoiceSellingCommission;
         const appointmentTips = breakdown.appointments.reduce(
             (sum: number, apt: any) => sum + apt.tips,
             0
@@ -233,7 +260,7 @@ export async function POST(request: NextRequest, props: any) {
         const baseSalary = staff.salary || 0;
         const bonuses = 0; // Can be added manually later
         const deductions = 0; // Can be added manually later
-        const totalAmount = baseSalary + totalCommission + totalTips + bonuses - deductions;
+        const totalAmount = baseSalary + totalCommission + totalSellingCommission + totalTips + bonuses - deductions;
 
         // Create payroll record
         const payroll = await Payroll.create({
@@ -242,6 +269,7 @@ export async function POST(request: NextRequest, props: any) {
             year,
             baseSalary,
             totalCommission,
+            totalSellingCommission,
             totalTips,
             bonuses,
             deductions,

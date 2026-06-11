@@ -292,6 +292,15 @@ export async function POST(request: NextRequest, props: any) {
       }
     }
 
+    // [Fitur 9] Auto-assign customer number
+    const { Counter } = await getTenantModels(tenantSlug);
+    const counter = await Counter.findOneAndUpdate(
+      { _id: 'customerNumber' },
+      { $inc: { seq: 1 } },
+      { upsert: true, new: true }
+    );
+    const publicToken = crypto.randomUUID();
+
     const customer = await Customer.create({
       ...validation.sanitizedData,
       createdBy: session?.user?.id,
@@ -299,6 +308,8 @@ export async function POST(request: NextRequest, props: any) {
       referredBy,
       membershipTier: tierToSet,
       waNotifEnabled: validation.sanitizedData.waNotifEnabled !== false,
+      customerNumber: (counter as any)?.seq,
+      publicToken,
     });
     const createdCustomer = Array.isArray(customer) ? customer[0] : customer;
 

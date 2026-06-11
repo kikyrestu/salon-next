@@ -533,6 +533,21 @@ export default function AppointmentsPage() {
                   />
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                  <button
+                    onClick={() => {
+                      const today = format(new Date(), "yyyy-MM-dd");
+                      setStartDate(today);
+                      setEndDate(today);
+                      setPage(1);
+                    }}
+                    className={`px-3 py-1.5 text-sm rounded-lg border transition-colors font-medium ${
+                      startDate === format(new Date(), "yyyy-MM-dd") && endDate === format(new Date(), "yyyy-MM-dd")
+                        ? "bg-purple-50 border-purple-300 text-purple-700"
+                        : "bg-white border-gray-200 hover:border-gray-300 text-gray-600 shadow-sm"
+                    }`}
+                  >
+                    Hari Ini
+                  </button>
                   <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1 shadow-sm w-full sm:w-auto text-sm">
                     <input
                       type="date"

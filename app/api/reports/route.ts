@@ -114,7 +114,7 @@ export async function GET(request: NextRequest, props: any) {
                     date: { $gte: start, $lte: end },
                     status: { $nin: ['cancelled', 'voided'] }
                 })
-                    .populate('staff staffAssignments.staff items.staffAssignments.staff')
+                    .populate('staff staffAssignments.staff items.staffAssignments.staff items.sellingBy')
                     .populate({ path: 'appointment', populate: { path: 'staff' } })
                     .lean();
 
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest, props: any) {
                         if (!s || !s._id) return null;
                         const id = s._id.toString();
                         if (!staffStats[id]) {
-                            staffStats[id] = { name: s.name, appointments: 0, sales: 0, commission: 0, revenue: 0 };
+                            staffStats[id] = { name: s.name, appointments: 0, sales: 0, commission: 0, sellingCommission: 0, revenue: 0 };
                         }
                         return id;
                     };
@@ -154,6 +154,13 @@ export async function GET(request: NextRequest, props: any) {
                                         staffStats[id].commission += (assignment.komisiNominal || assignment.commission || 0);
                                     }
                                 });
+                            }
+
+                            if (item.sellingBy) {
+                                const sId = initStaff(item.sellingBy);
+                                if (sId) {
+                                    staffStats[sId].sellingCommission += (item.sellingCommission || 0);
+                                }
                             }
                         });
                     }
@@ -202,7 +209,17 @@ export async function GET(request: NextRequest, props: any) {
                 // Wait, easier to just use a Set per invoice for appointments.
                 // We'll leave it as is since `appointments` count wasn't the main issue, `sales` was.
 
-                data = Object.entries(staffStats).map(([id, stats]: [string, any]) => ({ _id: id, ...stats })).sort((a: any, b: any) => b.revenue - a.revenue);
+                data = Object.entries(staffStats).map(([id, stats]: [string, any]) => ({ _id: id, ...stats }));
+
+                // [Fitur 2] Sort staff performance results
+                const sortBy = searchParams.get('sortBy') || 'revenue';
+                const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
+                data.sort((a: any, b: any) => {
+                  const aVal = a[sortBy] ?? 0;
+                  const bVal = b[sortBy] ?? 0;
+                  if (typeof aVal === 'string') return sortOrder * aVal.localeCompare(bVal);
+                  return sortOrder * (aVal - bVal);
+                });
                 break;
 
             case "customers":

@@ -40,6 +40,8 @@ interface ServicePackage {
   icon?: string;
   commissionType?: 'percentage' | 'fixed';
   commissionValue?: number;
+  sellingCommissionType?: 'percentage' | 'fixed';
+  sellingCommissionValue?: number;
   validityDays?: number;
   isActive: boolean;
   items: ServicePackageItem[];
@@ -85,6 +87,8 @@ export default function PackagesPage() {
   const [formItems, setFormItems] = useState<Array<{ serviceId: string; quota: number | string }>>([]);
   const [formCommissionType, setFormCommissionType] = useState<'percentage' | 'fixed'>('fixed');
   const [formCommissionValue, setFormCommissionValue] = useState<number | string>(0);
+  const [formSellingCommissionType, setFormSellingCommissionType] = useState<'percentage' | 'fixed'>('fixed');
+  const [formSellingCommissionValue, setFormSellingCommissionValue] = useState<number | string>(0);
   const [formValidityDays, setFormValidityDays] = useState<number | string>(0);
   const [editingPackage, setEditingPackage] = useState<ServicePackage | null>(null);
 
@@ -150,6 +154,8 @@ export default function PackagesPage() {
     setFormItems([]);
     setFormCommissionType('fixed');
     setFormCommissionValue(0);
+    setFormSellingCommissionType('fixed');
+    setFormSellingCommissionValue(0);
     setFormValidityDays(0);
     setEditingPackage(null);
   };
@@ -181,6 +187,8 @@ export default function PackagesPage() {
           icon: formIcon || undefined,
           commissionType: formCommissionType,
           commissionValue: Number(formCommissionValue || 0),
+          sellingCommissionType: formSellingCommissionType,
+          sellingCommissionValue: Number(formSellingCommissionValue || 0),
           validityDays: Number(formValidityDays || 0),
           items: formItems.map((item) => ({ service: item.serviceId, quota: Number(item.quota) })),
         }),
@@ -375,6 +383,8 @@ export default function PackagesPage() {
                         setFormDescription(pkg.description || "");
                         setFormCommissionType(pkg.commissionType || 'fixed');
                         setFormCommissionValue(pkg.commissionValue || 0);
+                        setFormSellingCommissionType(pkg.sellingCommissionType || 'fixed');
+                        setFormSellingCommissionValue(pkg.sellingCommissionValue || 0);
                         setFormValidityDays(pkg.validityDays || 0);
                         setFormItems(pkg.items.map(i => ({ serviceId: typeof i.service === 'string' ? i.service : (i.service as any)?._id || '', quota: i.quota })));
                         setIsModalOpen(true);
@@ -484,6 +494,30 @@ export default function PackagesPage() {
                 min="0"
                 value={formCommissionValue}
                 onChange={(e) => setFormCommissionValue(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Tipe Komisi (Selling By)</label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                value={formSellingCommissionType}
+                onChange={(e) => setFormSellingCommissionType(e.target.value as 'percentage' | 'fixed')}
+              >
+                <option value="fixed">Nominal (Rp)</option>
+                <option value="percentage">Persentase (%)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Nilai Komisi (Selling By)</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                placeholder={formSellingCommissionType === 'percentage' ? 'Misal: 10' : 'Misal: 50000'}
+                type="number"
+                min="0"
+                value={formSellingCommissionValue}
+                onChange={(e) => setFormSellingCommissionValue(e.target.value)}
               />
             </div>
           </div>

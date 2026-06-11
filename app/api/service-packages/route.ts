@@ -19,6 +19,8 @@ interface PackageBody {
   isActive?: boolean;
   commissionType?: 'percentage' | 'fixed';
   commissionValue?: number;
+  sellingCommissionType?: 'percentage' | 'fixed';
+  sellingCommissionValue?: number;
   validityDays?: number;
 }
 
@@ -120,6 +122,8 @@ export async function POST(request: NextRequest, props: any) {
       isActive: body.isActive !== false,
       commissionType: body.commissionType || 'percentage',
       commissionValue: Number(body.commissionValue || 0),
+      sellingCommissionType: body.sellingCommissionType || 'fixed',
+      sellingCommissionValue: Number(body.sellingCommissionValue || 0),
       validityDays: Number(body.validityDays || 0),
       items: processedItems,
     });

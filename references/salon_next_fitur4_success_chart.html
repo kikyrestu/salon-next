@@ -1,0 +1,130 @@
+<style>
+.chart-wrap { padding: 1rem 0; }
+.bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.bar-label { font-size: 12px; color: var(--color-text-secondary); min-width: 186px; text-align: right; }
+.bar-track { flex: 1; height: 20px; background: var(--color-background-secondary); border-radius: 4px; overflow: hidden; position: relative; }
+.bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; font-size: 11px; font-weight: 500; transition: width 0.6s ease; }
+.bar-tag { font-size: 10px; padding: 1px 6px; border-radius: 3px; min-width: 28px; text-align: center; }
+.section-head { font-size: 11px; color: var(--color-text-secondary); margin: 12px 0 6px; padding-left: 194px; letter-spacing: 0.04em; }
+</style>
+<h2 class="sr-only">Implementation success confidence chart for Salon Next Fitur 4</h2>
+<div class="chart-wrap">
+
+<div style="display:flex; align-items:center; gap:16px; margin-bottom:16px; flex-wrap:wrap;">
+  <span style="font-size:13px; font-weight:500; color:var(--color-text-primary)">Tingkat keyakinan implementasi per fitur</span>
+  <span style="font-size:12px; color:var(--color-text-secondary)">% = estimasi first-pass success tanpa major rework</span>
+</div>
+
+<div class="section-head">🟢 quick wins — sprint 1 (hari 1–2)</div>
+
+<div class="bar-row">
+  <span class="bar-label">F3 · Today menu</span>
+  <div class="bar-track">
+    <div class="bar-fill" style="width:98%; background:#1D9E75; color:#E1F5EE;">98%</div>
+  </div>
+  <span class="bar-tag" style="background:#E1F5EE; color:#0F6E56;">UI only</span>
+</div>
+<div class="bar-row">
+  <span class="bar-label">F9 · Nomor customer</span>
+  <div class="bar-track">
+    <div class="bar-fill" style="width:96%; background:#1D9E75; color:#E1F5EE;">96%</div>
+  </div>
+  <span class="bar-tag" style="background:#E1F5EE; color:#0F6E56;">Counter exists</span>
+</div>
+<div class="bar-row">
+  <span class="bar-label">F2 · Performance sort</span>
+  <div class="bar-track">
+    <div class="bar-fill" style="width:94%; background:#1D9E75; color:#E1F5EE;">94%</div>
+  </div>
+  <span class="bar-tag" style="background:#E1F5EE; color:#0F6E56;">UI + param</span>
+</div>
+
+<div class="section-head">🔵 medium complexity — sprint 1 (hari 1–5)</div>
+
+<div class="bar-row">
+  <span class="bar-label">F4 · Bug fix appt date</span>
+  <div class="bar-track">
+    <div class="bar-fill" style="width:92%; background:#378ADD; color:#E6F1FB;">92%</div>
+  </div>
+  <span class="bar-tag" style="background:#E6F1FB; color:#185FA5;">updateMany</span>
+</div>
+<div class="bar-row">
+  <span class="bar-label">F11 · Edit/Delete paket</span>
+  <div class="bar-track">
+    <div class="bar-fill" style="width:90%; background:#378ADD; color:#E6F1FB;">90%</div>
+  </div>
+  <span class="bar-tag" style="background:#E6F1FB; color:#185FA5;">RBAC gated</span>
+</div>
+<div class="bar-row">
+  <span class="bar-label">F10 · Dashboard customer</span>
+  <div class="bar-track">
+    <div class="bar-fill" style="width:86%; background:#378ADD; color:#E6F1FB;">86%</div>
+  </div>
+  <span class="bar-tag" style="background:#E6F1FB; color:#185FA5;">aggregate</span>
+</div>
+<div class="bar-row">
+  <span class="bar-label">F5 · WA appt reminder</span>
+  <div class="bar-track">
+    <div class="bar-fill" style="width:82%; background:#378ADD; color:#E6F1FB;">82%</div>
+  </div>
+  <span class="bar-tag" style="background:#E6F1FB; color:#185FA5;">cron + Fonnte</span>
+</div>
+<div class="bar-row">
+  <span class="bar-label">F6 · Kirim nota WA</span>
+  <div class="bar-track">
+    <div class="bar-fill" style="width:80%; background:#378ADD; color:#E6F1FB;">80%</div>
+  </div>
+  <span class="bar-tag" style="background:#E6F1FB; color:#185FA5;">Fonnte + tpl</span>
+</div>
+<div class="bar-row">
+  <span class="bar-label">F7 · History portal</span>
+  <div class="bar-track">
+    <div class="bar-fill" style="width:78%; background:#378ADD; color:#E6F1FB;">78%</div>
+  </div>
+  <span class="bar-tag" style="background:#E6F1FB; color:#185FA5;">public page</span>
+</div>
+
+<div class="section-head">🔴 heavy — sprint 2 (hari 8–14)</div>
+
+<div class="bar-row">
+  <span class="bar-label">F1 · Komisi selling by</span>
+  <div class="bar-track">
+    <div class="bar-fill" style="width:65%; background:#BA7517; color:#FAEEDA;">65%</div>
+  </div>
+  <span class="bar-tag" style="background:#FAEEDA; color:#854F0B;">multi-model</span>
+</div>
+<div class="bar-row">
+  <span class="bar-label">F8 · ESC/POS thermal</span>
+  <div class="bar-track">
+    <div class="bar-fill" style="width:55%; background:#E24B4A; color:#FCEBEB;">55%</div>
+  </div>
+  <span class="bar-tag" style="background:#FCEBEB; color:#A32D2D;">hw-dependent</span>
+</div>
+
+<div style="margin-top:20px; padding:12px 16px; background:var(--color-background-secondary); border-radius:8px; border-left:3px solid #E24B4A;">
+  <p style="font-size:12px; color:var(--color-text-secondary); margin:0 0 4px;">
+    <strong style="color:var(--color-text-primary);">⚠ F8 warning:</strong> ESC/POS adalah satu-satunya fitur yang bergantung pada hardware eksternal.
+    Keyakinan 55% bukan berarti code-nya susah — tapi karena success-nya tergantung model
+    printer klien, driver USB, dan apakah browser mereka support WebUSB.
+  </p>
+  <p style="font-size:12px; color:var(--color-text-secondary); margin:4px 0 0;">
+    Minta klien konfirmasi <strong style="color:var(--color-text-primary);">merek & model printer thermal</strong> sebelum sprint 2.
+  </p>
+</div>
+
+<div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+  <div style="background:var(--color-background-secondary); border-radius:8px; padding:10px; text-align:center;">
+    <p style="font-size:22px; font-weight:500; color:var(--color-text-primary); margin:0;">9</p>
+    <p style="font-size:11px; color:var(--color-text-secondary); margin:4px 0 0;">fitur 80%+ confidence</p>
+  </div>
+  <div style="background:var(--color-background-secondary); border-radius:8px; padding:10px; text-align:center;">
+    <p style="font-size:22px; font-weight:500; color:var(--color-text-primary); margin:0;">~14</p>
+    <p style="font-size:11px; color:var(--color-text-secondary); margin:4px 0 0;">hari kerja estimasi</p>
+  </div>
+  <div style="background:var(--color-background-secondary); border-radius:8px; padding:10px; text-align:center;">
+    <p style="font-size:22px; font-weight:500; color:var(--color-text-primary); margin:0;">83%</p>
+    <p style="font-size:11px; color:var(--color-text-secondary); margin:4px 0 0;">rata-rata confidence</p>
+  </div>
+</div>
+
+</div>

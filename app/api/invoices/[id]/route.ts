@@ -113,7 +113,7 @@ export async function PUT(request: NextRequest, props: any) {
  */
 export async function DELETE(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Invoice, Customer, PackageOrder, CustomerPackage } = await getTenantModels(tenantSlug);
+    const { Invoice, Customer, PackageOrder, CustomerPackage, PackageUsageLedger } = await getTenantModels(tenantSlug);
 
     try {
         // Must be Super Admin to void an invoice
@@ -182,6 +182,30 @@ export async function DELETE(request: NextRequest, props: any) {
                         }
                     }
                 }
+            }
+        }
+
+        // [BUG FIX Fitur Klien] Kembalikan kuota paket jika invoice menggunakan kuota paket (redeem)
+        const ledgers = await PackageUsageLedger.find({ invoice: invoice._id });
+        if (ledgers && ledgers.length > 0) {
+            for (const ledger of ledgers) {
+                const custPkg = await CustomerPackage.findById(ledger.customerPackage);
+                if (custPkg) {
+                    const quota = custPkg.serviceQuotas.find((q: any) => String(q.service) === String(ledger.service));
+                    if (quota) {
+                        quota.remainingQuota += ledger.quantity;
+                        quota.usedQuota = Math.max(0, quota.usedQuota - ledger.quantity);
+                        
+                        // Set status to active if it was depleted and now has quota
+                        if (custPkg.status === 'depleted' && quota.remainingQuota > 0) {
+                            custPkg.status = 'active';
+                        }
+                        
+                        await custPkg.save();
+                    }
+                }
+                // Hapus ledger record karena invoice-nya voided
+                await PackageUsageLedger.findByIdAndDelete(ledger._id);
             }
         }
 

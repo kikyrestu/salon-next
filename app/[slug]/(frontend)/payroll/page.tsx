@@ -18,6 +18,7 @@ interface Payroll {
     year: number;
     baseSalary: number;
     totalCommission: number;
+    totalSellingCommission?: number;
     totalTips: number;
     bonuses: number;
     deductions: number;
@@ -193,7 +194,7 @@ export default function PayrollPage() {
         if (!selectedPayroll) return;
         setUpdating(true);
         try {
-            const totalAmount = selectedPayroll.baseSalary + selectedPayroll.totalCommission + selectedPayroll.totalTips + editPayrollData.bonuses - editPayrollData.deductions;
+            const totalAmount = selectedPayroll.baseSalary + selectedPayroll.totalCommission + (selectedPayroll.totalSellingCommission || 0) + selectedPayroll.totalTips + editPayrollData.bonuses - editPayrollData.deductions;
 
             const res = await fetch(`/api/payroll/${selectedPayroll._id}`, {
                 method: "PUT",
@@ -302,6 +303,7 @@ export default function PayrollPage() {
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Period</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Salary</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Commission</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Selling Comm</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tips</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
@@ -344,6 +346,9 @@ export default function PayrollPage() {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
                                                 {settings.symbol}{(payroll.totalCommission || 0).toLocaleString()}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-600">
+                                                {settings.symbol}{(payroll.totalSellingCommission || 0).toLocaleString()}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-purple-600">
                                                 {settings.symbol}{(payroll.totalTips || 0).toLocaleString()}
@@ -499,6 +504,10 @@ export default function PayrollPage() {
                                                 <span className="text-gray-500 font-medium">Comm.</span>
                                                 <span className="font-bold text-green-600">{settings.symbol}{(payroll.totalCommission || 0).toLocaleString()}</span>
                                             </div>
+                                            <div className="flex justify-between items-center border-b border-gray-200 pb-1.5 pt-0.5">
+                                                <span className="text-gray-500 font-medium">Sell Comm.</span>
+                                                <span className="font-bold text-emerald-600">{settings.symbol}{(payroll.totalSellingCommission || 0).toLocaleString()}</span>
+                                            </div>
                                             <div className="flex justify-between items-center pt-1">
                                                 <span className="text-gray-500 font-medium">Tips</span>
                                                 <span className="font-bold text-purple-600">{settings.symbol}{(payroll.totalTips || 0).toLocaleString()}</span>
@@ -625,6 +634,10 @@ export default function PayrollPage() {
                                 <span className="font-semibold text-green-600">{settings.symbol}{(selectedPayroll.totalCommission || 0).toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between py-2 border-b">
+                                <span className="text-gray-600">Total Selling Commission</span>
+                                <span className="font-semibold text-emerald-600">{settings.symbol}{(selectedPayroll.totalSellingCommission || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between py-2 border-b">
                                 <span className="text-gray-600">Total Tips</span>
                                 <span className="font-semibold text-purple-600">{settings.symbol}{(selectedPayroll.totalTips || 0).toLocaleString()}</span>
                             </div>
@@ -662,7 +675,7 @@ export default function PayrollPage() {
                             <div className="flex justify-between py-3 bg-blue-50 px-3 rounded-lg mt-2">
                                 <span className="font-bold text-gray-900">Final Total</span>
                                 <span className="font-bold text-blue-900 text-lg">
-                                    {settings.symbol}{((selectedPayroll.baseSalary || 0) + (selectedPayroll.totalCommission || 0) + (selectedPayroll.totalTips || 0) + editPayrollData.bonuses - editPayrollData.deductions).toLocaleString()}
+                                    {settings.symbol}{((selectedPayroll.baseSalary || 0) + (selectedPayroll.totalCommission || 0) + (selectedPayroll.totalSellingCommission || 0) + (selectedPayroll.totalTips || 0) + editPayrollData.bonuses - editPayrollData.deductions).toLocaleString()}
                                 </span>
                             </div>
                         </div>

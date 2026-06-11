@@ -1,0 +1,126 @@
+<style>
+.flow-block { padding:1rem 0; }
+.flow-section { margin-bottom:20px; }
+.flow-title { font-size:13px; font-weight:500; color:var(--color-text-primary); margin:0 0 8px; display:flex; align-items:center; gap:8px; }
+.flow-badge { font-size:10px; padding:2px 8px; border-radius:3px; }
+.steps { display:flex; align-items:center; flex-wrap:wrap; gap:0; }
+.step { background:var(--color-background-secondary); border:0.5px solid var(--color-border-tertiary); border-radius:6px; padding:6px 10px; font-size:11px; color:var(--color-text-secondary); white-space:nowrap; position:relative; }
+.step.actor { background:var(--color-background-primary); border-color:var(--color-border-secondary); font-weight:500; color:var(--color-text-primary); }
+.arrow-sep { color:var(--color-text-secondary); font-size:14px; padding:0 4px; }
+.divider { height:0.5px; background:var(--color-border-tertiary); margin:16px 0; }
+</style>
+
+<div class="flow-block">
+
+<div class="flow-section">
+  <div class="flow-title">
+    <span style="background:#EEEDFE; color:#3C3489; padding:2px 8px; border-radius:3px; font-size:10px;">F1</span>
+    Komisi Selling By — alur di POS
+  </div>
+  <div class="steps">
+    <span class="step actor">Kasir</span><span class="arrow-sep">→</span>
+    <span class="step">Buka POS</span><span class="arrow-sep">→</span>
+    <span class="step">Tambah item service</span><span class="arrow-sep">→</span>
+    <span class="step">Pilih "Dijual oleh"</span><span class="arrow-sep">→</span>
+    <span class="step">Checkout</span><span class="arrow-sep">→</span>
+    <span class="step">Invoice tersimpan + sellingByCommission</span><span class="arrow-sep">→</span>
+    <span class="step actor">✓ Payroll ter-split</span>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="flow-section">
+  <div class="flow-title">
+    <span style="background:#E1F5EE; color:#085041; padding:2px 8px; border-radius:3px; font-size:10px;">F5</span>
+    WA Appointment Reminder — alur otomatis
+  </div>
+  <div class="steps">
+    <span class="step actor">Cron (15 min)</span><span class="arrow-sep">→</span>
+    <span class="step">Cek appointment dalam X menit</span><span class="arrow-sep">→</span>
+    <span class="step">reminderSent = false?</span><span class="arrow-sep">→</span>
+    <span class="step">Build WA message dari template</span><span class="arrow-sep">→</span>
+    <span class="step">Fonnte sendWhatsApp</span><span class="arrow-sep">→</span>
+    <span class="step">Mark reminderSent = true</span><span class="arrow-sep">→</span>
+    <span class="step actor">✓ Customer ternotifikasi</span>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="flow-section">
+  <div class="flow-title">
+    <span style="background:#FAECE7; color:#4A1B0C; padding:2px 8px; border-radius:3px; font-size:10px;">F6</span>
+    Kirim Nota WA — 2 path
+  </div>
+  <div class="steps">
+    <span class="step actor">Kasir</span><span class="arrow-sep">→</span>
+    <span class="step">Selesai transaksi</span><span class="arrow-sep">→</span>
+    <span class="step">Klik "Kirim ke Customer" / "Kirim ke Admin"</span><span class="arrow-sep">→</span>
+    <span class="step">POST /invoices/[id]/send-wa</span><span class="arrow-sep">→</span>
+    <span class="step">Build nota text dari template</span><span class="arrow-sep">→</span>
+    <span class="step">Fonnte → nomor tujuan</span><span class="arrow-sep">→</span>
+    <span class="step actor">✓ Nota terkirim</span>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="flow-section">
+  <div class="flow-title">
+    <span style="background:#E6F1FB; color:#042C53; padding:2px 8px; border-radius:3px; font-size:10px;">F7</span>
+    History Portal — alur akses customer
+  </div>
+  <div class="steps">
+    <span class="step actor">Customer</span><span class="arrow-sep">→</span>
+    <span class="step">Terima link WA nota</span><span class="arrow-sep">→</span>
+    <span class="step">Klik link portal/{token}</span><span class="arrow-sep">→</span>
+    <span class="step">Server cari Customer by token</span><span class="arrow-sep">→</span>
+    <span class="step">Render: membership, poin, paket, invoice</span><span class="arrow-sep">→</span>
+    <span class="step actor">✓ Read-only, no login</span>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="flow-section">
+  <div class="flow-title">
+    <span style="background:#FAEEDA; color:#412402; padding:2px 8px; border-radius:3px; font-size:10px;">F8</span>
+    Thermal Print — alur WebUSB
+  </div>
+  <div class="steps">
+    <span class="step actor">Kasir</span><span class="arrow-sep">→</span>
+    <span class="step">Klik "Print Thermal"</span><span class="arrow-sep">→</span>
+    <span class="step">Browser request USB device</span><span class="arrow-sep">→</span>
+    <span class="step">Fetch /thermal binary dari server</span><span class="arrow-sep">→</span>
+    <span class="step">transferOut ke printer endpoint</span><span class="arrow-sep">→</span>
+    <span class="step">Auto cut</span><span class="arrow-sep">→</span>
+    <span class="step actor">✓ Nota tercetak</span>
+  </div>
+  <div style="margin-top:6px; font-size:11px; color:#A32D2D;">
+    ⚠ Fallback: kalau WebUSB tidak support → window.print() dengan CSS @media print dioptimasi
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="flow-section">
+  <div class="flow-title">
+    <span style="background:#EEEDFE; color:#3C3489; padding:2px 8px; border-radius:3px; font-size:10px;">F11</span>
+    Edit / Delete Paket — Super Admin only
+  </div>
+  <div class="steps">
+    <span class="step actor">Super Admin</span><span class="arrow-sep">→</span>
+    <span class="step">Buka Customer Detail</span><span class="arrow-sep">→</span>
+    <span class="step">Lihat tombol Edit/Delete di paket aktif</span><span class="arrow-sep">→</span>
+    <span class="step">Edit: ubah expiry / sisa quota</span><span class="arrow-sep">→</span>
+    <span class="step">PUT /customer-packages/[id]</span><span class="arrow-sep">→</span>
+    <span class="step">checkPermission packages.delete</span><span class="arrow-sep">→</span>
+    <span class="step actor">✓ Tersimpan</span>
+  </div>
+  <div style="margin-top:4px; font-size:11px; color:var(--color-text-secondary);">
+    Kasir/staff: tombol tidak tampil (RBAC checked via usePermission hook)
+  </div>
+</div>
+
+</div>

@@ -110,6 +110,17 @@ export default async function DashboardPage() {
         });
     }
 
+    // Customer Acquisition (Last 30 Days)
+    const customersInRange = [...new Set(monthInvoices.filter((inv: any) => inv.customer).map((inv: any) => String(inv.customer)))];
+    const existingCustomersRaw = await Invoice.distinct('customer', {
+        customer: { $in: customersInRange },
+        date: { $lt: last30Days },
+        status: { $nin: ['cancelled', 'voided'] }
+    });
+    const existingCount = existingCustomersRaw.length;
+    const totalUnique = customersInRange.length;
+    const newCount = totalUnique - existingCount;
+
     // Recent Activity (Mixed: Sales & Appointments)
     const recentInvoices = await Invoice.find().sort({ createdAt: -1 }).limit(5).populate('customer', 'name');
     const formattedActivity = recentInvoices.map(inv => ({
@@ -168,6 +179,34 @@ export default async function DashboardPage() {
                     icon={ShoppingBag}
                     color="purple"
                     trend="Today"
+                    trendUp={true}
+                />
+            </div>
+
+            {/* Customer Acquisition Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <StatCard
+                    title="Customer Baru"
+                    value={newCount.toString()}
+                    icon={Users}
+                    color="green"
+                    trend="30 Hari Terakhir"
+                    trendUp={true}
+                />
+                <StatCard
+                    title="Customer Kembali"
+                    value={existingCount.toString()}
+                    icon={Users}
+                    color="blue"
+                    trend="30 Hari Terakhir"
+                    trendUp={true}
+                />
+                <StatCard
+                    title="Total Customer Unik"
+                    value={totalUnique.toString()}
+                    icon={Users}
+                    color="purple"
+                    trend="30 Hari Terakhir"
                     trendUp={true}
                 />
             </div>

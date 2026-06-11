@@ -8,6 +8,8 @@ import { Printer, ArrowLeft, Scissors } from "lucide-react";
 import { FormButton } from "@/components/dashboard/FormInput";
 import { getCurrencySymbol } from "@/lib/currency";
 
+import { MessageSquare } from "lucide-react";
+
 export default function PrintInvoicePage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -17,6 +19,7 @@ export default function PrintInvoicePage() {
     const [settings, setSettings] = useState<any>(null);
     const [deposits, setDeposits] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [sendingWa, setSendingWa] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -46,6 +49,151 @@ export default function PrintInvoicePage() {
         window.print();
     };
 
+    const handleSendWaNota = async () => {
+        setSendingWa(true);
+        try {
+            const res = await fetch(`/api/invoices/${id}/wa-nota`, {
+                method: 'POST',
+                headers: { "x-store-slug": slug }
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || "Nota WA berhasil dikirim!");
+            } else {
+                alert(data.error || "Gagal mengirim Nota WA.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Terjadi kesalahan saat mengirim Nota WA.");
+        } finally {
+            setSendingWa(false);
+        }
+    };
+
+    const handleBluetoothPrint = async () => {
+        try {
+            if (!(navigator as any).bluetooth) {
+                alert("Web Bluetooth API tidak didukung di browser ini. Gunakan Chrome untuk Android/Desktop.");
+                return;
+            }
+
+            const device = await (navigator as any).bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-4ae5-8fa9-9fafd205e455']
+            });
+
+            if (!device.gatt) throw new Error("Perangkat tidak memiliki GATT server.");
+            
+            const server = await device.gatt.connect();
+            
+            // Try to find a working service
+            const servicesToTry = ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-4ae5-8fa9-9fafd205e455'];
+            let service;
+            let characteristic;
+
+            for (const uuid of servicesToTry) {
+                try {
+                    service = await server.getPrimaryService(uuid);
+                    const characteristics = await service.getCharacteristics();
+                    characteristic = characteristics.find((c: any) => c.properties.write || c.properties.writeWithoutResponse);
+                    if (characteristic) break;
+                } catch (e) {
+                    continue;
+                }
+            }
+
+            if (!characteristic) throw new Error("Gagal mendapatkan layanan/characteristic write untuk printer ini.");
+
+            const encoder = new TextEncoder();
+            const commands: Uint8Array[] = [];
+
+            // Initialize printer
+            commands.push(new Uint8Array([0x1B, 0x40]));
+            
+            // Center align & Bold for title
+            commands.push(new Uint8Array([0x1B, 0x61, 0x01]));
+            commands.push(new Uint8Array([0x1B, 0x45, 0x01]));
+            commands.push(encoder.encode((settings?.storeName || 'SALON') + '\n'));
+            
+            // Normal text
+            commands.push(new Uint8Array([0x1B, 0x45, 0x00]));
+            commands.push(encoder.encode((settings?.address || '') + '\n'));
+            commands.push(encoder.encode('TEL: ' + (settings?.phone || '') + '\n\n'));
+            
+            // Left align
+            commands.push(new Uint8Array([0x1B, 0x61, 0x00]));
+            commands.push(encoder.encode(`No: ${invoice.invoiceNumber}\n`));
+            commands.push(encoder.encode(`Tgl: ${format(new Date(invoice.date), "dd/MM/yyyy HH:mm")}\n`));
+            commands.push(encoder.encode(`Plg: ${invoice.customer?.name || "Walk-in"}\n\n`));
+
+            // Items
+            commands.push(encoder.encode('--------------------------------\n'));
+            invoice.items.forEach((item: any) => {
+                commands.push(encoder.encode(`${item.name}\n`));
+                const priceNum = item.total / item.quantity;
+                const qtyStr = `${item.quantity}x ${priceNum.toLocaleString('id-ID')}`;
+                const totalStr = `${item.total.toLocaleString('id-ID')}`;
+                
+                // padding to 32 chars
+                const spacesCount = Math.max(0, 32 - qtyStr.length - totalStr.length);
+                const spaces = ' '.repeat(spacesCount);
+                commands.push(encoder.encode(`${qtyStr}${spaces}${totalStr}\n`));
+            });
+            commands.push(encoder.encode('--------------------------------\n'));
+
+            // Totals, right align
+            commands.push(new Uint8Array([0x1B, 0x61, 0x02]));
+            commands.push(encoder.encode(`Subtotal: ${invoice.subtotal.toLocaleString('id-ID')}\n`));
+            if (invoice.tax > 0) commands.push(encoder.encode(`Pajak: ${invoice.tax.toLocaleString('id-ID')}\n`));
+            if (invoice.discount > 0) commands.push(encoder.encode(`Diskon: -${invoice.discount.toLocaleString('id-ID')}\n`));
+            
+            // Bold Total
+            commands.push(new Uint8Array([0x1B, 0x45, 0x01]));
+            commands.push(encoder.encode(`Total: ${invoice.totalAmount.toLocaleString('id-ID')}\n`));
+            commands.push(new Uint8Array([0x1B, 0x45, 0x00]));
+            
+            commands.push(encoder.encode(`Dibayar: ${invoice.amountPaid.toLocaleString('id-ID')}\n`));
+            const due = invoice.totalAmount - invoice.amountPaid;
+            if (due > 0) commands.push(encoder.encode(`Sisa: ${due.toLocaleString('id-ID')}\n`));
+            
+            // Footer, center align
+            commands.push(new Uint8Array([0x1B, 0x61, 0x01]));
+            commands.push(encoder.encode('\nTerima Kasih!\n\n\n\n\n'));
+
+            // Cut paper (if supported)
+            commands.push(new Uint8Array([0x1D, 0x56, 0x41, 0x00]));
+
+            // Send commands in chunks
+            const BATCH_SIZE = 256;
+            let totalLen = 0;
+            for (const cmd of commands) totalLen += cmd.length;
+            const finalBuffer = new Uint8Array(totalLen);
+            
+            let offset = 0;
+            for (const cmd of commands) {
+                finalBuffer.set(cmd, offset);
+                offset += cmd.length;
+            }
+
+            for (let i = 0; i < finalBuffer.length; i += BATCH_SIZE) {
+                const chunk = finalBuffer.slice(i, i + BATCH_SIZE);
+                if (characteristic.properties.write) {
+                    await characteristic.writeValue(chunk);
+                } else if (characteristic.properties.writeWithoutResponse) {
+                    await characteristic.writeValueWithoutResponse(chunk);
+                }
+                // small delay
+                await new Promise(r => setTimeout(r, 20));
+            }
+            
+            alert("Struk berhasil dikirim ke printer bluetooth!");
+
+        } catch (error: any) {
+            console.error("Bluetooth print error:", error);
+            alert("Error Bluetooth: " + error.message);
+        }
+    };
+
     if (loading) return <div className="p-8 text-center">Loading receipt...</div>;
     if (!invoice) return <div className="p-8 text-center text-red-500">Invoice not found</div>;
 
@@ -62,12 +210,29 @@ export default function PrintInvoicePage() {
                     <ArrowLeft className="w-4 h-4" />
                     Back
                 </button>
-                <FormButton
-                    onClick={handlePrint}
-                    icon={<Printer className="w-4 h-4" />}
-                >
-                    Print Receipt
-                </FormButton>
+                <div className="flex gap-2">
+                    <FormButton
+                        onClick={handleSendWaNota}
+                        icon={<MessageSquare className="w-4 h-4" />}
+                        className="bg-green-600 hover:bg-green-700"
+                        disabled={sendingWa}
+                    >
+                        {sendingWa ? "Mengirim..." : "Kirim WA"}
+                    </FormButton>
+                    <FormButton
+                        onClick={handleBluetoothPrint}
+                        icon={<Printer className="w-4 h-4" />}
+                        className="bg-indigo-600 hover:bg-indigo-700"
+                    >
+                        Bluetooth
+                    </FormButton>
+                    <FormButton
+                        onClick={handlePrint}
+                        icon={<Printer className="w-4 h-4" />}
+                    >
+                        Print Receipt
+                    </FormButton>
+                </div>
             </div>
 
             {/* Thermal Receipt Content */}

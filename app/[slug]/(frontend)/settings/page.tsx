@@ -86,6 +86,13 @@ interface Settings {
     waOperationalHoursEnd: number;
     fonnteMaxDailyMessages: number;
     fonnteDeviceRegisteredAt: string;
+    
+    // Fitur 5: WA Appointment Reminder & Fitur 6: WA Nota
+    waAppointmentReminderEnabled: boolean;
+    waAppointmentReminderMinutesBefore: number;
+    waAppointmentReminderDefaultTemplate: string;
+    waNotaTemplate: string;
+    waAdminNotaPrefix: string;
 
     // SMS Settings
     smsEnabled: boolean;
@@ -191,6 +198,11 @@ export default function SettingsPage() {
         waOperationalHoursEnd: 20,
         fonnteMaxDailyMessages: 0,
         fonnteDeviceRegisteredAt: "",
+        waAppointmentReminderEnabled: false,
+        waAppointmentReminderMinutesBefore: 120,
+        waAppointmentReminderDefaultTemplate: "Halo {customer_name}, ini adalah pengingat appointment Anda di {store_name} untuk layanan {service_name} bersama {staff_name} pada {appointment_date} pukul {appointment_time}. Silakan datang tepat waktu.",
+        waNotaTemplate: "Halo {customer_name}, terima kasih telah berkunjung ke {store_name}. Berikut adalah nota transaksi Anda: {invoice_number} sebesar {total_amount}.",
+        waAdminNotaPrefix: "[NOTIFIKASI ADMIN]",
         // SMS Settings
         smsEnabled: false,
         twilioAccountSid: "",
@@ -350,6 +362,11 @@ export default function SettingsPage() {
                     waOperationalHoursEnd: data.data.waOperationalHoursEnd ?? 20,
                     fonnteMaxDailyMessages: data.data.fonnteMaxDailyMessages || 0,
                     fonnteDeviceRegisteredAt: data.data.fonnteDeviceRegisteredAt || "",
+                    waAppointmentReminderEnabled: data.data.waAppointmentReminderEnabled ?? false,
+                    waAppointmentReminderMinutesBefore: data.data.waAppointmentReminderMinutesBefore || 120,
+                    waAppointmentReminderDefaultTemplate: data.data.waAppointmentReminderDefaultTemplate || "Halo {customer_name}, ini adalah pengingat appointment Anda di {store_name} untuk layanan {service_name} bersama {staff_name} pada {appointment_date} pukul {appointment_time}. Silakan datang tepat waktu.",
+                    waNotaTemplate: data.data.waNotaTemplate || "Halo {customer_name}, terima kasih telah berkunjung ke {store_name}. Berikut adalah nota transaksi Anda: {invoice_number} sebesar {total_amount}.",
+                    waAdminNotaPrefix: data.data.waAdminNotaPrefix || "[NOTIFIKASI ADMIN]",
                     // SMS Settings
                     smsEnabled: data.data.smsEnabled || false,
                     twilioAccountSid: data.data.twilioAccountSid || "",
@@ -1443,6 +1460,113 @@ export default function SettingsPage() {
                                 <code className="ml-1 bg-green-100 px-1.5 py-0.5 rounded text-[10px]">/api/cron/wa-membership-expiry</code>,
                                 <code className="ml-1 bg-green-100 px-1.5 py-0.5 rounded text-[10px]">/api/cron/wa-package-expiry</code>
                             </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* WhatsApp Templates & Messages */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <MessageSquare className="w-5 h-5 text-green-600" />
+                        WhatsApp Templates & Reminders
+                    </h2>
+                    
+                    <div className="space-y-6">
+                        {/* WA Appointment Reminder */}
+                        <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4">
+                            <h3 className="text-sm font-bold text-gray-800 mb-2 border-b border-gray-200 pb-2">📅 Appointment Reminder</h3>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="waAppointmentReminderEnabled"
+                                    checked={settings.waAppointmentReminderEnabled}
+                                    onChange={(e) => setSettings({ ...settings, waAppointmentReminderEnabled: e.target.checked })}
+                                    className="w-4 h-4 text-green-600 rounded focus:ring-green-600"
+                                />
+                                <label htmlFor="waAppointmentReminderEnabled" className="text-sm font-medium text-gray-900 cursor-pointer">
+                                    Aktifkan Auto-Reminder Appointment ke Customer
+                                </label>
+                            </div>
+                            {settings.waAppointmentReminderEnabled && (
+                                <>
+                                    <FormInput
+                                        label="Waktu Reminder (Menit Sebelum Jadwal)"
+                                        type="number" min="0"
+                                        value={settings.waAppointmentReminderMinutesBefore?.toString()}
+                                        onChange={(e) => setSettings({ ...settings, waAppointmentReminderMinutesBefore: parseInt(e.target.value) || 0 })}
+                                        placeholder="120"
+                                    />
+                                    <p className="text-[10px] text-gray-500 mt-1">Contoh: 120 menit (2 jam) sebelum jadwal.</p>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Template Pesan Reminder</label>
+                                        <textarea
+                                            value={settings.waAppointmentReminderDefaultTemplate}
+                                            onChange={(e) => setSettings({ ...settings, waAppointmentReminderDefaultTemplate: e.target.value })}
+                                            rows={4}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
+                                        />
+                                        <p className="text-[10px] text-gray-500 mt-1">Gunakan tag: {'{customer_name}'}, {'{store_name}'}, {'{service_name}'}, {'{staff_name}'}, {'{appointment_date}'}, {'{appointment_time}'}</p>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* WA Nota */}
+                        <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4">
+                            <h3 className="text-sm font-bold text-gray-800 mb-2 border-b border-gray-200 pb-2">🧾 Nota WhatsApp</h3>
+                            <FormInput
+                                label="Prefix Notifikasi ke Admin"
+                                value={settings.waAdminNotaPrefix}
+                                onChange={(e) => setSettings({ ...settings, waAdminNotaPrefix: e.target.value })}
+                                placeholder="[NOTIFIKASI ADMIN]"
+                            />
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Template Pesan Nota</label>
+                                <textarea
+                                    value={settings.waNotaTemplate}
+                                    onChange={(e) => setSettings({ ...settings, waNotaTemplate: e.target.value })}
+                                    rows={4}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
+                                />
+                                <p className="text-[10px] text-gray-500 mt-1">Gunakan tag: {'{customer_name}'}, {'{store_name}'}, {'{invoice_number}'}, {'{total_amount}'}, {'{payment_method}'}</p>
+                            </div>
+                        </div>
+
+                        {/* Additional Existing Templates */}
+                        <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4">
+                            <h3 className="text-sm font-bold text-gray-800 mb-2 border-b border-gray-200 pb-2">Templates WA Otomatis Lainnya</h3>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Alert Template</label>
+                                <textarea
+                                    value={settings.waTemplateStockAlert}
+                                    onChange={(e) => setSettings({ ...settings, waTemplateStockAlert: e.target.value })}
+                                    rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Daily Report Template</label>
+                                <textarea
+                                    value={settings.waTemplateDailyReport}
+                                    onChange={(e) => setSettings({ ...settings, waTemplateDailyReport: e.target.value })}
+                                    rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Membership Expiry Template</label>
+                                <textarea
+                                    value={settings.waTemplateMembershipExpiry}
+                                    onChange={(e) => setSettings({ ...settings, waTemplateMembershipExpiry: e.target.value })}
+                                    rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Package Expiry Template</label>
+                                <textarea
+                                    value={settings.waTemplatePackageExpiry}
+                                    onChange={(e) => setSettings({ ...settings, waTemplatePackageExpiry: e.target.value })}
+                                    rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

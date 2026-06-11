@@ -125,7 +125,9 @@ export async function PUT(request: NextRequest, props: any) {
             'smtpSecure', 'smtpUser', 'smtpPassword', 'smtpFrom', 'reminderDaysBefore',
             'reminderMethod', 'aiEnabled', 'openaiApiKey', 'openaiModel', 'walletExpiryDays',
             'financialReportSections', 'allowStaffDoubleBooking', 'stockAdjustmentPassword',
-            'bankTransferPassword', 'ownerTransferPassword'
+            'bankTransferPassword', 'ownerTransferPassword',
+            'waAppointmentReminderEnabled', 'waAppointmentReminderMinutesBefore',
+            'waAppointmentReminderDefaultTemplate', 'waNotaTemplate', 'waAdminNotaPrefix'
         ];
 
         Object.keys(body).forEach(key => {

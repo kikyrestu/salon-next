@@ -18,6 +18,8 @@ interface PackageUpdateBody {
   isActive?: boolean;
   commissionType?: 'percentage' | 'fixed';
   commissionValue?: number;
+  sellingCommissionType?: 'percentage' | 'fixed';
+  sellingCommissionValue?: number;
   validityDays?: number;
   items?: PackageInputItem[];
 }
@@ -86,6 +88,8 @@ export async function PUT(request: NextRequest, props: any) {
     if (body.icon !== undefined) updatePayload.icon = body.icon ? String(body.icon).trim() : undefined;
     if (body.commissionType !== undefined) updatePayload.commissionType = body.commissionType;
     if (body.commissionValue !== undefined) updatePayload.commissionValue = Number(body.commissionValue || 0);
+    if (body.sellingCommissionType !== undefined) updatePayload.sellingCommissionType = body.sellingCommissionType;
+    if (body.sellingCommissionValue !== undefined) updatePayload.sellingCommissionValue = Number(body.sellingCommissionValue || 0);
     if (body.validityDays !== undefined) updatePayload.validityDays = Number(body.validityDays || 0);
 
     if (body.items !== undefined) {

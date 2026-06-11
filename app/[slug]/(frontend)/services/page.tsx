@@ -43,6 +43,8 @@ interface Service {
   price: number;
   memberPrice?: number;
   commissionValue?: number;
+  sellingCommissionType?: string;
+  sellingCommissionValue?: number;
   gender: string;
   image?: string;
   icon?: string;
@@ -122,6 +124,8 @@ export default function ServicesPage() {
     status: "active",
     commissionType: "fixed",
     commissionValue: 0,
+    sellingCommissionType: "fixed",
+    sellingCommissionValue: 0,
     image: "",
     icon: "",
     parentService: "",
@@ -159,6 +163,8 @@ export default function ServicesPage() {
     name: string;
     description: string;
     price: number;
+    sellingCommissionType?: string;
+    sellingCommissionValue?: number;
     image: string;
     icon: string;
     services: {
@@ -173,6 +179,8 @@ export default function ServicesPage() {
     name: "",
     description: "",
     price: 0,
+    sellingCommissionType: "fixed",
+    sellingCommissionValue: 0,
     image: "",
     icon: "",
     services: [],
@@ -403,6 +411,8 @@ export default function ServicesPage() {
         status: service.status,
         commissionType: "fixed",
         commissionValue: Number(service.commissionValue || 0),
+        sellingCommissionType: (service as any).sellingCommissionType || "fixed",
+        sellingCommissionValue: Number((service as any).sellingCommissionValue || 0),
         image: service.image || "",
         icon: service.icon || "",
         parentService: service.parentService || "",
@@ -440,6 +450,8 @@ export default function ServicesPage() {
         status: "active",
         commissionType: "fixed",
         commissionValue: 0,
+        sellingCommissionType: "fixed",
+        sellingCommissionValue: 0,
         image: "",
         icon: "",
         parentService: "",
@@ -474,6 +486,8 @@ export default function ServicesPage() {
         name: bundle.name,
         description: bundle.description || "",
         price: bundle.price,
+        sellingCommissionType: (bundle as any).sellingCommissionType || "fixed",
+        sellingCommissionValue: (bundle as any).sellingCommissionValue || 0,
         image: bundle.image || "",
         icon: (bundle as any).icon || "",
         services: bundle.services.map((s) => ({
@@ -491,6 +505,8 @@ export default function ServicesPage() {
         name: "",
         description: "",
         price: 0,
+        sellingCommissionType: "fixed",
+        sellingCommissionValue: 0,
         image: "",
         icon: "",
         services: [],
@@ -1261,6 +1277,18 @@ export default function ServicesPage() {
             }
             min="0"
           />
+          <FormInput
+            label={`Komisi Selling By (opsi) (${settings.symbol})`}
+            type="number"
+            value={bundleFormData.sellingCommissionValue || 0}
+            onChange={(e) =>
+              setBundleFormData((prev) => ({
+                ...prev,
+                sellingCommissionValue: parseFloat(e.target.value) || 0,
+              }))
+            }
+            min="0"
+          />
 
           {/* Service Picker */}
           <div className="space-y-2">
@@ -1447,9 +1475,24 @@ export default function ServicesPage() {
                 }
                 min="0"
               />
+              <p className="text-xs text-gray-500 -mt-2 mb-4">
+                Nilai ini adalah rupiah tetap per layanan untuk komisi pengerjaan.
+              </p>
+              
+              <FormInput
+                label={`Komisi Selling By (opsi) (${settings.symbol})`}
+                type="number"
+                value={serviceFormData.sellingCommissionValue}
+                onChange={(e) =>
+                  setServiceFormData({
+                    ...serviceFormData,
+                    sellingCommissionValue: parseFloat(e.target.value) || 0,
+                  })
+                }
+                min="0"
+              />
               <p className="text-xs text-gray-500 -mt-2">
-                Nilai ini adalah rupiah tetap per layanan, bukan persentase dari
-                harga layanan.
+                Nominal komisi tetap bagi staff yang berhasil menjual layanan ini (kasir / CS).
               </p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">

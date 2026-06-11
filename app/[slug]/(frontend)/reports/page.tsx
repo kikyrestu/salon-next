@@ -868,40 +868,24 @@ export default function ReportsPage() {
 
                 return (
                     <div className="space-y-4">
-                        {/* Staff table */}
-                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full text-left whitespace-nowrap">
-                                    <thead>
-                                        <tr className="bg-gray-50 border-b border-gray-100">
-                                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">Staff Member</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">Sale Count</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">Revenue Contribution</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">Total Commission</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">Detail</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {reportData.map((s: any, i: number) => (
-                                            <tr key={s._id || i} className="hover:bg-blue-50/50 transition-colors cursor-pointer" onClick={() => handleStaffDrillDown(s.name, s._id)}>
-                                                <td className="px-6 py-4 text-sm font-bold text-gray-900">{s.name}</td>
-                                                <td className="px-6 py-4 text-sm font-medium text-gray-700">{s.sales}</td>
-                                                <td className="px-6 py-4 text-sm font-medium text-green-700">{formatCurrency(s.revenue)}</td>
-                                                <td className="px-6 py-4 text-sm font-medium text-blue-700">{formatCurrency(s.commission)}</td>
-                                                <td className="px-6 py-4">
-                                                    <button className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
-                                                        <Eye className="w-3 h-3" /> Lihat
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {reportData.length === 0 && !loading && (
-                                <div className="py-20 text-center text-gray-400"><p className="text-sm font-bold">No staff data for this range</p></div>
-                            )}
-                        </div>
+                        {renderTable(
+                            ['Staff Member', 'Sale Count', 'Revenue Contribution', 'Total Commission', 'Selling Commission', 'Detail'],
+                            reportData.map((s: any) => ({
+                                name: s.name,
+                                sales: s.sales,
+                                revenue: formatCurrency(s.revenue),
+                                commission: formatCurrency(s.commission),
+                                sellingCommission: formatCurrency(s.sellingCommission || 0),
+                                detail: (
+                                    <button 
+                                        onClick={() => handleStaffDrillDown(s.name, s._id)} 
+                                        className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
+                                    >
+                                        <Eye className="w-3 h-3" /> Lihat
+                                    </button>
+                                )
+                            }))
+                        )}
 
                         {/* Drill-Down Modal */}
                         {drillDownStaff && (

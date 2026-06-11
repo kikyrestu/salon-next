@@ -13,6 +13,8 @@ export interface IService extends Document {
     icon?: string;
     commissionType: 'percentage' | 'fixed';
     commissionValue: number;
+    sellingCommissionType?: 'percentage' | 'fixed';
+    sellingCommissionValue?: number;
     waFollowUp?: {
         enabled: boolean;
         firstDays: number;
@@ -59,6 +61,12 @@ const serviceSchema = new Schema<IService>(
             default: 'fixed',
         },
         commissionValue: { type: Number, default: 0 },
+        sellingCommissionType: {
+            type: String,
+            enum: ['percentage', 'fixed'],
+            default: 'fixed',
+        },
+        sellingCommissionValue: { type: Number, default: 0 },
         waFollowUp: {
             enabled: { type: Boolean, default: false },
             firstDays: { type: Number, default: 0, min: 0 },

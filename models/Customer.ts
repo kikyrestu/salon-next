@@ -32,6 +32,8 @@ export interface ICustomer extends Document {
   waNotifEnabled: boolean;
   // Wallet
   walletBalance: number;
+  customerNumber?: number;
+  publicToken?: string;
   // Before-After Photos
   beforeAfterPhotos: IBeforeAfterPhoto[];
 }
@@ -83,6 +85,13 @@ const customerSchema = new Schema<ICustomer>(
     waNotifEnabled: { type: Boolean, default: true },
     // Wallet
     walletBalance: { type: Number, default: 0, min: 0 },
+    customerNumber: { type: Number, unique: true, sparse: true },
+    publicToken: { 
+      type: String, 
+      trim: true, 
+      unique: true, 
+      sparse: true,
+    },
     // Before-After Photos
     beforeAfterPhotos: { type: [BeforeAfterPhotoSchema], default: [] },
   },

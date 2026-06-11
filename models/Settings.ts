@@ -338,7 +338,23 @@ const SettingsSchema = new mongoose.Schema({
     memberIncludedBundles: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ServiceBundle'
-    }]
+    }],
+    // WA Appointment Reminder
+    waAppointmentReminderEnabled: { type: Boolean, default: false },
+    waAppointmentReminderMinutesBefore: { type: Number, default: 60 },
+    waAppointmentReminderDefaultTemplate: {
+      type: String,
+      default: 'Halo {{customerName}} 👋\n\nIni reminder, Anda ada janji di *{{storeName}}* hari ini:\n📅 {{date}} pukul *{{time}}*\nLayanan: {{services}}\nStaff: {{staffName}}\n\nSampai jumpa! 💆'
+    },
+    // WA Nota
+    waNotaTemplate: {
+      type: String,
+      default: '🧾 *NOTA TRANSAKSI*\n*{{storeName}}*\n{{storeAddress}}\n\nNo: {{invoiceNumber}}\nTanggal: {{date}}\nKasir: {{staffName}}\n\n{{items}}\n\nSubtotal: {{subtotal}}\nDiskon: {{discount}}\n*TOTAL: {{total}}*\nBayar: {{amountPaid}}\nKembalian: {{change}}\n\nTerima kasih, {{customerName}}! 🙏\n{{receiptFooter}}'
+    },
+    waAdminNotaPrefix: {
+      type: String,
+      default: '📋 *LAPORAN TRANSAKSI BARU*\n'
+    },
 }, {
     timestamps: true
 });

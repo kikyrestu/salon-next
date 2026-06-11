@@ -33,6 +33,7 @@ import { useSettings } from "@/components/providers/SettingsProvider";
 import FormInput, { FormButton } from "@/components/dashboard/FormInput";
 import Modal from "@/components/dashboard/Modal";
 import ImageUpload from "@/components/dashboard/ImageUpload";
+import { useSession } from "next-auth/react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -149,6 +150,11 @@ function fmtDate(d: string): string {
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function CustomerDashboardPage() {
+  const { data: session } = useSession();
+  const isSuperAdmin = (session as any)?.user?.role === 'superadmin' || 
+    (session as any)?.user?.role?.name?.toLowerCase() === 'super admin' || 
+    (session as any)?.user?.role?.name?.toLowerCase() === 'superadmin';
+
   const params = useParams();
   const slug = params.slug as string;
   const router = useTenantRouter();
@@ -205,10 +211,21 @@ export default function CustomerDashboardPage() {
   // Loyalty history
   const [isLoyaltyModalOpen, setIsLoyaltyModalOpen] = useState(false);
   const [loyaltyHistory, setLoyaltyHistory] = useState<any[]>([]);
-  const [loadingLoyalty, setLoadingLoyalty] = useState(false);  // Membership modal
+  const [loadingLoyalty, setLoadingLoyalty] = useState(false);  
+
+  // Membership modal
   const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
   const [membershipForm, setMembershipForm] = useState<"regular" | "premium">("regular");
   const [savingMembership, setSavingMembership] = useState(false);
+
+  // Edit Package Modal
+  const [isEditPackageModalOpen, setIsEditPackageModalOpen] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<CustomerPackageItem | null>(null);
+  const [packageEditForm, setPackageEditForm] = useState({
+    expiresAt: "",
+    serviceQuotas: [] as { _id: string, serviceName: string, remainingQuota: number }[]
+  });
+  const [savingPackage, setSavingPackage] = useState(false);
 
   // ── Fetch ────────────────────────────────────────────────────────────────
 
@@ -284,6 +301,59 @@ export default function CustomerDashboardPage() {
   }, [customerId, fetchCustomer, fetchHistory, fetchPackages, fetchPhotos, fetchLoyaltyHistory, fetchWalletHistory, fetchMedicalRecords]);
 
   // ── Actions ──────────────────────────────────────────────────────────────
+
+  const openEditPackage = (pkg: CustomerPackageItem) => {
+    setEditingPackage(pkg);
+    setPackageEditForm({
+      expiresAt: pkg.expiresAt ? new Date(pkg.expiresAt).toISOString().split('T')[0] : "",
+      serviceQuotas: pkg.serviceQuotas.map(q => ({
+        _id: (q as any)._id,
+        serviceName: q.serviceName,
+        remainingQuota: q.remainingQuota
+      }))
+    });
+    setIsEditPackageModalOpen(true);
+  };
+
+  const savePackageEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPackage) return;
+    setSavingPackage(true);
+    try {
+      const res = await fetch(`/api/customer-packages/${editingPackage._id}`, {
+        method: "PUT",
+        headers: { "x-store-slug": slug, "Content-Type": "application/json" },
+        body: JSON.stringify(packageEditForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchPackages();
+        setIsEditPackageModalOpen(false);
+      } else {
+        alert(data.error || "Gagal update paket");
+      }
+    } finally {
+      setSavingPackage(false);
+    }
+  };
+
+  const deletePackage = async (pkgId: string) => {
+    if (!confirm("Batalkan paket ini? Sisa kuota akan hangus.")) return;
+    try {
+      const res = await fetch(`/api/customer-packages/${pkgId}`, {
+        method: "DELETE",
+        headers: { "x-store-slug": slug }
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchPackages();
+      } else {
+        alert(data.error || "Gagal membatalkan paket");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const toggleWaNotif = async () => {
     if (!customer) return;
@@ -660,9 +730,21 @@ export default function CustomerDashboardPage() {
                     <span className="text-sm font-bold text-purple-900">
                       {pkg.packageName}
                     </span>
-                    <span className="text-[10px] text-purple-500">
-                        Exp: {pkg.expiresAt ? fmtDate(pkg.expiresAt) : "Seumur Hidup"}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] text-purple-500">
+                          Exp: {pkg.expiresAt ? fmtDate(pkg.expiresAt) : "Seumur Hidup"}
+                      </span>
+                      {isSuperAdmin && (
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => openEditPackage(pkg)} className="p-1 text-purple-500 hover:text-purple-700 bg-white rounded-md border border-purple-200" title="Edit Paket">
+                            <Edit className="w-3 h-3" />
+                          </button>
+                          <button onClick={() => deletePackage(pkg._id)} className="p-1 text-red-500 hover:text-red-700 bg-white rounded-md border border-red-200" title="Batalkan Paket">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-1.5">
                     {pkg.serviceQuotas.map((q, i) => (
@@ -1463,6 +1545,55 @@ export default function CustomerDashboardPage() {
             </button>
             <FormButton loading={savingMedical} type="submit">
               Simpan Rekam Medis
+            </FormButton>
+          </div>
+        </form>
+      </Modal>
+      <Modal
+        isOpen={isEditPackageModalOpen}
+        onClose={() => setIsEditPackageModalOpen(false)}
+        title="Edit Paket Aktif (Super Admin)"
+      >
+        <form onSubmit={savePackageEdit} className="space-y-4">
+          <FormInput
+            label="Tanggal Kadaluarsa (Kosongkan jika seumur hidup)"
+            type="date"
+            value={packageEditForm.expiresAt}
+            onChange={(e) => setPackageEditForm({ ...packageEditForm, expiresAt: e.target.value })}
+          />
+
+          <div className="space-y-3 mt-4">
+            <h4 className="text-sm font-bold text-gray-700">Sisa Kuota Service</h4>
+            {packageEditForm.serviceQuotas.map((q, idx) => (
+              <div key={idx} className="flex items-center gap-3">
+                <span className="text-sm text-gray-600 flex-1 truncate">{q.serviceName}</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={q.remainingQuota}
+                  onChange={(e) => {
+                    const newQuotas = [...packageEditForm.serviceQuotas];
+                    newQuotas[idx].remainingQuota = parseInt(e.target.value) || 0;
+                    setPackageEditForm({ ...packageEditForm, serviceQuotas: newQuotas });
+                  }}
+                  className="w-24 text-center border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                />
+                <span className="text-xs text-gray-400">sesi</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsEditPackageModalOpen(false)}
+              className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-semibold"
+              disabled={savingPackage}
+            >
+              Batal
+            </button>
+            <FormButton loading={savingPackage} type="submit">
+              Simpan Perubahan
             </FormButton>
           </div>
         </form>

@@ -16,7 +16,7 @@ export async function GET(_request: NextRequest, props: any) {
 
     const bundle = await ServiceBundle.findById(id).populate(
       "services.service",
-      "name price commissionType commissionValue duration"
+      "name price commissionType commissionValue sellingCommissionType sellingCommissionValue duration"
     );
 
     if (!bundle) {
@@ -49,7 +49,7 @@ export async function PUT(request: NextRequest, props: any) {
     const { id } = await props.params;
     const body = await request.json();
 
-    const { name, description, price, image, icon, services } = body;
+    const { name, description, price, sellingCommissionType, sellingCommissionValue, image, icon, services } = body;
 
     if (name !== undefined && (!name || String(name).trim().length === 0)) {
       return NextResponse.json(
@@ -91,6 +91,8 @@ export async function PUT(request: NextRequest, props: any) {
     if (description !== undefined)
       updateData.description = description?.trim() || undefined;
     if (price !== undefined) updateData.price = Number(price);
+    if (sellingCommissionType !== undefined) updateData.sellingCommissionType = sellingCommissionType;
+    if (sellingCommissionValue !== undefined) updateData.sellingCommissionValue = Number(sellingCommissionValue);
     if (image !== undefined) updateData.image = image?.trim() || undefined;
     if (icon !== undefined) updateData.icon = icon?.trim() || undefined;
     if (services !== undefined) updateData.services = services;
@@ -98,7 +100,7 @@ export async function PUT(request: NextRequest, props: any) {
     const bundle = await ServiceBundle.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
-    }).populate("services.service", "name price commissionType commissionValue duration");
+    }).populate("services.service", "name price commissionType commissionValue sellingCommissionType sellingCommissionValue duration");
 
     if (!bundle) {
       return NextResponse.json(

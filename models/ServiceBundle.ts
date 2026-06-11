@@ -16,6 +16,8 @@ export interface IServiceBundle extends Document {
   image?: string;
   icon?: string;
   isActive: boolean;
+  sellingCommissionType?: "percentage" | "fixed";
+  sellingCommissionValue?: number;
   services: IServiceBundleItem[];
 }
 
@@ -43,6 +45,12 @@ const ServiceBundleSchema = new Schema<IServiceBundle>(
     image: { type: String, trim: true },
     icon: { type: String, trim: true },
     isActive: { type: Boolean, default: true },
+    sellingCommissionType: {
+      type: String,
+      enum: ["percentage", "fixed"],
+      default: "fixed",
+    },
+    sellingCommissionValue: { type: Number, default: 0, min: 0 },
     services: {
       type: [ServiceBundleItemSchema],
       required: true,

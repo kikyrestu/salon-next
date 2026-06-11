@@ -13,6 +13,8 @@ export interface IInvoice extends Document {
     discount: number; // Amount
     discountNote?: string;
     total: number;
+    sellingBy?: mongoose.Types.ObjectId;
+    sellingCommission?: number;
     splitCommissionMode?: "auto" | "manual";
     staffAssignments?: {
       staff?: mongoose.Types.ObjectId;
@@ -132,6 +134,8 @@ const invoiceSchema = new Schema<IInvoice>(
         discount: { type: Number, default: 0 },
         discountNote: { type: String },
         total: Number,
+        sellingBy: { type: Schema.Types.ObjectId, ref: "Staff" },
+        sellingCommission: { type: Number, default: 0 },
         splitCommissionMode: {
           type: String,
           enum: ["auto", "manual"],

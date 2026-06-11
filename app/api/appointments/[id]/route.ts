@@ -159,6 +159,15 @@ export async function PUT(request: NextRequest, props: any) {
             }
         }
 
+        // [BUG FIX Fitur 4] Sync invoice date when appointment date changes
+        if (body.date) {
+          const newDate = new Date(body.date);
+          await Invoice.updateMany(
+            { appointment: appointment._id, status: { $nin: ['cancelled', 'voided'] } },
+            { $set: { date: newDate } }
+          );
+        }
+
         return NextResponse.json({ success: true, data: appointment });
 
     } catch (error: any) {

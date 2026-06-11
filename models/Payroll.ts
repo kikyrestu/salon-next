@@ -6,6 +6,7 @@ export interface IPayroll extends Document {
     year: number;
     baseSalary: number;
     totalCommission: number;
+    totalSellingCommission?: number;
     totalTips: number;
     bonuses: number;
     deductions: number;
@@ -66,6 +67,10 @@ const PayrollSchema = new Schema<IPayroll>(
             type: Number,
             default: 0,
         },
+        totalSellingCommission: {
+            type: Number,
+            default: 0,
+        },
         totalTips: {
             type: Number,
             default: 0,
@@ -115,6 +120,7 @@ const PayrollSchema = new Schema<IPayroll>(
                 date: Date,
                 totalAmount: Number,
                 commission: Number,
+                sellingCommission: Number,
                 tip: Number,
             }],
         },

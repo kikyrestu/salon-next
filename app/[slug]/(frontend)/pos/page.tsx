@@ -56,6 +56,8 @@ interface Item {
   stock?: number; // Product only
   commissionType?: "percentage" | "fixed";
   commissionValue?: number;
+  sellingCommissionType?: "percentage" | "fixed";
+  sellingCommissionValue?: number;
   waFollowUp?: {
     enabled?: boolean;
     firstDays?: number;
@@ -71,6 +73,8 @@ interface Item {
     duration: number;
     commissionType?: string;
     commissionValue?: number;
+    sellingCommissionType?: string;
+    sellingCommissionValue?: number;
   }[];
 }
 
@@ -86,6 +90,8 @@ interface CartItem extends Item {
   discountValue?: number;
   discountAmount?: number;
   discountNote?: string;
+  sellingBy?: string;
+  sellingCommission?: number;
 }
 
 interface Customer {
@@ -2236,6 +2242,12 @@ export default function POSPage() {
                   total: itemPrice - itemDiscount,
                   discountNote: item.discountNote || undefined,
                   splitCommissionMode: splitMode,
+                  sellingBy: item.sellingBy || undefined,
+                  sellingCommission: item.sellingBy ? (
+                    item.sellingCommissionType === 'percentage'
+                      ? ((itemPrice - itemDiscount) * Number(item.sellingCommissionValue || 0) / 100)
+                      : (Number(item.sellingCommissionValue || 0) * proportion)
+                  ) : 0,
                   staffAssignments: assignments.map((a: any) => ({
                     staff: a.staffId,
                     staffId: a.staffId,
@@ -2318,6 +2330,12 @@ export default function POSPage() {
               quantity: item.quantity,
               discount: item.discountAmount || 0,
               discountNote: item.discountNote || undefined,
+              sellingBy: item.sellingBy || undefined,
+              sellingCommission: item.sellingBy ? (
+                item.sellingCommissionType === 'percentage'
+                  ? (getEffectivePrice(item) * item.quantity * Number(item.sellingCommissionValue || 0) / 100)
+                  : (Number(item.sellingCommissionValue || 0) * item.quantity)
+              ) : 0,
               total:
                 item.type === "Service" &&
                   packageClaims[getCartItemKey(item._id, item.type)]?.enabled
@@ -2646,6 +2664,37 @@ export default function POSPage() {
           >
             <Plus className="w-3 h-3" /> Tambah Staff
           </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSellingByBlock = (item: CartItem) => {
+    if (!["Service", "Package", "Bundle"].includes(item.type)) return null;
+    return (
+      <div className="pt-1 mt-1 border-t border-gray-100">
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[10px] font-bold text-gray-500">Selling By (Komisi Penjualan)</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <SearchableSelect
+            placeholder="Pilih Staff Penjual..."
+            value={item.sellingBy || ""}
+            onChange={(val) => {
+              setCart(cart.map((c) => {
+                if (c._id === item._id && c.type === item.type) {
+                  return { ...c, sellingBy: val };
+                }
+                return c;
+              }));
+            }}
+            options={[
+              { value: "", label: "— Pilih —" },
+              ...staffList.map((s) => ({ value: s._id, label: s.name })),
+            ]}
+            className="flex-1"
+            controlClassName="px-2 py-1 text-[10px] min-h-[26px]"
+          />
         </div>
       </div>
     );
@@ -3281,6 +3330,7 @@ export default function POSPage() {
                   )}
 
                   {/* Inline Staff Assignment */}
+                  {renderSellingByBlock(item)}
                   {(item.type === "Service" || item.type === "Product" || item.type === "Package") && (
                     renderStaffAssignmentBlock(item)
                   )}
