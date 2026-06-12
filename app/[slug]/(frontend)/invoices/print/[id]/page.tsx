@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTenantRouter } from "@/hooks/useTenantRouter";
 import { format } from "date-fns";
@@ -8,7 +8,6 @@ import { Printer, ArrowLeft, Scissors } from "lucide-react";
 import { FormButton } from "@/components/dashboard/FormInput";
 import { getCurrencySymbol } from "@/lib/currency";
 import { QRCodeSVG } from "qrcode.react";
-import { toCanvas } from "html-to-image";
 
 import { MessageSquare } from "lucide-react";
 
@@ -24,7 +23,6 @@ export default function PrintInvoicePage() {
     const [loading, setLoading] = useState(true);
     const [sendingWa, setSendingWa] = useState(false);
     const [printing, setPrinting] = useState(false);
-    const receiptRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -75,88 +73,6 @@ export default function PrintInvoicePage() {
         }
     };
 
-    // Convert canvas image data to ESC/POS raster bitmap bytes
-    const canvasToEscPosBitmap = (canvas: HTMLCanvasElement): Uint8Array => {
-        const ctx = canvas.getContext('2d')!;
-        const width = canvas.width;
-        const height = canvas.height;
-        const imageData = ctx.getImageData(0, 0, width, height);
-        const pixels = imageData.data;
-
-        // Thermal printer width in dots (80mm paper = 576 dots at 203dpi)
-        const PRINTER_WIDTH = 576;
-
-        // Scale image to printer width if needed
-        let scaledCanvas = canvas;
-        if (width !== PRINTER_WIDTH) {
-            scaledCanvas = document.createElement('canvas');
-            scaledCanvas.width = PRINTER_WIDTH;
-            scaledCanvas.height = Math.round(height * (PRINTER_WIDTH / width));
-            const sCtx = scaledCanvas.getContext('2d')!;
-            sCtx.drawImage(canvas, 0, 0, PRINTER_WIDTH, scaledCanvas.height);
-        }
-
-        const sCtx = scaledCanvas.getContext('2d')!;
-        const sWidth = scaledCanvas.width;
-        const sHeight = scaledCanvas.height;
-        const sImageData = sCtx.getImageData(0, 0, sWidth, sHeight);
-        const sPixels = sImageData.data;
-
-        // Each row: widthBytes = ceil(sWidth / 8)
-        const widthBytes = Math.ceil(sWidth / 8);
-        const bitmapRows: Uint8Array[] = [];
-
-        for (let y = 0; y < sHeight; y++) {
-            const row = new Uint8Array(widthBytes);
-            for (let x = 0; x < sWidth; x++) {
-                const idx = (y * sWidth + x) * 4;
-                const r = sPixels[idx];
-                const g = sPixels[idx + 1];
-                const b = sPixels[idx + 2];
-                // Convert to grayscale, threshold to black/white
-                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-                if (gray < 128) {
-                    // Black pixel = bit ON
-                    const byteIdx = Math.floor(x / 8);
-                    const bitIdx = 7 - (x % 8);
-                    row[byteIdx] |= (1 << bitIdx);
-                }
-            }
-            bitmapRows.push(row);
-        }
-
-        // Build ESC/POS command: GS v 0 (raster bit image)
-        // Command: 0x1D 0x76 0x30 m xL xH yL yH [bitmap data]
-        // m=0 (normal), xL/xH = widthBytes, yL/yH = height
-        const header = new Uint8Array([
-            0x1B, 0x40, // ESC @ - Initialize printer
-            0x1D, 0x76, 0x30, 0x00, // GS v 0 m(0=normal)
-            widthBytes & 0xFF, (widthBytes >> 8) & 0xFF, // xL, xH
-            sHeight & 0xFF, (sHeight >> 8) & 0xFF, // yL, yH
-        ]);
-
-        // Flatten all bitmap rows
-        const totalBitmapSize = widthBytes * sHeight;
-        const bitmapData = new Uint8Array(totalBitmapSize);
-        for (let y = 0; y < sHeight; y++) {
-            bitmapData.set(bitmapRows[y], y * widthBytes);
-        }
-
-        // Feed and cut
-        const footer = new Uint8Array([
-            0x1B, 0x64, 0x04, // ESC d 4 - Feed 4 lines
-            0x1D, 0x56, 0x00, // GS V 0 - Full cut
-        ]);
-
-        // Combine: header + bitmap + footer
-        const result = new Uint8Array(header.length + bitmapData.length + footer.length);
-        result.set(header, 0);
-        result.set(bitmapData, header.length);
-        result.set(footer, header.length + bitmapData.length);
-
-        return result;
-    };
-
     const handleBluetoothPrint = async () => {
         try {
             if (!(navigator as any).bluetooth) {
@@ -164,23 +80,20 @@ export default function PrintInvoicePage() {
                 return;
             }
 
-            if (!receiptRef.current) {
-                alert("Receipt belum dimuat.");
-                return;
-            }
-
             setPrinting(true);
 
-            // 1. Capture receipt HTML as canvas image
-            const canvas = await toCanvas(receiptRef.current, {
-                pixelRatio: 2, // Higher resolution for sharp print
-                backgroundColor: '#ffffff',
+            // 1. Fetch formatted receipt binary from server thermal API
+            const thermalRes = await fetch(`/api/invoices/${id}/thermal?width=80`, {
+                headers: { "x-store-slug": slug },
             });
+            if (!thermalRes.ok) {
+                const errData = await thermalRes.json().catch(() => ({}));
+                throw new Error(errData.error || 'Gagal mengambil data struk dari server');
+            }
+            const receiptArrayBuffer = await thermalRes.arrayBuffer();
+            const receiptBytes = new Uint8Array(receiptArrayBuffer);
 
-            // 2. Convert canvas to ESC/POS raster bitmap
-            const receiptBytes = canvasToEscPosBitmap(canvas);
-
-            // 3. Connect to Bluetooth printer
+            // 2. Connect to Bluetooth printer
             const device = await (navigator as any).bluetooth.requestDevice({
                 acceptAllDevices: true,
                 optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-4ae5-8fa9-9fafd205e455']
@@ -189,7 +102,7 @@ export default function PrintInvoicePage() {
             if (!device.gatt) throw new Error("Perangkat tidak memiliki GATT server.");
             const server = await device.gatt.connect();
 
-            // 4. Find writable characteristic
+            // 3. Find writable characteristic
             const servicesToTry = ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-4ae5-8fa9-9fafd205e455'];
             let characteristic: any = null;
 
@@ -206,7 +119,7 @@ export default function PrintInvoicePage() {
 
             if (!characteristic) throw new Error("Gagal mendapatkan layanan write untuk printer ini.");
 
-            // 5. Send receipt bitmap in chunks
+            // 4. Send receipt bytes in chunks
             const BATCH_SIZE = 256;
             for (let i = 0; i < receiptBytes.length; i += BATCH_SIZE) {
                 const chunk = receiptBytes.slice(i, i + BATCH_SIZE);
@@ -215,8 +128,7 @@ export default function PrintInvoicePage() {
                 } else {
                     await characteristic.writeValueWithoutResponse(chunk);
                 }
-                // Slightly longer delay for image data
-                await new Promise(r => setTimeout(r, 30));
+                await new Promise(r => setTimeout(r, 20));
             }
 
             alert("Struk berhasil dikirim ke printer bluetooth!");
@@ -278,7 +190,7 @@ export default function PrintInvoicePage() {
             </div>
 
             {/* Thermal Receipt Content */}
-            <div ref={receiptRef} className="max-w-[380px] mx-auto bg-white p-6 shadow-xl print:shadow-none print:max-w-none print:w-full print:p-2 print:m-0 font-mono text-sm border-t-8 border-blue-900 print:border-t-0">
+            <div className="max-w-[380px] mx-auto bg-white p-6 shadow-xl print:shadow-none print:max-w-none print:w-full print:p-2 print:m-0 font-mono text-sm border-t-8 border-blue-900 print:border-t-0">
                 {/* Store Header */}
                 <div className="text-center mb-6">
                     <h1 className="text-2xl font-bold uppercase tracking-tighter mb-1">{settings?.storeName || "SALON POS"}</h1>
