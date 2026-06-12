@@ -21,6 +21,8 @@ export const authConfig = {
                 pageSegment === 'login' ||
                 pageSegment === 'register' ||
                 pageSegment === 'setup' ||
+                pageSegment.startsWith('r/') ||
+                pageSegment.startsWith('portal/') ||
                 nextUrl.pathname.startsWith('/admin');
 
             const isPublicApi =
@@ -41,9 +43,17 @@ export const authConfig = {
                 return Response.redirect(new URL(`/${loginSlug}/login`, nextUrl));
             }
 
+            if (isLoggedIn && !isPublicRoute && slugSegment) {
+                const userSlug = (auth?.user as any)?.tenantSlug;
+                // Block cross-tenant access to protected pages
+                if (userSlug && slugSegment !== userSlug) {
+                    return Response.redirect(new URL(`/${userSlug}/dashboard`, nextUrl));
+                }
+            }
+
             if (isLoggedIn && (isRootOrRegister || pageSegment === 'login' || pageSegment === 'register')) {
-                const dashSlug = slugSegment && !isRootOrRegister ? slugSegment : (auth?.user as any)?.tenantSlug || 'pusat';
-                return Response.redirect(new URL(`/${dashSlug}/dashboard`, nextUrl));
+                const userSlug = (auth?.user as any)?.tenantSlug || 'pusat';
+                return Response.redirect(new URL(`/${userSlug}/dashboard`, nextUrl));
             }
 
             return true;
