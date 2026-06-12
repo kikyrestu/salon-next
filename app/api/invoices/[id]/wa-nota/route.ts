@@ -152,15 +152,19 @@ export async function POST(
       }
     }
 
-    // Send to admin
+    // Send to admin (only if it's a different number from customer to avoid double-sending during testing)
     if (settings.waAdminNumber) {
       const adminPhone = normalizeIndonesianPhone(settings.waAdminNumber);
-      if (adminPhone) {
+      const customerPhone = invoice.customer?.phone ? normalizeIndonesianPhone(invoice.customer.phone) : null;
+      
+      if (adminPhone && adminPhone !== customerPhone) {
         const adminPrefix = settings.waAdminNotaPrefix || '[NOTIFIKASI ADMIN]';
         const adminMessage = `${adminPrefix}\n\n${message}`;
         const result = await sendWhatsApp(adminPhone, adminMessage, fonnteToken);
         if (result.success) sentToAdmin = true;
         else console.error('[WA Nota] Admin send failed:', result.error);
+      } else if (adminPhone === customerPhone) {
+        sentToAdmin = true; // Mark as sent to avoid error response
       }
     }
 
