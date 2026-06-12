@@ -42,6 +42,7 @@ import WaAutomation from "@/models/WaAutomation";
 import LoyaltyTransaction from "@/models/LoyaltyTransaction";
 import Counter from "@/models/Counter";
 import StockLog from "@/models/StockLog";
+import ShortLink from "@/models/ShortLink";
 
 // Export all models for convenience
 export {
@@ -86,6 +87,7 @@ export {
   LoyaltyTransaction,
   Counter,
   StockLog,
+  ShortLink,
 };
 
 // This function can be called to ensure models are loaded
@@ -133,5 +135,6 @@ export function initModels() {
     LoyaltyTransaction,
     Counter,
     StockLog,
+    ShortLink,
   };
 }

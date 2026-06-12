@@ -1,195 +1,45 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { useParams, } from "next/navigation";
-import { useTenantRouter } from "@/hooks/useTenantRouter";
+import { getTenantModels } from "@/lib/tenantDb";
+import { notFound } from "next/navigation";
 import { format } from "date-fns";
-import { Printer, ArrowLeft, Scissors } from "lucide-react";
-import { FormButton } from "@/components/dashboard/FormInput";
+import { Scissors } from "lucide-react";
 import { getCurrencySymbol } from "@/lib/currency";
-import { QRCodeSVG } from "qrcode.react";
+import Link from "next/link";
 
-import { MessageSquare } from "lucide-react";
+export const dynamic = "force-dynamic";
 
-export default function PrintInvoicePage() {
-  const params = useParams();
-  const slug = params.slug as string;
-  const id = params.id as string;
-    const router = useTenantRouter();
-    const [invoice, setInvoice] = useState<any>(null);
-    const [settings, setSettings] = useState<any>(null);
-    const [deposits, setDeposits] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [sendingWa, setSendingWa] = useState(false);
+export default async function PublicDigitalReceiptPage(props: any) {
+    const { slug, token, invoiceId } = await props.params;
+    const { Invoice, Customer, Settings, Deposit } = await getTenantModels(slug);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [invRes, settingsRes, depositsRes] = await Promise.all([
-                    fetch(`/api/invoices/${id}`, { headers: { "x-store-slug": slug } }),
-                    fetch("/api/settings", { headers: { "x-store-slug": slug } }),
-                    fetch(`/api/deposits?invoiceId=${id}`, { headers: { "x-store-slug": slug } })
-                ]);
-                const invData = await invRes.json();
-                const settingsData = await settingsRes.json();
-                const depositsData = await depositsRes.json();
+    const customer = await Customer.findOne({ publicToken: token }).lean();
+    if (!customer) {
+        return notFound();
+    }
 
-                if (invData.success) setInvoice(invData.data);
-                if (settingsData.success) setSettings(settingsData.data);
-                if (depositsData.success) setDeposits(depositsData.data);
-            } catch (error) {
-                console.error("Error fetching print data:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
-    }, [id]);
+    const invoice: any = await Invoice.findOne({ _id: invoiceId, customer: customer._id })
+        .populate("customer")
+        .populate("staffAssignments.staff")
+        .lean();
 
-    const handlePrint = () => {
-        window.print();
-    };
+    if (!invoice) {
+        return notFound();
+    }
 
-    const handleSendWaNota = async () => {
-        setSendingWa(true);
-        try {
-            const res = await fetch(`/api/invoices/${id}/wa-nota`, {
-                method: 'POST',
-                headers: { "x-store-slug": slug }
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(data.message || "Nota WA berhasil dikirim!");
-            } else {
-                alert(data.error || "Gagal mengirim Nota WA.");
-            }
-        } catch (e) {
-            console.error(e);
-            alert("Terjadi kesalahan saat mengirim Nota WA.");
-        } finally {
-            setSendingWa(false);
-        }
-    };
-
-    const handleBluetoothPrint = async () => {
-        try {
-            if (!(navigator as any).bluetooth) {
-                alert("Web Bluetooth API tidak didukung di browser ini. Gunakan Chrome untuk Android/Desktop.");
-                return;
-            }
-
-            // 1. Fetch formatted receipt binary from server thermal API
-            const thermalRes = await fetch(`/api/invoices/${id}/thermal?width=80`, {
-                headers: { "x-store-slug": slug },
-            });
-            if (!thermalRes.ok) {
-                const errData = await thermalRes.json().catch(() => ({}));
-                throw new Error(errData.error || 'Gagal mengambil data struk dari server');
-            }
-            const receiptArrayBuffer = await thermalRes.arrayBuffer();
-            const receiptBytes = new Uint8Array(receiptArrayBuffer);
-
-            // 2. Connect to Bluetooth printer
-            const device = await (navigator as any).bluetooth.requestDevice({
-                acceptAllDevices: true,
-                optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-4ae5-8fa9-9fafd205e455']
-            });
-
-            if (!device.gatt) throw new Error("Perangkat tidak memiliki GATT server.");
-            const server = await device.gatt.connect();
-
-            // 3. Find writable characteristic
-            const servicesToTry = ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-4ae5-8fa9-9fafd205e455'];
-            let characteristic: any = null;
-
-            for (const uuid of servicesToTry) {
-                try {
-                    const svc = await server.getPrimaryService(uuid);
-                    const chars = await svc.getCharacteristics();
-                    characteristic = chars.find((c: any) => c.properties.write || c.properties.writeWithoutResponse);
-                    if (characteristic) break;
-                } catch (_) {
-                    continue;
-                }
-            }
-
-            if (!characteristic) throw new Error("Gagal mendapatkan layanan write untuk printer ini.");
-
-            // 4. Send receipt bytes in chunks
-            const BATCH_SIZE = 256;
-            for (let i = 0; i < receiptBytes.length; i += BATCH_SIZE) {
-                const chunk = receiptBytes.slice(i, i + BATCH_SIZE);
-                if (characteristic.properties.write) {
-                    await characteristic.writeValue(chunk);
-                } else {
-                    await characteristic.writeValueWithoutResponse(chunk);
-                }
-                await new Promise(r => setTimeout(r, 20));
-            }
-
-            alert("Struk berhasil dikirim ke printer bluetooth!");
-
-        } catch (error: any) {
-            console.error("Bluetooth print error:", error);
-            if (error.message?.includes('cancelled') || error.message?.includes('User cancelled')) {
-                // User cancelled BT dialog, don't show error
-                return;
-            }
-            alert("Error Bluetooth: " + error.message);
-        }
-    };
-
-    if (loading) return <div className="p-8 text-center">Loading receipt...</div>;
-    if (!invoice) return <div className="p-8 text-center text-red-500">Invoice not found</div>;
+    const settings: any = await Settings.findOne({}).lean();
+    const deposits = await Deposit.find({ invoice: invoiceId }).sort({ date: 1 }).lean();
 
     const currencySymbol = getCurrencySymbol(settings?.currency || 'IDR');
 
     return (
-        <div className="min-h-screen bg-gray-100 p-4 md:p-8 print:p-0 print:m-0 print:bg-white print:min-h-0 text-black">
-            {/* Header / Controls */}
-            <div className="max-w-[400px] mx-auto flex justify-between items-center mb-6 print:hidden">
-                <button
-                    onClick={() => router.back()}
-                    className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back
-                </button>
-                <div className="flex gap-2">
-                    <FormButton
-                        onClick={handleSendWaNota}
-                        icon={<MessageSquare className="w-4 h-4" />}
-                        className="bg-green-600 hover:bg-green-700 whitespace-nowrap"
-                        disabled={sendingWa}
-                    >
-                        {sendingWa ? "Mengirim..." : "Kirim WA"}
-                    </FormButton>
-                    <FormButton
-                        onClick={handleBluetoothPrint}
-                        icon={<Printer className="w-4 h-4" />}
-                        className="bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap"
-                    >
-                        Bluetooth
-                    </FormButton>
-                    <FormButton
-                        onClick={handlePrint}
-                        icon={<Printer className="w-4 h-4" />}
-                        className="whitespace-nowrap"
-                    >
-                        Print Receipt
-                    </FormButton>
-                </div>
-            </div>
-
-            {/* Thermal Receipt Content */}
-            <div className="max-w-[380px] mx-auto bg-white p-6 shadow-xl print:shadow-none print:max-w-none print:w-full print:p-2 print:m-0 font-mono text-sm border-t-8 border-blue-900 print:border-t-0">
+        <div className="min-h-screen bg-gray-100 py-8 px-4 flex justify-center text-black">
+            <div className="w-full max-w-[380px] bg-white p-6 shadow-xl border-t-8 border-blue-900 font-mono text-sm relative">
                 {/* Store Header */}
                 <div className="text-center mb-6">
                     <h1 className="text-2xl font-bold uppercase tracking-tighter mb-1">{settings?.storeName || "SALON POS"}</h1>
-                    <p className="text-[11px] text-gray-500 uppercase">{settings?.address || "123 Beauty Lane, Salon City"}</p>
-                    <p className="text-[11px] text-gray-500">TEL: {settings?.phone || "000-000-0000"}</p>
+                    <p className="text-[11px] text-gray-500 uppercase">{settings?.storeAddress || settings?.address || "Alamat belum diatur"}</p>
+                    <p className="text-[11px] text-gray-500">TEL: {settings?.phone || "-"}</p>
                     <div className="mt-4 border-y border-dashed border-gray-300 py-2">
-                        <p className="font-bold text-lg">TAX RECEIPT</p>
+                        <p className="font-bold text-lg">DIGITAL RECEIPT</p>
                     </div>
                 </div>
 
@@ -201,17 +51,17 @@ export default function PrintInvoicePage() {
                     </div>
                     <div className="flex justify-between">
                         <span className="text-gray-500">Date:</span>
-                        <span>{format(new Date(invoice.date), "dd/MM/yyyy HH:mm")}</span>
+                        <span>{format(new Date(invoice.date || invoice.createdAt || new Date()), "dd/MM/yyyy HH:mm")}</span>
                     </div>
                     <div className="flex justify-between">
                         <span className="text-gray-500">Customer:</span>
-                        <span className="font-bold">{invoice.customer?.name || "Walk-in"}</span>
+                        <span className="font-bold">{customer.name}</span>
                     </div>
 
                     {invoice.referralCode && (
                         <div className="flex justify-between items-start text-xs border-dashed border border-gray-300 p-1 mt-1 bg-gray-50/50">
                             <span className="text-gray-500">Referred By:</span>
-                            <span className="font-bold text-right ml-2 break-all">{invoice.customer?.referredBy?.name || "Member VIP"}</span>
+                            <span className="font-bold text-right ml-2 break-all">{invoice.customer.referredBy?.name || "Member VIP"}</span>
                         </div>
                     )}
                     {invoice.appointment && (
@@ -239,7 +89,7 @@ export default function PrintInvoicePage() {
                             const renderOrder: { type: 'normal' | 'bundle'; key: string; item?: any }[] = [];
                             const seenBundles = new Set<string>();
 
-                            invoice.items.forEach((item: any) => {
+                            (invoice.items || []).forEach((item: any) => {
                                 const bundleMatch = item.name?.match(/\(Bundle:\s*(.+)\)$/);
                                 if (bundleMatch) {
                                     const bundleName = bundleMatch[1].trim();
@@ -293,7 +143,6 @@ export default function PrintInvoicePage() {
                                 } else if (entry.type === 'bundle') {
                                     const group = bundleGroups[entry.key];
                                     const bIdx = globalIdx++;
-                                    // Bundle header row
                                     renderRows.push(
                                         <tr key={`bh-${bIdx}`} className="text-sm">
                                             <td className="py-4 align-top">
@@ -312,7 +161,6 @@ export default function PrintInvoicePage() {
                                             <td className="py-4 text-right align-top font-black text-gray-900">{`${currencySymbol}${group.totalAmount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
                                         </tr>
                                     );
-                                    // Bundle children rows (indented)
                                     group.children.forEach((child: any, cIdx: number) => {
                                         const serviceName = child.name.replace(/\s*\(Bundle:.*\)$/, '');
                                         renderRows.push(
@@ -427,7 +275,7 @@ export default function PrintInvoicePage() {
                         <span>{currencySymbol}{invoice.totalAmount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                     </div>
 
-                    {/* Staff Recognition — conditional via settings */}
+                    {/* Staff Recognition */}
                     {settings?.showStaffOnReceipt !== false && invoice.staffAssignments && invoice.staffAssignments.length > 0 && (
                         <div className="mt-8 pt-6 border-t border-gray-100">
                             <p className="mb-3 uppercase font-black tracking-widest text-[9px] text-gray-400 border-l-2 border-gray-200 pl-2">Served By</p>
@@ -459,11 +307,11 @@ export default function PrintInvoicePage() {
                 </div>
 
                 {/* Payment History */}
-                {deposits.length > 0 && (
+                {deposits && deposits.length > 0 && (
                     <div className="mt-6 border-t border-gray-100 pt-4">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Payment History</p>
                         <div className="space-y-2">
-                            {deposits.map((dep, idx) => (
+                            {deposits.map((dep: any, idx: number) => (
                                 <div key={idx} className="flex justify-between text-[11px]">
                                     <div className="text-gray-500">
                                         <span>{format(new Date(dep.date), "dd/MM/yy HH:mm")}</span>
@@ -506,49 +354,13 @@ export default function PrintInvoicePage() {
                         )}
                         <p className="text-[9px] text-gray-400 mt-2 italic">Prices inclusive of taxes where applicable</p>
                     </div>
-
-                    {invoice.customer?.publicToken && (
-                        <div className="pt-6 flex flex-col items-center gap-2">
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Scan for Digital Receipt</p>
-                            <QRCodeSVG 
-                                value={`${typeof window !== 'undefined' ? window.location.origin : ''}/${slug}/portal/${invoice.customer.publicToken}/invoice/${invoice._id}`} 
-                                size={96} 
-                                level={"L"} 
-                                includeMargin={false} 
-                            />
-                        </div>
-                    )}
                     <p className="text-[8px] text-gray-300 tracking-[4px] uppercase mt-4">{invoice.invoiceNumber}</p>
                 </div>
+                {/* Footer */}
+                <div className="mt-8 text-center text-[10px] text-gray-400">
+                    <p>Powered by SalonNext POS</p>
+                </div>
             </div>
-
-            <style jsx global>{`
-                @media print {
-                    html, body {
-                        background: white !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                        min-height: 0 !important;
-                        height: auto !important;
-                        width: 80mm !important;
-                        overflow: visible !important;
-                    }
-                    .print\\:hidden {
-                        display: none !important;
-                    }
-                    * {
-                        page-break-inside: avoid;
-                    }
-                    table, tr, td, th {
-                        page-break-inside: auto;
-                    }
-                    @page {
-                        margin: 0;
-                        padding: 0;
-                        size: 80mm auto;
-                    }
-                }
-            `}</style>
         </div>
     );
 }

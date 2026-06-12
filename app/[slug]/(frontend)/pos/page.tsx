@@ -1390,74 +1390,53 @@ export default function POSPage() {
         return;
       }
 
-      if (settings.showCommissionInPOS) {
-        // Komisi aktif — hitung normal
-        const splitResult = calculateSplitCommission({
-          splitMode: splitCommissionMode,
-          assignments: serviceAssignments.map((assignment) => ({
-            staffId: assignment.staffId,
-            percentage: assignment.percentage,
-            staffCommissionRate: getStaffRate(assignment.staffId),
-          })),
-          servicePrice: getEffectivePrice(item),
-          quantity: item.quantity,
-          commissionType: item.commissionType || "fixed",
-          commissionValue: Number(item.commissionValue || 0),
-          sourceType:
-            claim?.enabled && claim.customerPackageId
-              ? "package_redeem"
-              : "normal_sale",
-        });
+      // Komisi aktif — selalu hitung normal di background terlepas dari setting display
+      const splitResult = calculateSplitCommission({
+        splitMode: splitCommissionMode,
+        assignments: serviceAssignments.map((assignment) => ({
+          staffId: assignment.staffId,
+          percentage: assignment.percentage,
+          staffCommissionRate: getStaffRate(assignment.staffId),
+        })),
+        servicePrice: getEffectivePrice(item),
+        quantity: item.quantity,
+        commissionType: item.commissionType || "fixed",
+        commissionValue: Number(item.commissionValue || 0),
+        sourceType:
+          claim?.enabled && claim.customerPackageId
+            ? "package_redeem"
+            : "normal_sale",
+      });
 
-        if (!splitResult.isValid) {
-          lineItemSplits[key] = {
-            splitCommissionMode,
-            staffAssignments: [],
-          };
-          return;
-        }
-
-        totalCommission += splitResult.totalCommission;
-
-        splitResult.assignments.forEach((assignment) => {
-          if (!perStaff[assignment.staffId]) {
-            perStaff[assignment.staffId] = {
-              staffId: assignment.staffId,
-              commission: 0,
-              tip: 0,
-            };
-          }
-          perStaff[assignment.staffId].commission += assignment.komisiNominal;
-
-          serviceLineAssignments.push({
-            staffId: assignment.staffId,
-            percentage: assignment.percentage,
-            porsiPersen: assignment.porsiPersen,
-            commission: assignment.komisiNominal,
-            komisiNominal: assignment.komisiNominal,
-            tip: 0,
-          });
-        });
-      } else {
-        // Komisi dimatikan — staff tetap tercatat, komisi = 0
-        serviceAssignments.forEach((assignment) => {
-          if (!perStaff[assignment.staffId]) {
-            perStaff[assignment.staffId] = {
-              staffId: assignment.staffId,
-              commission: 0,
-              tip: 0,
-            };
-          }
-          serviceLineAssignments.push({
-            staffId: assignment.staffId,
-            percentage: assignment.percentage,
-            porsiPersen: assignment.percentage,
-            commission: 0,
-            komisiNominal: 0,
-            tip: 0,
-          });
-        });
+      if (!splitResult.isValid) {
+        lineItemSplits[key] = {
+          splitCommissionMode,
+          staffAssignments: [],
+        };
+        return;
       }
+
+      totalCommission += splitResult.totalCommission;
+
+      splitResult.assignments.forEach((assignment) => {
+        if (!perStaff[assignment.staffId]) {
+          perStaff[assignment.staffId] = {
+            staffId: assignment.staffId,
+            commission: 0,
+            tip: 0,
+          };
+        }
+        perStaff[assignment.staffId].commission += assignment.komisiNominal;
+
+        serviceLineAssignments.push({
+          staffId: assignment.staffId,
+          percentage: assignment.percentage,
+          porsiPersen: assignment.porsiPersen,
+          commission: assignment.komisiNominal,
+          komisiNominal: assignment.komisiNominal,
+          tip: 0,
+        });
+      });
 
       lineItemSplits[key] = {
         splitCommissionMode,
@@ -1484,60 +1463,43 @@ export default function POSPage() {
           return;
         }
 
-        if (settings.showCommissionInPOS) {
-          // Komisi aktif
-          const splitResult = calculateSplitCommission({
-            splitMode: splitCommissionMode,
-            assignments: serviceAssignments.map((assignment) => ({
-              staffId: assignment.staffId,
-              percentage: assignment.percentage,
-              staffCommissionRate: getStaffRate(assignment.staffId),
-            })),
-            servicePrice: subItemPrice,
-            quantity: item.quantity,
-            commissionType: (bs.commissionType as "fixed" | "percentage") || "fixed",
-            commissionValue: Number(bs.commissionValue || 0),
-            sourceType: "normal_sale",
-          });
+        // Komisi aktif selalu di background
+        const splitResult = calculateSplitCommission({
+          splitMode: splitCommissionMode,
+          assignments: serviceAssignments.map((assignment) => ({
+            staffId: assignment.staffId,
+            percentage: assignment.percentage,
+            staffCommissionRate: getStaffRate(assignment.staffId),
+          })),
+          servicePrice: subItemPrice,
+          quantity: item.quantity,
+          commissionType: (bs.commissionType as "fixed" | "percentage") || "fixed",
+          commissionValue: Number(bs.commissionValue || 0),
+          sourceType: "normal_sale",
+        });
 
-          if (!splitResult.isValid) {
-            lineItemSplits[bsKey] = { splitCommissionMode, staffAssignments: [] };
-            return;
-          }
-
-          totalCommission += splitResult.totalCommission;
-
-          splitResult.assignments.forEach((assignment) => {
-            if (!perStaff[assignment.staffId]) {
-              perStaff[assignment.staffId] = { staffId: assignment.staffId, commission: 0, tip: 0 };
-            }
-            perStaff[assignment.staffId].commission += assignment.komisiNominal;
-
-            serviceLineAssignments.push({
-              staffId: assignment.staffId,
-              percentage: assignment.percentage,
-              porsiPersen: assignment.porsiPersen,
-              commission: assignment.komisiNominal,
-              komisiNominal: assignment.komisiNominal,
-              tip: 0,
-            });
-          });
-        } else {
-          // Komisi mati - staff tetap dicatat tapi komisi = 0
-          serviceAssignments.forEach((assignment) => {
-            if (!perStaff[assignment.staffId]) {
-              perStaff[assignment.staffId] = { staffId: assignment.staffId, commission: 0, tip: 0 };
-            }
-            serviceLineAssignments.push({
-              staffId: assignment.staffId,
-              percentage: assignment.percentage,
-              porsiPersen: assignment.percentage,
-              commission: 0,
-              komisiNominal: 0,
-              tip: 0,
-            });
-          });
+        if (!splitResult.isValid) {
+          lineItemSplits[bsKey] = { splitCommissionMode, staffAssignments: [] };
+          return;
         }
+
+        totalCommission += splitResult.totalCommission;
+
+        splitResult.assignments.forEach((assignment) => {
+          if (!perStaff[assignment.staffId]) {
+            perStaff[assignment.staffId] = { staffId: assignment.staffId, commission: 0, tip: 0 };
+          }
+          perStaff[assignment.staffId].commission += assignment.komisiNominal;
+
+          serviceLineAssignments.push({
+            staffId: assignment.staffId,
+            percentage: assignment.percentage,
+            porsiPersen: assignment.porsiPersen,
+            commission: assignment.komisiNominal,
+            komisiNominal: assignment.komisiNominal,
+            tip: 0,
+          });
+        });
 
         lineItemSplits[bsKey] = {
           splitCommissionMode,
@@ -1549,7 +1511,7 @@ export default function POSPage() {
     // Product & Package commission — single staff, no split
     cart.forEach((item) => {
       if (item.type !== "Product" && item.type !== "Package") return;
-      if (settings.showCommissionInPOS && (!item.commissionValue || Number(item.commissionValue) <= 0)) return;
+      if (!item.commissionValue || Number(item.commissionValue) <= 0) return;
 
       const key = getCartItemKey(item._id, item.type);
       const productStaffArr = serviceStaffAssignments[key];
@@ -1561,12 +1523,10 @@ export default function POSPage() {
       const qty = item.quantity;
 
       let komisi = 0;
-      if (settings.showCommissionInPOS) {
-        if (commissionType === "percentage") {
-          komisi = getEffectivePrice(item) * qty * (commissionValue / 100);
-        } else {
-          komisi = commissionValue * qty;
-        }
+      if (commissionType === "percentage") {
+        komisi = getEffectivePrice(item) * qty * (commissionValue / 100);
+      } else {
+        komisi = commissionValue * qty;
       }
 
       totalCommission += komisi;
@@ -2525,8 +2485,21 @@ export default function POSPage() {
           }
         }
 
+        // Auto-send WhatsApp Receipt if customer is attached
+        if (customerId) {
+          try {
+            // Fire and forget (don't block the redirect)
+            fetch(`/api/invoices/${data.data._id}/wa-nota`, {
+              method: 'POST',
+              headers: storeHeaders
+            }).catch(e => console.error("Auto WA send failed in background:", e));
+          } catch (err) {
+            console.error("Failed to auto-send WA:", err);
+          }
+        }
+
         resetCheckoutState();
-        router.push(`/invoices/print/${data.data._id}`);
+        router.push(`/${slug}/invoices/print/${data.data._id}`);
       } else {
         alert(data.error || "Gagal membuat invoice");
       }
@@ -2550,7 +2523,7 @@ export default function POSPage() {
   const renderStaffAssignmentBlock = (item: CartItem, customTitle?: string, bundleIndex?: number) => {
     const key = getCartItemKey(item._id, item.type, bundleIndex);
     return (
-      <div key={key} className="pt-1 mt-1 border-t border-gray-100">
+      <div key={key} className="w-full">
         <div className="flex items-center justify-between mb-1.5">
           <p className="text-[10px] font-bold text-gray-500">Assign Staff {customTitle ? `- ${customTitle}` : ""}</p>
           {settings?.showCommissionInPOS && (
@@ -2670,9 +2643,9 @@ export default function POSPage() {
   };
 
   const renderSellingByBlock = (item: CartItem) => {
-    if (!["Service", "Package", "Bundle"].includes(item.type)) return null;
+    if (!["Service", "Package", "Bundle", "Product"].includes(item.type)) return null;
     return (
-      <div className="pt-1 mt-1 border-t border-gray-100">
+      <div className="w-full">
         <div className="flex items-center justify-between mb-1.5">
           <p className="text-[10px] font-bold text-gray-500">Selling By (Komisi Penjualan)</p>
         </div>
@@ -3329,14 +3302,22 @@ export default function POSPage() {
                     </div>
                   )}
 
-                  {/* Inline Staff Assignment */}
-                  {renderSellingByBlock(item)}
-                  {(item.type === "Service" || item.type === "Product" || item.type === "Package") && (
-                    renderStaffAssignmentBlock(item)
-                  )}
-                  {item.type === "Bundle" && item.bundleServices && (
-                    <div className="space-y-1 mt-1">
-                      {item.bundleServices.map((bs, i) => renderStaffAssignmentBlock(item, bs.serviceName, i))}
+                  {/* Inline Staff Assignment (Side by Side) */}
+                  {["Service", "Product", "Package", "Bundle"].includes(item.type) && (
+                    <div className="flex gap-2 w-full pt-1 mt-1 border-t border-gray-100">
+                      <div className="flex-1 w-0 min-w-0">
+                        {(item.type === "Service" || item.type === "Product" || item.type === "Package") && (
+                          renderStaffAssignmentBlock(item)
+                        )}
+                        {item.type === "Bundle" && item.bundleServices && (
+                          <div className="space-y-1">
+                            {item.bundleServices.map((bs, i) => renderStaffAssignmentBlock(item, bs.serviceName, i))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 w-0 min-w-0 border-l border-gray-100 pl-2">
+                        {renderSellingByBlock(item)}
+                      </div>
                     </div>
                   )}
                 </div>

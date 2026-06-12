@@ -20,18 +20,21 @@ interface ServiceChartProps {
 }
 
 const COLORS = [
-    '#8B7355', // Khaki Dark / Brown
+    '#8B7355', // Khaki Dark
     '#A08865',
     '#B59D75', // Khaki Gold
     '#C1A982',
     '#D2BB94', // Khaki Light
-    '#E3CCA6'
+    '#E3CCA6',
+    '#4A5D23', // Olive Green
+    '#6B8E23', // Olive Drab
+    '#8F9779', // Sage Green
+    '#C7B49A', // Desert Sand
+    '#808080'  // Gray for Others
 ];
 
 export default function ServiceChart({ data }: ServiceChartProps) {
     const { settings } = useSettings();
-    // Take top 6 services for the chart
-    const displayData = data.slice(0, 6);
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 h-80">
@@ -40,15 +43,15 @@ export default function ServiceChart({ data }: ServiceChartProps) {
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
-                            data={displayData}
+                            data={data}
                             cx="50%"
                             cy="50%"
                             innerRadius={60}
                             outerRadius={80}
-                            paddingAngle={5}
+                            paddingAngle={2}
                             dataKey="revenue"
                         >
-                            {displayData.map((entry, index) => (
+                            {data.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                         </Pie>
@@ -63,9 +66,17 @@ export default function ServiceChart({ data }: ServiceChartProps) {
                         />
                         <Legend
                             verticalAlign="bottom"
-                            height={36}
+                            height={70}
                             iconType="circle"
-                            formatter={(value) => <span className="text-xs font-medium text-gray-600">{value}</span>}
+                            formatter={(value) => (
+                                <span 
+                                    className="text-[10px] font-medium text-gray-600 truncate inline-block align-bottom" 
+                                    style={{ maxWidth: '140px' }}
+                                    title={value}
+                                >
+                                    {value}
+                                </span>
+                            )}
                         />
                     </PieChart>
                 </ResponsiveContainer>

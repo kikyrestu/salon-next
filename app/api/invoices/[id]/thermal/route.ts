@@ -5,7 +5,7 @@ import { buildReceiptBuffer, ThermalReceiptData } from "@/lib/escpos";
 
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Invoice, Settings } = await getTenantModels(tenantSlug);
+    const { Invoice, Settings, Deposit } = await getTenantModels(tenantSlug);
 
     try {
         const { error: permissionError } = await checkPermissionWithSession(request, 'pos', 'view');
@@ -27,10 +27,26 @@ export async function GET(request: NextRequest, props: any) {
 
         const settings: any = await Settings.findOne({}).lean();
 
+        // Fetch deposits for payment history
+        let deposits: any[] = [];
+        try {
+            deposits = await Deposit.find({ invoice: id }).sort({ date: 1 }).lean();
+        } catch (_) {
+            // Deposit model may not exist, ignore
+        }
+
         // Get staff name
         const staffName = invoice.staffAssignments?.[0]?.staff?.name
             || invoice.staff?.name
             || '-';
+
+        // Build staff assignments array
+        const staffAssignmentsData = (invoice.staffAssignments || [])
+            .filter((a: any) => a.staff?.name)
+            .map((a: any) => ({
+                name: a.staff.name,
+                tip: a.tip || 0,
+            }));
 
         const receiptData: ThermalReceiptData = {
             storeName: settings?.storeName || 'Salon',
@@ -53,11 +69,19 @@ export async function GET(request: NextRequest, props: any) {
             totalAmount: invoice.totalAmount || 0,
             amountPaid: invoice.amountPaid || 0,
             paymentMethod: invoice.paymentMethod || 'Cash',
+            paymentMethods: invoice.paymentMethods || [],
+            deposits: deposits.map((dep: any) => ({
+                date: dep.date,
+                paymentMethod: dep.paymentMethod || 'Cash',
+                amount: dep.amount || 0,
+            })),
+            staffAssignments: staffAssignmentsData,
             tips: invoice.tips || 0,
             loyaltyPointsUsed: invoice.loyaltyPointsUsed || 0,
             loyaltyPointsEarned: invoice.loyaltyPointsEarned || 0,
             receiptFooter: settings?.receiptFooter || '',
             paperWidth,
+            isAppointment: !!invoice.appointment,
         };
 
         const receiptBuffer = buildReceiptBuffer(receiptData);

@@ -33,6 +33,14 @@ export async function GET(request: NextRequest, props: any) {
         if (!invoice) {
             return NextResponse.json({ success: false, error: "Invoice not found" }, { status: 404 });
         }
+
+        // Auto-generate publicToken for older customers if missing
+        if (invoice.customer && !invoice.customer.publicToken) {
+            const { randomUUID } = require('crypto');
+            invoice.customer.publicToken = randomUUID();
+            await Customer.updateOne({ _id: invoice.customer._id }, { publicToken: invoice.customer.publicToken });
+        }
+
         return NextResponse.json({ success: true, data: invoice });
     } catch (error) {
         return NextResponse.json({ success: false, error: "Failed to fetch invoice" }, { status: 500 });

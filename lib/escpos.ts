@@ -73,11 +73,15 @@ export interface ThermalReceiptData {
     totalAmount: number;
     amountPaid: number;
     paymentMethod: string;
+    paymentMethods?: { method: string; amount: number }[];
+    deposits?: { date: Date; paymentMethod: string; amount: number }[];
+    staffAssignments?: { name: string; tip?: number }[];
     tips?: number;
     loyaltyPointsUsed?: number;
     loyaltyPointsEarned?: number;
     receiptFooter?: string;
     paperWidth?: 58 | 80; // mm
+    isAppointment?: boolean;
 }
 
 export function buildReceiptBuffer(data: ThermalReceiptData): string {
@@ -105,6 +109,7 @@ export function buildReceiptBuffer(data: ThermalReceiptData): string {
     buffer += `Tgl  : ${formatDate(data.date)}\n`;
     buffer += `Staff: ${data.staffName}\n`;
     if (data.customerName) buffer += `Cust : ${data.customerName}\n`;
+    if (data.isAppointment) buffer += `Type : APPOINTMENT\n`;
     buffer += separator;
 
     // Items
@@ -143,10 +148,17 @@ export function buildReceiptBuffer(data: ThermalReceiptData): string {
     buffer += `${padRight('TOTAL', labelWidth)}${padLeft(formatCurrencyShort(data.totalAmount), 14)}\n`;
     buffer += Commands.BOLD_OFF;
 
-    buffer += `${padRight('Bayar (' + data.paymentMethod + ')', labelWidth)}${padLeft(formatCurrencyShort(data.amountPaid), 14)}\n`;
+    buffer += `${padRight('Bayar', labelWidth)}${padLeft(formatCurrencyShort(data.amountPaid), 14)}\n`;
 
     const change = Math.max(0, data.amountPaid - data.totalAmount);
-    buffer += `${padRight('Kembali', labelWidth)}${padLeft(formatCurrencyShort(change), 14)}\n`;
+    if (change > 0) {
+        buffer += `${padRight('Kembali', labelWidth)}${padLeft(formatCurrencyShort(change), 14)}\n`;
+    }
+
+    const due = Math.max(0, data.totalAmount - data.amountPaid);
+    if (due > 0) {
+        buffer += `${padRight('Sisa Tagihan', labelWidth)}${padLeft(formatCurrencyShort(due), 14)}\n`;
+    }
 
     // Loyalty info
     if (data.loyaltyPointsUsed && data.loyaltyPointsUsed > 0) {
@@ -157,6 +169,43 @@ export function buildReceiptBuffer(data: ThermalReceiptData): string {
     }
 
     buffer += separator;
+
+    // Staff Assignments
+    if (data.staffAssignments && data.staffAssignments.length > 0) {
+        buffer += `Dilayani oleh:\n`;
+        for (const sa of data.staffAssignments) {
+            let line = `  ${sa.name}`;
+            if (sa.tip && sa.tip > 0) line += ` (tip: ${formatCurrencyShort(sa.tip)})`;
+            buffer += `${line}\n`;
+        }
+        buffer += separator;
+    }
+
+    // Payment Method(s)
+    if (data.paymentMethods && data.paymentMethods.length > 1) {
+        buffer += Commands.CENTER;
+        buffer += `METODE BAYAR\n`;
+        buffer += Commands.LEFT;
+        for (const pm of data.paymentMethods) {
+            buffer += `${padRight(pm.method, labelWidth)}${padLeft(formatCurrencyShort(pm.amount), 14)}\n`;
+        }
+        buffer += separator;
+    } else {
+        buffer += Commands.CENTER;
+        buffer += `METODE BAYAR: ${data.paymentMethod}\n`;
+    }
+
+    // Payment History / Deposits
+    if (data.deposits && data.deposits.length > 0) {
+        buffer += Commands.LEFT;
+        buffer += `RIWAYAT BAYAR\n`;
+        for (const dep of data.deposits) {
+            const depDate = formatDate(dep.date);
+            buffer += `${depDate} ${dep.paymentMethod}\n`;
+            buffer += `${padRight('', labelWidth)}${padLeft(formatCurrencyShort(dep.amount), 14)}\n`;
+        }
+        buffer += separator;
+    }
 
     // Footer
     buffer += Commands.CENTER;

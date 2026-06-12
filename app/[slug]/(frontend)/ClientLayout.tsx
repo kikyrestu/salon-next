@@ -17,12 +17,12 @@ export default function DashboardLayout({
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile state
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Desktop state
     const pathname = usePathname();
-    const isPosPage = pathname === "/pos" || pathname?.endsWith("/pos");
+    const isPublicOrPrintPage = pathname === "/pos" || pathname?.endsWith("/pos") || pathname?.includes("/portal/") || pathname?.includes("/print/");
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
     const toggleCollapse = () => setIsSidebarCollapsed(!isSidebarCollapsed);
 
-    if (isPosPage) {
+    if (isPublicOrPrintPage) {
         return (
             <div className="min-h-screen bg-gray-50">
                 <NavigationLoader />

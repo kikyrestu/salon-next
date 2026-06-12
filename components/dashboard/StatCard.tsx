@@ -5,6 +5,7 @@ interface StatCardProps {
     value: string | number;
     icon: LucideIcon;
     trend?: string;
+    trendDesc?: string;
     trendUp?: boolean;
     color: "blue" | "green" | "purple" | "orange" | "red";
 }
@@ -17,7 +18,7 @@ const colorMap = {
     red: "bg-red-500/10 text-red-600",
 };
 
-export default function StatCard({ title, value, icon: Icon, trend, trendUp, color }: StatCardProps) {
+export default function StatCard({ title, value, icon: Icon, trend, trendDesc, trendUp, color }: StatCardProps) {
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-md">
             <div className="flex items-center justify-between">
@@ -29,12 +30,14 @@ export default function StatCard({ title, value, icon: Icon, trend, trendUp, col
                     <Icon className="w-6 h-6" />
                 </div>
             </div>
-            {trend && (
+            {(trend || trendDesc) && (
                 <div className="mt-4 flex items-center text-sm">
-                    <span className={`font-medium ${trendUp ? "text-green-600" : "text-red-600"}`}>
-                        {trendUp ? "+" : ""}{trend}
-                    </span>
-                    <span className="text-gray-400 ml-2">from last month</span>
+                    {trend && (
+                        <span className={`font-medium ${trendUp !== undefined ? (trendUp ? "text-green-600" : "text-red-600") : "text-gray-500"}`}>
+                            {trendUp && trend.match(/^[0-9]/) ? "+" : ""}{trend}
+                        </span>
+                    )}
+                    {trendDesc && <span className={`text-gray-400 ${trend ? 'ml-2' : ''}`}>{trendDesc}</span>}
                 </div>
             )}
         </div>

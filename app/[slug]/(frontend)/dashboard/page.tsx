@@ -9,10 +9,14 @@ import RecentActivity from '@/components/dashboard/RecentActivity';
 import SalesChart from '@/components/dashboard/SalesChart';
 import ServiceChart from '@/components/dashboard/ServiceChart';
 import AIInsight from '@/components/dashboard/AIInsight';
+import DashboardFilter from '@/components/dashboard/DashboardFilter';
 import { Package, DollarSign, AlertTriangle, Calendar, Users, ShoppingBag } from 'lucide-react';
-import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, format, startOfMonth } from 'date-fns';
+import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, format, startOfMonth, startOfYear, differenceInDays } from 'date-fns';
 
-export default async function DashboardPage() {
+export default async function DashboardPage(props: any) {
+    const searchParams = await props.searchParams;
+    const range = searchParams?.range || "today";
+
     const session = await auth();
     const headersList = await headers();
     const tenantSlug = headersList.get('x-store-slug') || 'pusat';
@@ -27,9 +31,28 @@ export default async function DashboardPage() {
     const currencySymbol = getCurrencySymbol(storeSettings.currency);
 
     // Date Ranges
-    const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
-    const last30Days = startOfDay(subDays(new Date(), 30));
+    let rangeStart = startOfDay(new Date());
+    let rangeEnd = endOfDay(new Date());
+    let trendLabel = "Hari Ini";
+    let trendDescLabel = "Hari Ini";
+
+    if (range === "7d") {
+        rangeStart = startOfDay(subDays(new Date(), 6));
+        trendLabel = "7 Hari";
+        trendDescLabel = "Dalam 7 Hari Terakhir";
+    } else if (range === "30d") {
+        rangeStart = startOfDay(subDays(new Date(), 29));
+        trendLabel = "30 Hari";
+        trendDescLabel = "Dalam 30 Hari Terakhir";
+    } else if (range === "this_month") {
+        rangeStart = startOfMonth(new Date());
+        trendLabel = "Bulan Ini";
+        trendDescLabel = "Selama Bulan Ini";
+    } else if (range === "this_year") {
+        rangeStart = startOfYear(new Date());
+        trendLabel = "Tahun Ini";
+        trendDescLabel = "Selama Tahun Ini";
+    }
 
     // 1. Fetch Stats
     // 1. Fetch Stats - Optimized to parallel execution
@@ -51,15 +74,15 @@ export default async function DashboardPage() {
             status: "active"
         }),
         Invoice.find({
-            date: { $gte: todayStart, $lte: todayEnd },
+            date: { $gte: rangeStart, $lte: rangeEnd },
             status: "paid"
         }).lean(),
         Appointment.countDocuments({
-            date: { $gte: todayStart, $lte: todayEnd },
+            date: { $gte: rangeStart, $lte: rangeEnd },
             status: { $in: ['confirmed', 'completed'] }
         }),
         Invoice.find({
-            date: { $gte: last30Days, $lte: todayEnd },
+            date: { $gte: startOfDay(subDays(rangeStart, 30)), $lte: rangeEnd }, // Historical context if needed, but we can just use rangeStart
             status: "paid"
         }).lean()
     ]);
@@ -76,17 +99,30 @@ export default async function DashboardPage() {
         });
     });
 
-    const serviceChartData = Object.entries(serviceStats)
+    const sortedServices = Object.entries(serviceStats)
         .map(([name, revenue]) => ({ name, revenue }))
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 6);
+        .sort((a, b) => b.revenue - a.revenue);
 
-    // Sales Chart Data (Last 7 Days) - Optimized to single aggregation
-    const sevenDaysAgo = startOfDay(subDays(new Date(), 6));
+    const top10Services = sortedServices.slice(0, 10);
+    const otherServices = sortedServices.slice(10);
+    
+    if (otherServices.length > 0) {
+        const othersRevenue = otherServices.reduce((sum, s) => sum + s.revenue, 0);
+        top10Services.push({ name: 'Others', revenue: othersRevenue });
+    }
+    
+    const serviceChartData = top10Services;
+
+    // Sales Chart Data
+    // Determine dynamic range for the chart (if > 30 days, we could do months, but let's stick to days max 30 or what the range is)
+    const daysDiff = differenceInDays(rangeEnd, rangeStart) || 1;
+    const chartDays = Math.min(daysDiff, 30); // Show max 30 data points on chart
+    const chartStart = startOfDay(subDays(rangeEnd, chartDays));
+
     const salesAggregation = await Invoice.aggregate([
         {
             $match: {
-                date: { $gte: sevenDaysAgo, $lte: todayEnd },
+                date: { $gte: chartStart, $lte: rangeEnd },
                 status: "paid"
             }
         },
@@ -101,20 +137,20 @@ export default async function DashboardPage() {
 
     const salesMap = new Map(salesAggregation.map(item => [item._id, item.totalSales]));
     const chartData = [];
-    for (let i = 6; i >= 0; i--) {
-        const d = subDays(new Date(), i);
+    for (let i = chartDays; i >= 0; i--) {
+        const d = subDays(rangeEnd, i);
         const dateStr = format(d, 'yyyy-MM-dd');
         chartData.push({
-            name: format(d, 'EEE'),
+            name: format(d, 'dd MMM'),
             sales: salesMap.get(dateStr) || 0
         });
     }
 
-    // Customer Acquisition (Last 30 Days)
-    const customersInRange = [...new Set(monthInvoices.filter((inv: any) => inv.customer).map((inv: any) => String(inv.customer)))];
+    // Customer Acquisition
+    const customersInRange = [...new Set(todaysInvoices.filter((inv: any) => inv.customer).map((inv: any) => String(inv.customer)))];
     const existingCustomersRaw = await Invoice.distinct('customer', {
         customer: { $in: customersInRange },
-        date: { $lt: last30Days },
+        date: { $lt: rangeStart },
         status: { $nin: ['cancelled', 'voided'] }
     });
     const existingCount = existingCustomersRaw.length;
@@ -139,8 +175,9 @@ export default async function DashboardPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
                     <p className="text-gray-500">Welcome back, {session.user?.name || 'Admin'}! Here is what's happening today.</p>
                 </div>
-                <div className="mt-4 md:mt-0">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-900 text-white">
+                <div className="mt-4 md:mt-0 flex items-center space-x-3">
+                    <DashboardFilter />
+                    <span className="hidden md:inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-900 text-white">
                         {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </span>
                 </div>
@@ -151,10 +188,12 @@ export default async function DashboardPage() {
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
-                    title="Today's Revenue"
+                    title="Total Revenue"
                     value={`${currencySymbol}${todaysSales.toLocaleString()}`}
                     icon={DollarSign}
                     color="green"
+                    trend=""
+                    trendDesc={trendDescLabel}
                     trendUp={true}
                 />
                 <StatCard
@@ -162,7 +201,8 @@ export default async function DashboardPage() {
                     value={appointmentsToday.toString()}
                     icon={Calendar}
                     color="blue"
-                    trend="Today"
+                    trend=""
+                    trendDesc={trendDescLabel}
                     trendUp={true}
                 />
                 <StatCard
@@ -174,11 +214,12 @@ export default async function DashboardPage() {
                     trendUp={lowStockCount === 0}
                 />
                 <StatCard
-                    title="Orders Today"
+                    title="Total Orders"
                     value={ordersToday.toString()}
                     icon={ShoppingBag}
                     color="purple"
-                    trend="Today"
+                    trend=""
+                    trendDesc={trendDescLabel}
                     trendUp={true}
                 />
             </div>
@@ -190,7 +231,8 @@ export default async function DashboardPage() {
                     value={newCount.toString()}
                     icon={Users}
                     color="green"
-                    trend="30 Hari Terakhir"
+                    trend=""
+                    trendDesc={trendDescLabel}
                     trendUp={true}
                 />
                 <StatCard
@@ -198,7 +240,8 @@ export default async function DashboardPage() {
                     value={existingCount.toString()}
                     icon={Users}
                     color="blue"
-                    trend="30 Hari Terakhir"
+                    trend=""
+                    trendDesc={trendDescLabel}
                     trendUp={true}
                 />
                 <StatCard
@@ -206,7 +249,8 @@ export default async function DashboardPage() {
                     value={totalUnique.toString()}
                     icon={Users}
                     color="purple"
-                    trend="30 Hari Terakhir"
+                    trend=""
+                    trendDesc={trendDescLabel}
                     trendUp={true}
                 />
             </div>
