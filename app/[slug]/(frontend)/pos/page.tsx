@@ -229,6 +229,11 @@ export default function POSPage() {
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [visibleCount, setVisibleCount] = useState(24);
+
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [activeTab, activeCategory, search]);
 
   // Cart State
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -2499,7 +2504,7 @@ export default function POSPage() {
         }
 
         resetCheckoutState();
-        router.push(`/${slug}/invoices/print/${data.data._id}`);
+        router.push(`/invoices/print/${data.data._id}`);
       } else {
         alert(data.error || "Gagal membuat invoice");
       }
@@ -2803,7 +2808,15 @@ export default function POSPage() {
           </div>
 
           {/* Grid */}
-          <div className="flex-1 overflow-y-auto p-3 lg:p-4 bg-[#FCFAF8] pb-20 md:pb-4">
+          <div 
+            className="flex-1 overflow-y-auto p-3 lg:p-4 bg-[#FCFAF8] pb-20 md:pb-4 custom-scrollbar"
+            onScroll={(e) => {
+              const bottom = e.currentTarget.scrollHeight - e.currentTarget.scrollTop <= e.currentTarget.clientHeight + 150;
+              if (bottom && visibleCount < filteredItems.length) {
+                setVisibleCount(prev => prev + 24);
+              }
+            }}
+          >
             {loading ? (
               <div className="flex justify-center py-20">
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-900 border-t-transparent"></div>
@@ -2893,7 +2906,7 @@ export default function POSPage() {
               </div>
             ) : (
               <div className="grid grid-cols-2 xs:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 lg:gap-3">
-                {filteredItems.map((item) => {
+                {filteredItems.slice(0, visibleCount).map((item) => {
                   const children = item.type === "Service" ? (childrenMap.get(item._id) || []) : [];
                   const hasChildren = children.length > 0;
                   const isExpanded = expandedParent === item._id;
