@@ -8,7 +8,7 @@ import { Printer, ArrowLeft, Scissors } from "lucide-react";
 import { FormButton } from "@/components/dashboard/FormInput";
 import { getCurrencySymbol } from "@/lib/currency";
 import { QRCodeSVG } from "qrcode.react";
-import html2canvas from "html2canvas";
+import { toCanvas } from "html-to-image";
 
 import { MessageSquare } from "lucide-react";
 
@@ -172,11 +172,9 @@ export default function PrintInvoicePage() {
             setPrinting(true);
 
             // 1. Capture receipt HTML as canvas image
-            const canvas = await html2canvas(receiptRef.current, {
-                scale: 2, // Higher resolution for sharp print
+            const canvas = await toCanvas(receiptRef.current, {
+                pixelRatio: 2, // Higher resolution for sharp print
                 backgroundColor: '#ffffff',
-                useCORS: true,
-                logging: false,
             });
 
             // 2. Convert canvas to ESC/POS raster bitmap
