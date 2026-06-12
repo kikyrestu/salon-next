@@ -71,7 +71,8 @@ export async function POST(request: NextRequest) {
             const serviceNames = appt.services?.map((s: any) => s.name).join(', ') || '-';
 
             // Build date string
-            const dateOptions: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const tz = settings?.timezone || 'Asia/Jakarta';
+            const dateOptions: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz };
             const dateStr = new Date(appt.date).toLocaleDateString('id-ID', dateOptions);
 
             // Build message from template

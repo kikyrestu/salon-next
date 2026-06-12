@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useTenantRouter } from "@/hooks/useTenantRouter";
 import { format } from "date-fns";
 import { Printer, ArrowLeft, Scissors } from "lucide-react";
@@ -13,6 +13,7 @@ import { MessageSquare } from "lucide-react";
 
 export default function PrintInvoicePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = params.slug as string;
   const id = params.id as string;
     const router = useTenantRouter();
@@ -156,14 +157,16 @@ export default function PrintInvoicePage() {
                     Back
                 </button>
                 <div className="flex gap-2">
-                    <FormButton
-                        onClick={handleSendWaNota}
-                        icon={<MessageSquare className="w-4 h-4" />}
-                        className="bg-green-600 hover:bg-green-700 whitespace-nowrap"
-                        disabled={sendingWa}
-                    >
-                        {sendingWa ? "Mengirim..." : "Kirim WA"}
-                    </FormButton>
+                    {!searchParams?.get('autoSent') && (
+                        <FormButton
+                            onClick={handleSendWaNota}
+                            icon={<MessageSquare className="w-4 h-4" />}
+                            className="bg-green-600 hover:bg-green-700 whitespace-nowrap"
+                            disabled={sendingWa}
+                        >
+                            {sendingWa ? "Mengirim..." : "Kirim WA"}
+                        </FormButton>
+                    )}
                     <FormButton
                         onClick={handleBluetoothPrint}
                         icon={<Printer className="w-4 h-4" />}

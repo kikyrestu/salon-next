@@ -54,7 +54,7 @@ export async function POST(
     const storeName = settings.storeName || 'Salon';
     const storeAddress = settings.storeAddress || '';
     const invoiceNumber = invoice.invoiceNumber;
-    const dateStr = new Date(invoice.createdAt || new Date()).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' });
+    const dateStr = new Date(invoice.createdAt || new Date()).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).replace(/\./g, ':');
     const staffName = invoice.staff?.name || invoice.staffAssignments?.[0]?.staff?.name || 'Kasir';
     
     const subtotal = formatRupiah(invoice.subtotal);

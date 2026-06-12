@@ -2504,7 +2504,11 @@ export default function POSPage() {
         }
 
         resetCheckoutState();
-        router.push(`/invoices/print/${data.data._id}`);
+        if (customerId) {
+          router.push(`/invoices/print/${data.data._id}?autoSent=1`);
+        } else {
+          router.push(`/invoices/print/${data.data._id}`);
+        }
       } else {
         alert(data.error || "Gagal membuat invoice");
       }
