@@ -32,7 +32,8 @@ export const authConfig = {
                 nextUrl.pathname === '/api/payments/xendit/webhook' ||
                 nextUrl.pathname.startsWith('/api/auth') ||
                 nextUrl.pathname.startsWith('/api/public') ||
-                nextUrl.pathname.startsWith('/api/admin');
+                nextUrl.pathname.startsWith('/api/admin') ||
+                nextUrl.pathname.startsWith('/api/customers/portal');
 
             const isPublicRoute = isPublicPage || isPublicApi;
 

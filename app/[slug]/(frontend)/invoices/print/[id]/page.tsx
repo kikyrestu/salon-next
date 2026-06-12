@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTenantRouter } from "@/hooks/useTenantRouter";
 import { format } from "date-fns";
@@ -8,6 +8,7 @@ import { Printer, ArrowLeft, Scissors } from "lucide-react";
 import { FormButton } from "@/components/dashboard/FormInput";
 import { getCurrencySymbol } from "@/lib/currency";
 import { QRCodeSVG } from "qrcode.react";
+import html2canvas from "html2canvas";
 
 import { MessageSquare } from "lucide-react";
 
@@ -22,6 +23,8 @@ export default function PrintInvoicePage() {
     const [deposits, setDeposits] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [sendingWa, setSendingWa] = useState(false);
+    const [printing, setPrinting] = useState(false);
+    const receiptRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -72,6 +75,88 @@ export default function PrintInvoicePage() {
         }
     };
 
+    // Convert canvas image data to ESC/POS raster bitmap bytes
+    const canvasToEscPosBitmap = (canvas: HTMLCanvasElement): Uint8Array => {
+        const ctx = canvas.getContext('2d')!;
+        const width = canvas.width;
+        const height = canvas.height;
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const pixels = imageData.data;
+
+        // Thermal printer width in dots (80mm paper = 576 dots at 203dpi)
+        const PRINTER_WIDTH = 576;
+
+        // Scale image to printer width if needed
+        let scaledCanvas = canvas;
+        if (width !== PRINTER_WIDTH) {
+            scaledCanvas = document.createElement('canvas');
+            scaledCanvas.width = PRINTER_WIDTH;
+            scaledCanvas.height = Math.round(height * (PRINTER_WIDTH / width));
+            const sCtx = scaledCanvas.getContext('2d')!;
+            sCtx.drawImage(canvas, 0, 0, PRINTER_WIDTH, scaledCanvas.height);
+        }
+
+        const sCtx = scaledCanvas.getContext('2d')!;
+        const sWidth = scaledCanvas.width;
+        const sHeight = scaledCanvas.height;
+        const sImageData = sCtx.getImageData(0, 0, sWidth, sHeight);
+        const sPixels = sImageData.data;
+
+        // Each row: widthBytes = ceil(sWidth / 8)
+        const widthBytes = Math.ceil(sWidth / 8);
+        const bitmapRows: Uint8Array[] = [];
+
+        for (let y = 0; y < sHeight; y++) {
+            const row = new Uint8Array(widthBytes);
+            for (let x = 0; x < sWidth; x++) {
+                const idx = (y * sWidth + x) * 4;
+                const r = sPixels[idx];
+                const g = sPixels[idx + 1];
+                const b = sPixels[idx + 2];
+                // Convert to grayscale, threshold to black/white
+                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                if (gray < 128) {
+                    // Black pixel = bit ON
+                    const byteIdx = Math.floor(x / 8);
+                    const bitIdx = 7 - (x % 8);
+                    row[byteIdx] |= (1 << bitIdx);
+                }
+            }
+            bitmapRows.push(row);
+        }
+
+        // Build ESC/POS command: GS v 0 (raster bit image)
+        // Command: 0x1D 0x76 0x30 m xL xH yL yH [bitmap data]
+        // m=0 (normal), xL/xH = widthBytes, yL/yH = height
+        const header = new Uint8Array([
+            0x1B, 0x40, // ESC @ - Initialize printer
+            0x1D, 0x76, 0x30, 0x00, // GS v 0 m(0=normal)
+            widthBytes & 0xFF, (widthBytes >> 8) & 0xFF, // xL, xH
+            sHeight & 0xFF, (sHeight >> 8) & 0xFF, // yL, yH
+        ]);
+
+        // Flatten all bitmap rows
+        const totalBitmapSize = widthBytes * sHeight;
+        const bitmapData = new Uint8Array(totalBitmapSize);
+        for (let y = 0; y < sHeight; y++) {
+            bitmapData.set(bitmapRows[y], y * widthBytes);
+        }
+
+        // Feed and cut
+        const footer = new Uint8Array([
+            0x1B, 0x64, 0x04, // ESC d 4 - Feed 4 lines
+            0x1D, 0x56, 0x00, // GS V 0 - Full cut
+        ]);
+
+        // Combine: header + bitmap + footer
+        const result = new Uint8Array(header.length + bitmapData.length + footer.length);
+        result.set(header, 0);
+        result.set(bitmapData, header.length);
+        result.set(footer, header.length + bitmapData.length);
+
+        return result;
+    };
+
     const handleBluetoothPrint = async () => {
         try {
             if (!(navigator as any).bluetooth) {
@@ -79,18 +164,25 @@ export default function PrintInvoicePage() {
                 return;
             }
 
-            // 1. Fetch formatted receipt binary from server thermal API
-            const thermalRes = await fetch(`/api/invoices/${id}/thermal?width=80`, {
-                headers: { "x-store-slug": slug },
-            });
-            if (!thermalRes.ok) {
-                const errData = await thermalRes.json().catch(() => ({}));
-                throw new Error(errData.error || 'Gagal mengambil data struk dari server');
+            if (!receiptRef.current) {
+                alert("Receipt belum dimuat.");
+                return;
             }
-            const receiptArrayBuffer = await thermalRes.arrayBuffer();
-            const receiptBytes = new Uint8Array(receiptArrayBuffer);
 
-            // 2. Connect to Bluetooth printer
+            setPrinting(true);
+
+            // 1. Capture receipt HTML as canvas image
+            const canvas = await html2canvas(receiptRef.current, {
+                scale: 2, // Higher resolution for sharp print
+                backgroundColor: '#ffffff',
+                useCORS: true,
+                logging: false,
+            });
+
+            // 2. Convert canvas to ESC/POS raster bitmap
+            const receiptBytes = canvasToEscPosBitmap(canvas);
+
+            // 3. Connect to Bluetooth printer
             const device = await (navigator as any).bluetooth.requestDevice({
                 acceptAllDevices: true,
                 optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-4ae5-8fa9-9fafd205e455']
@@ -99,7 +191,7 @@ export default function PrintInvoicePage() {
             if (!device.gatt) throw new Error("Perangkat tidak memiliki GATT server.");
             const server = await device.gatt.connect();
 
-            // 3. Find writable characteristic
+            // 4. Find writable characteristic
             const servicesToTry = ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-4ae5-8fa9-9fafd205e455'];
             let characteristic: any = null;
 
@@ -116,7 +208,7 @@ export default function PrintInvoicePage() {
 
             if (!characteristic) throw new Error("Gagal mendapatkan layanan write untuk printer ini.");
 
-            // 4. Send receipt bytes in chunks
+            // 5. Send receipt bitmap in chunks
             const BATCH_SIZE = 256;
             for (let i = 0; i < receiptBytes.length; i += BATCH_SIZE) {
                 const chunk = receiptBytes.slice(i, i + BATCH_SIZE);
@@ -125,7 +217,8 @@ export default function PrintInvoicePage() {
                 } else {
                     await characteristic.writeValueWithoutResponse(chunk);
                 }
-                await new Promise(r => setTimeout(r, 20));
+                // Slightly longer delay for image data
+                await new Promise(r => setTimeout(r, 30));
             }
 
             alert("Struk berhasil dikirim ke printer bluetooth!");
@@ -133,10 +226,11 @@ export default function PrintInvoicePage() {
         } catch (error: any) {
             console.error("Bluetooth print error:", error);
             if (error.message?.includes('cancelled') || error.message?.includes('User cancelled')) {
-                // User cancelled BT dialog, don't show error
                 return;
             }
             alert("Error Bluetooth: " + error.message);
+        } finally {
+            setPrinting(false);
         }
     };
 
@@ -169,10 +263,11 @@ export default function PrintInvoicePage() {
                     )}
                     <FormButton
                         onClick={handleBluetoothPrint}
+                        disabled={printing}
                         icon={<Printer className="w-4 h-4" />}
                         className="bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap"
                     >
-                        Bluetooth
+                        {printing ? "Printing..." : "Bluetooth"}
                     </FormButton>
                     <FormButton
                         onClick={handlePrint}
@@ -185,145 +280,341 @@ export default function PrintInvoicePage() {
             </div>
 
             {/* Thermal Receipt Content */}
-            <div className="max-w-[300px] mx-auto bg-white p-4 shadow-xl print:shadow-none print:max-w-[300px] print:w-full print:p-0 print:m-0 font-mono text-[12px] leading-tight text-black border-t-8 border-gray-900 print:border-t-0">
+            <div ref={receiptRef} className="max-w-[380px] mx-auto bg-white p-6 shadow-xl print:shadow-none print:max-w-none print:w-full print:p-2 print:m-0 font-mono text-sm border-t-8 border-blue-900 print:border-t-0">
                 {/* Store Header */}
-                <div className="text-center mb-2">
-                    <div className="text-lg mb-1">{settings?.storeName || "SALON POS"}</div>
-                    <div>{settings?.address || "Alamat Toko"}</div>
-                    <div>{settings?.phone || "000-000-0000"}</div>
+                <div className="text-center mb-6">
+                    <h1 className="text-2xl font-bold uppercase tracking-tighter mb-1">{settings?.storeName || "SALON POS"}</h1>
+                    <p className="text-[11px] text-gray-500 uppercase">{settings?.address || "123 Beauty Lane, Salon City"}</p>
+                    <p className="text-[11px] text-gray-500">TEL: {settings?.phone || "000-000-0000"}</p>
+                    <div className="mt-4 border-y border-dashed border-gray-300 py-2">
+                        <p className="font-bold text-lg">TAX RECEIPT</p>
+                    </div>
                 </div>
-
-                <div className="border-b border-dashed border-black my-2"></div>
 
                 {/* Info Block */}
-                <div className="space-y-0.5">
-                    <div className="flex"><div className="w-12">No</div><div>: {invoice.invoiceNumber}</div></div>
-                    <div className="flex"><div className="w-12">Tgl</div><div>: {format(new Date(invoice.date), "dd/MM/yy HH:mm")}</div></div>
-                    <div className="flex"><div className="w-12">Staff</div><div>: {invoice.staff?.name || invoice.staffAssignments?.[0]?.staff?.name || "-"}</div></div>
-                    <div className="flex"><div className="w-12">Cust</div><div>: {invoice.customer?.name || "Walk-in"}</div></div>
+                <div className="space-y-1 mb-6 text-[12px]">
+                    <div className="flex justify-between">
+                        <span className="text-gray-500">Receipt No:</span>
+                        <span className="font-bold">{invoice.invoiceNumber}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-500">Date:</span>
+                        <span>{format(new Date(invoice.date), "dd/MM/yyyy HH:mm")}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-500">Customer:</span>
+                        <span className="font-bold">{invoice.customer?.name || "Walk-in"}</span>
+                    </div>
+
+                    {invoice.referralCode && (
+                        <div className="flex justify-between items-start text-xs border-dashed border border-gray-300 p-1 mt-1 bg-gray-50/50">
+                            <span className="text-gray-500">Referred By:</span>
+                            <span className="font-bold text-right ml-2 break-all">{invoice.customer?.referredBy?.name || "Member VIP"}</span>
+                        </div>
+                    )}
+                    {invoice.appointment && (
+                        <div className="flex justify-between">
+                            <span className="text-gray-500">Type:</span>
+                            <span className="text-indigo-600 font-bold uppercase">Appointment</span>
+                        </div>
+                    )}
                 </div>
 
-                <div className="border-b border-dashed border-black my-2"></div>
+                {/* Items Table */}
+                <table className="w-full mb-8 border-collapse">
+                    <thead>
+                        <tr className="border-b-2 border-gray-900 text-xs text-left text-gray-800 uppercase tracking-wider">
+                            <th className="py-3 font-bold" style={{ width: '45%' }}>Item Description</th>
+                            <th className="py-3 font-bold text-center" style={{ width: '10%' }}>Qty</th>
+                            <th className="py-3 font-bold text-right pr-2" style={{ width: '22%' }}>Unit Price</th>
+                            <th className="py-3 font-bold text-right" style={{ width: '23%' }}>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {(() => {
+                            const renderRows: React.ReactNode[] = [];
+                            const bundleGroups: Record<string, { children: any[]; totalPrice: number; totalAmount: number; totalDiscount: number }> = {};
+                            const renderOrder: { type: 'normal' | 'bundle'; key: string; item?: any }[] = [];
+                            const seenBundles = new Set<string>();
 
-                {/* Items Block */}
-                <div className="space-y-2">
-                    {invoice.items && invoice.items.map((item: any, idx: number) => {
-                        const isBundle = item.name?.match(/\(Bundle:\s*(.+)\)$/);
-                        let displayName = item.name;
-                        if (isBundle) displayName = `📦 Bundle: ${isBundle[1].trim()}`;
-                        return (
-                            <div key={idx}>
-                                <div>{displayName}</div>
-                                <div className="flex justify-between mt-0.5">
-                                    <div className="pl-2">{item.quantity} x {currencySymbol}{(item.price || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
-                                    <div>{currencySymbol}{(item.total || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                            invoice.items.forEach((item: any) => {
+                                const bundleMatch = item.name?.match(/\(Bundle:\s*(.+)\)$/);
+                                if (bundleMatch) {
+                                    const bundleName = bundleMatch[1].trim();
+                                    if (!bundleGroups[bundleName]) {
+                                        bundleGroups[bundleName] = { children: [], totalPrice: 0, totalAmount: 0, totalDiscount: 0 };
+                                    }
+                                    bundleGroups[bundleName].children.push(item);
+                                    bundleGroups[bundleName].totalPrice += (item.price || 0);
+                                    bundleGroups[bundleName].totalAmount += (item.total || 0);
+                                    bundleGroups[bundleName].totalDiscount += (item.discount || 0);
+                                    if (!seenBundles.has(bundleName)) {
+                                        seenBundles.add(bundleName);
+                                        renderOrder.push({ type: 'bundle', key: bundleName });
+                                    }
+                                } else {
+                                    renderOrder.push({ type: 'normal', key: 'normal', item });
+                                }
+                            });
+
+                            let globalIdx = 0;
+                            renderOrder.forEach((entry) => {
+                                if (entry.type === 'normal' && entry.item) {
+                                    const item = entry.item;
+                                    const rIdx = globalIdx++;
+                                    renderRows.push(
+                                        <tr key={`n-${rIdx}`} className="text-sm">
+                                            <td className="py-4 align-top">
+                                                <p className="font-bold text-gray-900">{item.name}</p>
+                                                <div className="mt-1 space-y-0.5">
+                                                    {item.itemModel === 'Service' && (
+                                                        <span className="inline-block px-1.5 py-0.5 bg-purple-50 text-purple-600 text-[9px] font-bold uppercase rounded">Service</span>
+                                                    )}
+                                                    {item.itemModel === 'Product' && (
+                                                        <span className="inline-block px-1.5 py-0.5 bg-green-50 text-green-600 text-[9px] font-bold uppercase rounded">Product</span>
+                                                    )}
+                                                    {item.itemModel === 'ServicePackage' && (
+                                                        <span className="inline-block px-1.5 py-0.5 bg-amber-50 text-amber-600 text-[9px] font-bold uppercase rounded">Package</span>
+                                                    )}
+                                                    {item.discount > 0 && (
+                                                        <p className="text-[10px] text-red-600 font-medium italic">
+                                                            * Includes discount of -{currencySymbol}{item.discount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="py-4 text-center align-top font-medium">{item.quantity}</td>
+                                            <td className="py-4 text-right align-top pr-2">{`${currencySymbol}${(item.price || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
+                                            <td className="py-4 text-right align-top font-black text-gray-900">{`${currencySymbol}${(item.total || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
+                                        </tr>
+                                    );
+                                } else if (entry.type === 'bundle') {
+                                    const group = bundleGroups[entry.key];
+                                    const bIdx = globalIdx++;
+                                    renderRows.push(
+                                        <tr key={`bh-${bIdx}`} className="text-sm">
+                                            <td className="py-4 align-top">
+                                                <p className="font-black text-gray-900">Bundle: {entry.key}</p>
+                                                <div className="mt-1 space-y-0.5">
+                                                    <span className="inline-block px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-bold uppercase rounded">Bundle</span>
+                                                    {group.totalDiscount > 0 && (
+                                                        <p className="text-[10px] text-red-600 font-medium italic">
+                                                            * Includes discount of -{currencySymbol}{group.totalDiscount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="py-4 text-center align-top font-medium">1</td>
+                                            <td className="py-4 text-right align-top pr-2">{`${currencySymbol}${group.totalPrice.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
+                                            <td className="py-4 text-right align-top font-black text-gray-900">{`${currencySymbol}${group.totalAmount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
+                                        </tr>
+                                    );
+                                    group.children.forEach((child: any, cIdx: number) => {
+                                        const serviceName = child.name.replace(/\s*\(Bundle:.*\)$/, '');
+                                        renderRows.push(
+                                            <tr key={`bc-${bIdx}-${cIdx}`} className="text-xs text-gray-500 border-0">
+                                                <td className="py-1.5 pl-6 align-top">
+                                                    <span className="text-gray-400 mr-1">↳</span>
+                                                    <span className="font-medium text-gray-700">{serviceName}</span>
+                                                    <div className="mt-0.5">
+                                                        <span className="inline-block px-1 py-0.5 bg-purple-50 text-purple-500 text-[8px] font-bold uppercase rounded">Service</span>
+                                                    </div>
+                                                </td>
+                                                <td className="py-1.5 text-center align-top">{child.quantity}</td>
+                                                <td className="py-1.5 text-right align-top pr-2">{`${currencySymbol}${(child.price || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })}`}</td>
+                                                <td className="py-1.5 text-right align-top text-gray-400"></td>
+                                            </tr>
+                                        );
+                                    });
+                                }
+                            });
+
+                            return renderRows;
+                        })()}
+                    </tbody>
+                </table>
+
+                {/* Package Usage Section */}
+                {invoice.packageUsage && invoice.packageUsage.length > 0 && (
+                    <div className="border-t border-dashed border-gray-400 py-3 mt-4 space-y-2">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Package Usage Detail</p>
+                        {invoice.packageUsage.map((pkg: any, idx: number) => (
+                            <div key={idx} className="bg-gray-50 p-2 rounded text-[11px] text-gray-700">
+                                <div className="flex justify-between font-bold mb-0.5 text-[12px] text-gray-900">
+                                    <span>{pkg.itemName}</span>
+                                    <span className="text-blue-700 bg-blue-100 px-1 rounded">{pkg.usedQuantity}x Dipakai</span>
                                 </div>
-                                {item.discount > 0 && (
-                                    <div className="pl-2 text-[10px] italic">
-                                        Disc: -{currencySymbol}{item.discount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                                <div className="flex justify-between text-[10px] text-gray-500">
+                                    <span>Paket: {pkg.packageName}</span>
+                                    <span>Sisa Kuota: <strong className="text-emerald-700 font-bold bg-emerald-100 px-1 rounded">{pkg.remainingQuota}</strong></span>
+                                </div>
+                                {pkg.expiryDate && (
+                                    <div className="text-[9px] text-gray-400 mt-1">
+                                        Berlaku s/d: {new Date(pkg.expiryDate).toLocaleDateString('id-ID')}
                                     </div>
                                 )}
-                            </div>
-                        );
-                    })}
-                </div>
-
-                <div className="border-b border-dashed border-black my-2"></div>
-
-                {/* Summary Section */}
-                <div className="space-y-0.5">
-                    <div className="flex justify-between">
-                        <span>Subtotal</span>
-                        <span>{currencySymbol}{invoice.subtotal.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                    </div>
-                    {invoice.discount > 0 && (
-                        <div className="flex justify-between">
-                            <span>Discount</span>
-                            <span>-{currencySymbol}{invoice.discount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                        </div>
-                    )}
-                    {settings?.showTaxAndTaxableAmountOnReceipt !== false && invoice.tax > 0 && (
-                        <div className="flex justify-between">
-                            <span>Tax</span>
-                            <span>{currencySymbol}{invoice.tax.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                        </div>
-                    )}
-                    {invoice.tips > 0 && (
-                        <div className="flex justify-between">
-                            <span>Tips</span>
-                            <span>{currencySymbol}{invoice.tips.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                        </div>
-                    )}
-                    <div className="flex justify-between font-bold text-sm mt-1">
-                        <span>TOTAL</span>
-                        <span>{currencySymbol}{invoice.totalAmount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>Bayar</span>
-                        <span>{currencySymbol}{invoice.amountPaid.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                    </div>
-                    {invoice.loyaltyPointsEarned > 0 && (
-                        <div className="flex justify-between">
-                            <span>Poin Didapat</span>
-                            <span>+{invoice.loyaltyPointsEarned}</span>
-                        </div>
-                    )}
-                </div>
-
-                <div className="border-b border-dashed border-black my-2"></div>
-
-                {/* Staff Recognition */}
-                {settings?.showStaffOnReceipt !== false && invoice.staffAssignments && invoice.staffAssignments.length > 0 && (
-                    <>
-                        <div>
-                            <div>Dilayani oleh:</div>
-                            {invoice.staffAssignments.map((a: any, i: number) => (
-                                <div key={i} className="pl-2">
-                                    {a.staff?.name || 'Staff Member'}
-                                    {a.tip > 0 && ` (Tip: ${currencySymbol}${a.tip.toLocaleString('id-ID', { maximumFractionDigits: 0 })})`}
-                                </div>
-                            ))}
-                        </div>
-                        <div className="border-b border-dashed border-black my-2"></div>
-                    </>
-                )}
-
-                {/* Payment History */}
-                <div className="text-center mb-1">
-                    METODE BAYAR: {invoice.paymentMethods && invoice.paymentMethods.length > 1 
-                        ? invoice.paymentMethods.map((pm: any) => pm.method).join(', ') 
-                        : invoice.paymentMethod || 'Cash'}
-                </div>
-                
-                {deposits && deposits.length > 0 && (
-                    <div className="mt-2">
-                        <div>RIWAYAT BAYAR</div>
-                        {deposits.map((dep: any, idx: number) => (
-                            <div key={idx} className="flex justify-between mt-0.5">
-                                <div>{format(new Date(dep.date), "dd/MM/yy HH:mm")} {dep.paymentMethod}</div>
-                                <div>{currencySymbol}{dep.amount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
                             </div>
                         ))}
                     </div>
                 )}
 
-                <div className="border-b border-dashed border-black my-2"></div>
+                {/* Summary Section */}
+                <div className="border-t-2 border-gray-900 pt-6 space-y-3 text-sm">
+                    <div className="flex justify-between items-center text-gray-600">
+                        <span className="font-medium">Gross Subtotal</span>
+                        <span className="font-bold">{currencySymbol}{invoice.subtotal.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                    </div>
+                    {invoice.discount > 0 && (
+                        <div className="flex flex-col text-red-600">
+                            <div className="flex justify-between items-center">
+                                <span className="font-medium">Total Discount</span>
+                                <span className="font-bold">-{currencySymbol}{invoice.discount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                            </div>
+                            {invoice.discountBreakdown && (
+                                <div className="ml-2 mt-1 space-y-0.5 border-l border-red-200 pl-2">
+                                    {invoice.discountBreakdown.manual > 0 && (
+                                        <div className="flex justify-between text-[11px] text-red-500">
+                                            <span>Manual ({invoice.discountBreakdown.manualReason || 'Discount'})</span>
+                                            <span>-{currencySymbol}{invoice.discountBreakdown.manual.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                        </div>
+                                    )}
+                                    {invoice.discountBreakdown.loyalty > 0 && (
+                                        <div className="flex justify-between text-[11px] text-red-500">
+                                            <span>Loyalty Points</span>
+                                            <span>-{currencySymbol}{invoice.discountBreakdown.loyalty.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                        </div>
+                                    )}
+                                    {invoice.discountBreakdown.referral > 0 && (
+                                        <div className="flex justify-between text-[11px] text-red-500">
+                                            <span>Referral Promo</span>
+                                            <span>-{currencySymbol}{invoice.discountBreakdown.referral.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                        </div>
+                                    )}
+                                    {invoice.discountBreakdown.voucher > 0 && (
+                                        <div className="flex justify-between text-[11px] text-red-500">
+                                            <span>Voucher</span>
+                                            <span>-{currencySymbol}{invoice.discountBreakdown.voucher.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    {settings?.showTaxAndTaxableAmountOnReceipt !== false && (
+                        <>
+                            <div className="flex justify-between items-center text-gray-800 border-t border-gray-100 pt-2">
+                                <span className="font-medium text-[12px] uppercase tracking-tight">Taxable Amount</span>
+                                <span className="font-bold">{currencySymbol}{(invoice.subtotal - invoice.discount).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-gray-700">
+                                <span className="font-medium">GST / Tax ({(invoice.subtotal - invoice.discount) > 0 ? ((invoice.tax / (invoice.subtotal - invoice.discount)) * 100).toFixed(0) : 0}%)</span>
+                                <span className="font-bold">{currencySymbol}{invoice.tax.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                            </div>
+                        </>
+                    )}
+                    {invoice.tips > 0 && (
+                        <div className="flex justify-between text-indigo-600 font-bold border-t border-indigo-100 pt-1">
+                            <span>Tips</span>
+                            <span>{currencySymbol}{invoice.tips.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between pt-4 border-t-2 border-double border-gray-900 text-xl font-black uppercase text-gray-900">
+                        <span>Grand Total</span>
+                        <span>{currencySymbol}{invoice.totalAmount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                    </div>
+
+                    {/* Staff Recognition */}
+                    {settings?.showStaffOnReceipt !== false && invoice.staffAssignments && invoice.staffAssignments.length > 0 && (
+                        <div className="mt-8 pt-6 border-t border-gray-100">
+                            <p className="mb-3 uppercase font-black tracking-widest text-[9px] text-gray-400 border-l-2 border-gray-200 pl-2">Served By</p>
+                            <div className="space-y-1.5 px-1 py-1">
+                                {invoice.staffAssignments.map((a: any, i: number) => (
+                                    <div key={i} className="flex items-center justify-between text-[11px] bg-gray-50/50 p-2 rounded border border-gray-100/50">
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 bg-gray-300 rounded-full"></div>
+                                            <span className="font-bold text-gray-800 uppercase tracking-tight">{a.staff?.name || 'Staff Member'}</span>
+                                        </div>
+                                        {a.tip > 0 && (
+                                            <span className="px-2 text-indigo-600 font-black italic underline decoration-indigo-200 underline-offset-2">Tip: {currencySymbol}{a.tip.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    <div className="flex justify-between text-green-700 font-bold">
+                        <span>Net Paid</span>
+                        <span>{currencySymbol}{Math.min(invoice.amountPaid, invoice.totalAmount).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                    </div>
+                    {invoice.totalAmount - invoice.amountPaid > 0 && (
+                        <div className="flex justify-between text-red-600 font-bold border-t border-dashed border-red-100 mt-1 pt-1">
+                            <span>Balance Due</span>
+                            <span>{currencySymbol}{Math.max(0, invoice.totalAmount - invoice.amountPaid).toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Payment History */}
+                {deposits.length > 0 && (
+                    <div className="mt-6 border-t border-gray-100 pt-4">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Payment History</p>
+                        <div className="space-y-2">
+                            {deposits.map((dep, idx) => (
+                                <div key={idx} className="flex justify-between text-[11px]">
+                                    <div className="text-gray-500">
+                                        <span>{format(new Date(dep.date), "dd/MM/yy HH:mm")}</span>
+                                        <span className="mx-2">•</span>
+                                        <span className="uppercase">{dep.paymentMethod}</span>
+                                    </div>
+                                    <span className="font-bold">{currencySymbol}{dep.amount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Footer Section */}
-                <div className="text-center mt-4">
-                    <div className="whitespace-pre-wrap">{settings?.receiptFooter || `Thank You for Visiting ${settings?.storeName || 'US'}.`}</div>
-                    
+                <div className="mt-10 text-center space-y-4">
+                    <div className="flex flex-col items-center gap-1">
+                        <p className="text-[10px] text-gray-500 uppercase tracking-widest">Payment Method</p>
+                        {invoice.paymentMethods && invoice.paymentMethods.length > 1 ? (
+                            <div className="flex flex-col items-center gap-1">
+                                {invoice.paymentMethods.map((pm: any, i: number) => (
+                                    <p key={i} className="font-bold text-sm bg-gray-100 px-3 py-1 rounded-full uppercase">
+                                        {pm.method}: {currencySymbol}{pm.amount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                                    </p>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="font-bold text-sm bg-gray-100 px-3 py-1 rounded-full uppercase">{invoice.paymentMethod || 'Cash'}</p>
+                        )}
+                    </div>
+
+                    <div className="pt-6 relative">
+                        <div className="absolute top-0 left-0 w-full border-t border-dashed border-gray-300"></div>
+                        <Scissors className="w-4 h-4 text-gray-300 absolute -top-2 left-1/2 -translate-x-1/2 bg-white px-1" />
+                        <p className="text-[11px] font-bold text-gray-900 mt-4 leading-relaxed">
+                            THANK YOU FOR CHOOSING {settings?.storeName || "US"}!<br />
+                            PLEASE VISIT AGAIN.
+                        </p>
+                        {settings?.receiptFooter && (
+                            <p className="text-[10px] text-gray-500 whitespace-pre-wrap mt-2">{settings.receiptFooter}</p>
+                        )}
+                        <p className="text-[9px] text-gray-400 mt-2 italic">Prices inclusive of taxes where applicable</p>
+                    </div>
+
                     {invoice.customer?.publicToken && (
-                        <div className="mt-4 flex flex-col items-center">
+                        <div className="pt-6 flex flex-col items-center gap-2">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Scan for Digital Receipt</p>
                             <QRCodeSVG 
                                 value={`${typeof window !== 'undefined' ? window.location.origin : ''}/${slug}/portal/${invoice.customer.publicToken}/invoice/${invoice._id}`} 
-                                size={80} 
+                                size={96} 
                                 level={"L"} 
                                 includeMargin={false} 
                             />
                         </div>
                     )}
-                    <div className="mt-2 text-[10px]">{invoice.invoiceNumber}</div>
+                    <p className="text-[8px] text-gray-300 tracking-[4px] uppercase mt-4">{invoice.invoiceNumber}</p>
                 </div>
             </div>
 
@@ -337,6 +628,14 @@ export default function PrintInvoicePage() {
                         height: auto !important;
                         width: 80mm !important;
                         overflow: visible !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                    }
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                        color-adjust: exact !important;
                     }
                     .print\\:hidden {
                         display: none !important;
