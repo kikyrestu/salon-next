@@ -83,11 +83,15 @@ export interface ThermalReceiptData {
     paperWidth?: 58 | 80; // mm
     isAppointment?: boolean;
     qrUrl?: string;
+    showStaffOnReceipt?: boolean;
 }
 
 export function buildReceiptBuffer(data: ThermalReceiptData): string {
-    const width = data.paperWidth === 80 ? 46 : 30; // character width
+    const width = data.paperWidth === 80 ? 46 : 32; // character width
     const separator = data.paperWidth === 80 ? Commands.SEPARATOR_80 : Commands.SEPARATOR_58;
+    const thickSeparator = data.paperWidth === 80 ? '==============================================\n' : '================================\n';
+    const cutLine = data.paperWidth === 80 ? '- - - - - - - - - - - - - - - - - - - - - - - \n' : '- - - - - - - - - - - - - - - -\n';
+    
     let buffer = '';
 
     // Initialize
@@ -96,10 +100,10 @@ export function buildReceiptBuffer(data: ThermalReceiptData): string {
     // Store Header
     buffer += Commands.CENTER;
     buffer += Commands.BOLD_ON;
-    buffer += `${data.storeName}\n`;
+    buffer += `${data.storeName.toUpperCase()}\n`;
     buffer += Commands.BOLD_OFF;
-    if (data.address) buffer += `${data.address}\n`;
-    if (data.phone) buffer += `${data.phone}\n`;
+    if (data.address) buffer += `${data.address.toUpperCase()}\n`;
+    if (data.phone) buffer += `TEL: ${data.phone}\n`;
     buffer += separator;
 
     // TAX RECEIPT Header
@@ -108,143 +112,161 @@ export function buildReceiptBuffer(data: ThermalReceiptData): string {
     buffer += Commands.BOLD_OFF;
     buffer += separator;
 
-    // Invoice Info
+    // Invoice Info (Right aligned values)
+    const labelWidth = width - 21; // Allocate more space to values
     buffer += Commands.LEFT;
-    buffer += `No      : ${data.invoiceNumber}\n`;
-    buffer += `Tanggal : ${formatDate(data.date)}\n`;
-    buffer += `Kasir   : ${data.staffName}\n`;
-    if (data.customerName) buffer += `Customer: ${data.customerName}\n`;
-    if (data.isAppointment) buffer += `Type    : APPOINTMENT\n`;
-    buffer += separator;
+    buffer += `${padRight('Receipt No:', labelWidth)}${padLeft(data.invoiceNumber, 21)}\n`;
+    buffer += `${padRight('Date:', labelWidth)}${padLeft(formatDate(data.date), 21)}\n`;
+    
+    if (data.customerName) {
+        buffer += padRight('Customer:', labelWidth);
+        buffer += Commands.BOLD_ON;
+        buffer += padLeft(data.customerName.toUpperCase(), 21);
+        buffer += Commands.BOLD_OFF;
+        buffer += '\n';
+    }
+    buffer += `\n`;
 
     // Items Header
-    // Column widths for 80mm (46 chars): ITEM (21) + QTY (5) + PRICE (10) + TOTAL (10)
-    // Column widths for 58mm (32 chars): ITEM (11) + QTY (4) + PRICE (8) + TOTAL (9)
     if (data.paperWidth === 80) {
-        buffer += `ITEM                  QTY  PRICE     TOTAL\n\n`;
+        buffer += `ITEM DESCRIPTION QTY      UNIT\n`;
+        buffer += `                         PRICE   SUBTOTAL\n`;
     } else {
-        buffer += `ITEM       QTY PRICE    TOTAL\n\n`;
+        buffer += `ITEM        QTY    PRICE   TOTAL\n`;
     }
+    buffer += thickSeparator;
 
     // Items
     for (const item of data.items) {
         const qtyStr = String(item.quantity);
-        // Remove 'Rp' and format with thousand separators
-        const priceStr = (item.price || 0).toLocaleString('id-ID');
-        const totalStr = (item.total || 0).toLocaleString('id-ID');
+        const priceStr = 'Rp' + (item.price || 0).toLocaleString('id-ID');
+        const totalStr = 'Rp' + (item.total || 0).toLocaleString('id-ID');
         
         let itemName = item.name;
         
         if (data.paperWidth === 80) {
             // Layout for 80mm
-            itemName = padRight(itemName, 21);
+            itemName = padRight(itemName, 17);
             const qtyPadded = padLeft(qtyStr, 3);
-            const pricePadded = padLeft(priceStr, 9);
-            const totalPadded = padLeft(totalStr, 10);
-            buffer += `${itemName} ${qtyPadded} ${pricePadded} ${totalPadded}\n`;
+            const pricePadded = padLeft(priceStr, 12);
+            const totalPadded = padLeft(totalStr, 12);
+            
+            buffer += Commands.BOLD_ON;
+            buffer += itemName;
+            buffer += Commands.BOLD_OFF;
+            buffer += ` ${qtyPadded} ${pricePadded} ${totalPadded}\n`;
+            
+            // Just add a nice label below for items since we can't do pill backgrounds
+            buffer += `  SERVICE\n`;
         } else {
-            // Layout for 58mm (max 32 chars)
-            itemName = padRight(itemName, 10);
+            // Layout for 58mm
+            itemName = padRight(itemName, 11);
             const qtyPadded = padLeft(qtyStr, 3);
             const pricePadded = padLeft(priceStr, 8);
-            const totalPadded = padLeft(totalStr, 9);
-            buffer += `${itemName} ${qtyPadded} ${pricePadded} ${totalPadded}\n`;
+            const totalPadded = padLeft(totalStr, 8);
+            buffer += Commands.BOLD_ON;
+            buffer += itemName;
+            buffer += Commands.BOLD_OFF;
+            buffer += ` ${qtyPadded} ${pricePadded} ${totalPadded}\n`;
         }
 
         if (item.discount > 0) {
             buffer += `  Diskon: -${formatCurrencyShort(item.discount)}\n`;
         }
+        buffer += `\n`;
     }
 
-    buffer += separator;
+    buffer += thickSeparator;
 
     // Totals
-    const labelWidth = width - 14;
-
-    buffer += `${padRight('Subtotal', labelWidth)}${padLeft(formatCurrencyShort(data.subtotal), 14)}\n`;
+    const totalLabelWidth = width - 15;
+    
+    buffer += `${padRight('Gross Subtotal', totalLabelWidth)}${padLeft('Rp' + (data.subtotal).toLocaleString('id-ID'), 15)}\n\n`;
 
     if (data.discount > 0) {
-        buffer += `${padRight('Diskon', labelWidth)}${padLeft('-' + formatCurrencyShort(data.discount), 14)}\n`;
+        buffer += `${padRight('Discount', totalLabelWidth)}${padLeft('-Rp' + (data.discount).toLocaleString('id-ID'), 15)}\n`;
     }
 
-    if (data.tax > 0) {
-        buffer += `${padRight('Pajak', labelWidth)}${padLeft(formatCurrencyShort(data.tax), 14)}\n`;
-    }
+    buffer += separator;
 
-    if (data.tips && data.tips > 0) {
-        buffer += `${padRight('Tips', labelWidth)}${padLeft(formatCurrencyShort(data.tips), 14)}\n`;
-    }
+    buffer += `${padRight('TAXABLE AMOUNT', totalLabelWidth)}${padLeft('Rp' + (data.subtotal - data.discount).toLocaleString('id-ID'), 15)}\n`;
+    
+    buffer += `${padRight(`GST / Tax`, totalLabelWidth)}${padLeft('Rp' + (data.tax).toLocaleString('id-ID'), 15)}\n`;
+
+    buffer += thickSeparator;
 
     buffer += Commands.BOLD_ON;
-    buffer += `${padRight('TOTAL', labelWidth)}${padLeft(formatCurrencyShort(data.totalAmount), 14)}\n`;
+    buffer += `${padRight('GRAND TOTAL', totalLabelWidth)}${padLeft('RP' + (data.totalAmount).toLocaleString('id-ID'), 15)}\n`;
     buffer += Commands.BOLD_OFF;
 
-    buffer += `${padRight('Bayar', labelWidth)}${padLeft(formatCurrencyShort(data.amountPaid), 14)}\n`;
+    buffer += `${padRight('Net Paid', totalLabelWidth)}${padLeft('Rp' + (data.amountPaid).toLocaleString('id-ID'), 15)}\n\n`;
 
-    const change = Math.max(0, data.amountPaid - data.totalAmount);
-    buffer += `${padRight('Kembali', labelWidth)}${padLeft(formatCurrencyShort(change), 14)}\n`;
-
-    const due = Math.max(0, data.totalAmount - data.amountPaid);
-    if (due > 0) {
-        buffer += `${padRight('Sisa Tagihan', labelWidth)}${padLeft(formatCurrencyShort(due), 14)}\n`;
-    }
-
-    // Loyalty info
-    if (data.loyaltyPointsUsed && data.loyaltyPointsUsed > 0) {
-        buffer += `${padRight('Poin Dipakai', labelWidth)}${padLeft(String(data.loyaltyPointsUsed), 14)}\n`;
-    }
-    if (data.loyaltyPointsEarned && data.loyaltyPointsEarned > 0) {
-        buffer += `${padRight('Poin Didapat', labelWidth)}${padLeft('+' + String(data.loyaltyPointsEarned), 14)}\n`;
-    }
-
-    buffer += separator;
-    
-    // Staff Assignments
-    if (data.staffAssignments && data.staffAssignments.length > 0) {
-        buffer += `Dilayani oleh:\n`;
+    // Served By (staff assignments)
+    if (data.showStaffOnReceipt !== false && data.staffAssignments && data.staffAssignments.length > 0) {
+        buffer += separator;
+        buffer += `SERVED BY\n`;
         for (const sa of data.staffAssignments) {
-            let line = `  ${sa.name}`;
-            if (sa.tip && sa.tip > 0) line += ` (tip: ${formatCurrencyShort(sa.tip)})`;
+            let line = `  * ${sa.name}`;
+            if (sa.tip && sa.tip > 0) {
+                const tipStr = 'Tip: Rp' + sa.tip.toLocaleString('id-ID');
+                line = padRight(line, totalLabelWidth);
+                line += padLeft(tipStr, 15);
+            }
             buffer += `${line}\n`;
         }
-        buffer += separator;
+        buffer += `\n`;
     }
 
-    // Payment Method(s)
-    buffer += Commands.LEFT;
-    if (data.paymentMethods && data.paymentMethods.length > 1) {
-        buffer += `Metode Bayar: MULTIPLE\n`;
-        for (const pm of data.paymentMethods) {
-            buffer += `  ${padRight(pm.method, labelWidth - 2)}${padLeft(formatCurrencyShort(pm.amount), 14)}\n`;
+    // Payment History
+    if (data.deposits && data.deposits.length > 0) {
+        buffer += `PAYMENT HISTORY\n`;
+        for (const dep of data.deposits) {
+            const depDate = formatDate(dep.date);
+            buffer += `${depDate} * ${dep.paymentMethod.toUpperCase()}`;
+            buffer += Commands.BOLD_ON;
+            buffer += padLeft('Rp' + dep.amount.toLocaleString('id-ID'), width - (depDate.length + 3 + dep.paymentMethod.length));
+            buffer += Commands.BOLD_OFF;
+            buffer += '\n';
         }
     } else {
-        buffer += `Metode Bayar: ${data.paymentMethod}\n`;
-    }
-    buffer += separator;
-
-    // Footer
-    buffer += Commands.CENTER;
-    if (data.receiptFooter) {
-        buffer += `${data.receiptFooter}\n`;
-    } else {
-        buffer += `Terima kasih telah berkunjung\n`;
-        buffer += `di ${data.storeName}\n`;
-    }
-    buffer += separator;
-
-    // Small payment history summary at the end
-    if (data.deposits && data.deposits.length > 0) {
-        const lastDep = data.deposits[data.deposits.length - 1];
-        const depDate = formatDate(lastDep.date);
-        buffer += `${depDate} ${lastDep.paymentMethod}\n`;
-    } else {
-        buffer += `${formatDate(data.date)} ${data.paymentMethod}\n`;
+        buffer += `PAYMENT HISTORY\n`;
+        const depDate = formatDate(data.date);
+        const historyLine = `${depDate} * ${data.paymentMethod.toUpperCase()}`;
+        buffer += historyLine;
+        buffer += Commands.BOLD_ON;
+        buffer += padLeft('Rp' + data.amountPaid.toLocaleString('id-ID'), width - historyLine.length);
+        buffer += Commands.BOLD_OFF;
+        buffer += '\n';
     }
     
-    // Add QR Code if qrUrl is provided
+    buffer += `\n`;
+
+    // Payment Method Centered
+    buffer += Commands.CENTER;
+    buffer += `PAYMENT METHOD\n`;
+    buffer += Commands.BOLD_ON;
+    buffer += `[ ${data.paymentMethod.toUpperCase()} ]\n`;
+    buffer += Commands.BOLD_OFF;
+    
+    buffer += `\n`;
+    buffer += cutLine;
+    buffer += `\n`;
+
+    // Footer messages
+    buffer += Commands.CENTER;
+    buffer += Commands.BOLD_ON;
+    buffer += `THANK YOU FOR CHOOSING ${data.storeName}!\n`;
+    buffer += `PLEASE VISIT AGAIN.\n\n`;
+    buffer += Commands.BOLD_OFF;
+    
+    buffer += `Thank you for your business!\n`;
+    buffer += `Prices inclusive of taxes where applicable\n\n`;
+    
+    // QR Code
     if (data.qrUrl) {
-        buffer += Commands.CENTER;
-        buffer += `\nNota Digital:\n`;
+        buffer += Commands.BOLD_ON;
+        buffer += `SCAN FOR DIGITAL RECEIPT\n`;
+        buffer += Commands.BOLD_OFF;
         
         // QR Code ESC/POS commands
         const qrData = data.qrUrl;
@@ -252,21 +274,18 @@ export function buildReceiptBuffer(data: ThermalReceiptData): string {
         const pL = storeLen & 0xFF;
         const pH = (storeLen >> 8) & 0xFF;
 
-        // 1. Set QR model to 2 (GS ( k 4 0 49 65 50 0)
         buffer += `${GS}(k\x04\x00\x31\x41\x32\x00`;
-        // 2. Set QR module size to 4 (GS ( k 3 0 49 67 4)
-        buffer += `${GS}(k\x03\x00\x31\x43\x04`;
-        // 3. Set QR error correction to L (GS ( k 3 0 49 69 48)
+        buffer += `${GS}(k\x03\x00\x31\x43\x05`; // Increased QR size from 4 to 5
         buffer += `${GS}(k\x03\x00\x31\x45\x30`;
-        // 4. Store QR data (GS ( k pL pH 49 80 48 [data])
         buffer += `${GS}(k${String.fromCharCode(pL)}${String.fromCharCode(pH)}\x31\x50\x30${qrData}`;
-        // 5. Print QR code (GS ( k 3 0 49 81 48)
         buffer += `${GS}(k\x03\x00\x31\x51\x30`;
         
         buffer += `\n`;
+        
+        // Invoice Number Spaced Out
+        const spacedInvoice = data.invoiceNumber.split('').join(' ');
+        buffer += `${spacedInvoice}\n`;
     }
-    
-    buffer += `\nPowered by Iseo POS\n`;
 
     // Feed and cut
     buffer += Commands.FEED_5;

@@ -55,7 +55,10 @@ export async function POST(
     const storeAddress = settings.storeAddress || '';
     const invoiceNumber = invoice.invoiceNumber;
     const dateStr = new Date(invoice.createdAt || new Date()).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).replace(/\./g, ':');
-    const staffName = invoice.staff?.name || invoice.staffAssignments?.[0]?.staff?.name || 'Kasir';
+    const showStaff = settings.showStaffOnReceipt !== false;
+    const staffName = showStaff
+        ? (invoice.staff?.name || invoice.staffAssignments?.[0]?.staff?.name || 'Kasir')
+        : '';
     
     const subtotal = formatRupiah(invoice.subtotal);
     const discount = formatRupiah(invoice.discount);
@@ -99,6 +102,11 @@ export async function POST(
       .replace(/\{\{?payment_method\}?\}/g, paymentMethod)
       .replace(/\{\{?receipt_footer\}?\}/g, receiptFooter)
       .replace(/\{\{?receiptFooter\}?\}/g, receiptFooter);
+
+    // Clean up empty staff lines when showStaffOnReceipt is off
+    if (!showStaff) {
+      message = message.replace(/^.*(?:Kasir|Staff|staff_name|staffName).*:\s*\n?/gm, '');
+    }
 
     let sentToCustomer = false;
     let sentToAdmin = false;
