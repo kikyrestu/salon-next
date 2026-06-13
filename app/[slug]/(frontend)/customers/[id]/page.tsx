@@ -151,9 +151,10 @@ function fmtDate(d: string): string {
 
 export default function CustomerDashboardPage() {
   const { data: session } = useSession();
-  const isSuperAdmin = (session as any)?.user?.role === 'superadmin' || 
+  const isAdmin = (session as any)?.user?.role === 'superadmin' || 
     (session as any)?.user?.role?.name?.toLowerCase() === 'super admin' || 
-    (session as any)?.user?.role?.name?.toLowerCase() === 'superadmin';
+    (session as any)?.user?.role?.name?.toLowerCase() === 'superadmin' ||
+    (session as any)?.user?.role?.name?.toLowerCase() === 'admin';
 
   const params = useParams();
   const slug = params.slug as string;
@@ -734,7 +735,7 @@ export default function CustomerDashboardPage() {
                       <span className="text-[10px] text-purple-500">
                           Exp: {pkg.expiresAt ? fmtDate(pkg.expiresAt) : "Seumur Hidup"}
                       </span>
-                      {isSuperAdmin && (
+                      {isAdmin && (
                         <div className="flex items-center gap-1">
                           <button onClick={() => openEditPackage(pkg)} className="p-1 text-purple-500 hover:text-purple-700 bg-white rounded-md border border-purple-200" title="Edit Paket">
                             <Edit className="w-3 h-3" />

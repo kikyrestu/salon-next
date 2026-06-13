@@ -82,6 +82,7 @@ export async function GET(request: NextRequest, props: any) {
             receiptFooter: settings?.receiptFooter || '',
             paperWidth,
             isAppointment: !!invoice.appointment,
+            qrUrl: invoice.code ? `https://fukomo.com/${tenantSlug}/r/${invoice.code}` : undefined,
         };
 
         const receiptBuffer = buildReceiptBuffer(receiptData);
