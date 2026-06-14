@@ -82,8 +82,11 @@ export async function GET(request: NextRequest, props: any) {
             receiptFooter: settings?.receiptFooter || '',
             paperWidth,
             isAppointment: !!invoice.appointment,
-            qrUrl: invoice.code ? `https://fukomo.com/${tenantSlug}/r/${invoice.code}` : undefined,
+            qrUrl: invoice.customer?.publicToken
+                ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://fukomo.com'}/${tenantSlug}/portal/${invoice.customer.publicToken}/invoice/${id}`
+                : undefined,
             showStaffOnReceipt: settings?.showStaffOnReceipt !== false,
+            showTaxOnReceipt: settings?.showTaxAndTaxableAmountOnReceipt !== false,
         };
 
         const receiptBuffer = buildReceiptBuffer(receiptData);

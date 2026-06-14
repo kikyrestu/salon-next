@@ -84,6 +84,7 @@ export interface ThermalReceiptData {
     isAppointment?: boolean;
     qrUrl?: string;
     showStaffOnReceipt?: boolean;
+    showTaxOnReceipt?: boolean;
 }
 
 export function buildReceiptBuffer(data: ThermalReceiptData): string {
@@ -106,9 +107,9 @@ export function buildReceiptBuffer(data: ThermalReceiptData): string {
     if (data.phone) buffer += `TEL: ${data.phone}\n`;
     buffer += separator;
 
-    // TAX RECEIPT Header
+    // Receipt Header
     buffer += Commands.BOLD_ON;
-    buffer += `TAX RECEIPT\n`;
+    buffer += `INVOICE\n`;
     buffer += Commands.BOLD_OFF;
     buffer += separator;
 
@@ -187,11 +188,13 @@ export function buildReceiptBuffer(data: ThermalReceiptData): string {
         buffer += `${padRight('Discount', totalLabelWidth)}${padLeft('-Rp' + (data.discount).toLocaleString('id-ID'), 15)}\n`;
     }
 
-    buffer += separator;
+    if (data.showTaxOnReceipt !== false) {
+        buffer += separator;
 
-    buffer += `${padRight('TAXABLE AMOUNT', totalLabelWidth)}${padLeft('Rp' + (data.subtotal - data.discount).toLocaleString('id-ID'), 15)}\n`;
-    
-    buffer += `${padRight(`GST / Tax`, totalLabelWidth)}${padLeft('Rp' + (data.tax).toLocaleString('id-ID'), 15)}\n`;
+        buffer += `${padRight('TAXABLE AMOUNT', totalLabelWidth)}${padLeft('Rp' + (data.subtotal - data.discount).toLocaleString('id-ID'), 15)}\n`;
+        
+        buffer += `${padRight('GST / Tax', totalLabelWidth)}${padLeft('Rp' + (data.tax).toLocaleString('id-ID'), 15)}\n`;
+    }
 
     buffer += thickSeparator;
 

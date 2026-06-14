@@ -154,7 +154,8 @@ export async function PUT(request: NextRequest, props: any) {
                             tip: 0
                         }]
                         : [],
-                    status: 'paid'
+                    status: 'paid',
+                    date: appointment.date
                 });
             }
         }
