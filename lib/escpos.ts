@@ -105,6 +105,7 @@ export function buildReceiptBuffer(data: ThermalReceiptData): string {
     buffer += Commands.BOLD_OFF;
     if (data.address) buffer += `${data.address.toUpperCase()}\n`;
     if (data.phone) buffer += `TEL: ${data.phone}\n`;
+    buffer += `\n`;
     buffer += separator;
 
     // Receipt Header
@@ -262,8 +263,9 @@ export function buildReceiptBuffer(data: ThermalReceiptData): string {
     buffer += `PLEASE VISIT AGAIN.\n\n`;
     buffer += Commands.BOLD_OFF;
     
-    buffer += `Thank you for your business!\n`;
-    buffer += `Prices inclusive of taxes where applicable\n\n`;
+    if (data.receiptFooter) {
+        buffer += `${data.receiptFooter}\n\n`;
+    }
     
     // QR Code
     if (data.qrUrl) {

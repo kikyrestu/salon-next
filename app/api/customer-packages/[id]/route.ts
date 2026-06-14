@@ -25,12 +25,6 @@ export async function PUT(request: NextRequest, props: any) {
         const { error: permissionError, session } = await checkPermissionWithSession(request, 'pos', 'edit');
         if (permissionError) return permissionError;
 
-        // Check Super Admin
-        const isSuperAdmin = (session as any)?.user?.role === 'Super Admin' || (session as any)?.user?.role?.name === 'Super Admin';
-        if (!isSuperAdmin) {
-            return NextResponse.json({ success: false, error: 'Hanya Super Admin yang dapat mengedit paket customer.' }, { status: 403 });
-        }
-
         const { id } = await props.params;
         const body = await request.json();
         const { expiresAt, serviceQuotas } = body;
@@ -64,11 +58,6 @@ export async function DELETE(request: NextRequest, props: any) {
     try {
         const { error: permissionError, session } = await checkPermissionWithSession(request, 'pos', 'delete');
         if (permissionError) return permissionError;
-
-        const isSuperAdmin = (session as any)?.user?.role === 'Super Admin' || (session as any)?.user?.role?.name === 'Super Admin';
-        if (!isSuperAdmin) {
-            return NextResponse.json({ success: false, error: 'Hanya Super Admin yang dapat menghapus paket customer.' }, { status: 403 });
-        }
 
         const { id } = await props.params;
         const pkg = await CustomerPackage.findByIdAndUpdate(id, { status: 'cancelled' }, { new: true });

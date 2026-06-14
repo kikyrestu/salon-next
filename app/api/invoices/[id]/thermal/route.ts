@@ -5,7 +5,7 @@ import { buildReceiptBuffer, ThermalReceiptData } from "@/lib/escpos";
 
 export async function GET(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Invoice, Settings, Deposit } = await getTenantModels(tenantSlug);
+    const { Invoice, Settings, Deposit, Customer } = await getTenantModels(tenantSlug);
 
     try {
         const { error: permissionError } = await checkPermissionWithSession(request, 'pos', 'view');
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, props: any) {
         const paperWidth = searchParams.get('width') === '80' ? 80 : 58;
 
         const invoice: any = await Invoice.findById(id)
-            .populate('customer', 'name phone')
+            .populate('customer', 'name phone publicToken')
             .populate('staff', 'name')
             .populate('staffAssignments.staff', 'name')
             .lean();
@@ -26,6 +26,14 @@ export async function GET(request: NextRequest, props: any) {
         }
 
         const settings: any = await Settings.findOne({}).lean();
+
+        // Auto-generate publicToken for customer if missing (needed for QR code)
+        if (invoice.customer && !invoice.customer.publicToken) {
+            const { randomUUID } = require('crypto');
+            const token = randomUUID();
+            await Customer.updateOne({ _id: invoice.customer._id }, { publicToken: token });
+            invoice.customer.publicToken = token;
+        }
 
         // Fetch deposits for payment history
         let deposits: any[] = [];

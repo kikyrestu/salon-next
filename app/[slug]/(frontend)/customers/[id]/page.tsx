@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams,  } from "next/navigation";
 import { useTenantRouter } from "@/hooks/useTenantRouter";
 import TenantLink from '@/components/TenantLink';
+import PermissionGate from "@/components/PermissionGate";
 import {
   ArrowLeft,
   Star,
@@ -735,16 +736,18 @@ export default function CustomerDashboardPage() {
                       <span className="text-[10px] text-purple-500">
                           Exp: {pkg.expiresAt ? fmtDate(pkg.expiresAt) : "Seumur Hidup"}
                       </span>
-                      {isAdmin && (
+                      <PermissionGate resource="pos" action="edit">
                         <div className="flex items-center gap-1">
                           <button onClick={() => openEditPackage(pkg)} className="p-1 text-purple-500 hover:text-purple-700 bg-white rounded-md border border-purple-200" title="Edit Paket">
                             <Edit className="w-3 h-3" />
                           </button>
-                          <button onClick={() => deletePackage(pkg._id)} className="p-1 text-red-500 hover:text-red-700 bg-white rounded-md border border-red-200" title="Batalkan Paket">
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          <PermissionGate resource="pos" action="delete">
+                            <button onClick={() => deletePackage(pkg._id)} className="p-1 text-red-500 hover:text-red-700 bg-white rounded-md border border-red-200" title="Batalkan Paket">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </PermissionGate>
                         </div>
-                      )}
+                      </PermissionGate>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-1.5">
