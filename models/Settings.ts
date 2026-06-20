@@ -50,6 +50,15 @@ const SettingsSchema = new mongoose.Schema({
         type: String,
         default: 'Thank you for your business!'
     },
+    receiptQrType: {
+        type: String,
+        enum: ['digital_receipt', 'custom', 'hidden'],
+        default: 'digital_receipt'
+    },
+    customReceiptQrLink: {
+        type: String,
+        default: ''
+    },
     showStaffOnReceipt: {
         type: Boolean,
         default: true

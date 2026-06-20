@@ -104,19 +104,25 @@ export default function ReportsPage() {
     const [drillDownLoading, setDrillDownLoading] = useState(false);
 
     const drillDownTotals = useMemo(() => {
-        if (!drillDownStaff || !drillDownData.length) return { commission: 0, revenue: 0 };
+        if (!drillDownStaff || !drillDownData.length) return { commission: 0, sellingCommission: 0, revenue: 0 };
         const staffMatch = staffList.find(sf => sf.name === drillDownStaff);
         const sid = staffMatch?._id;
         let commission = 0;
+        let sellingCommission = 0;
         let revenue = 0;
         drillDownData.forEach((inv: any) => {
             revenue += (inv.totalAmount || 0);
             let c = 0;
             (inv.staffAssignments || []).forEach((sa: any) => { if (String(sa.staff?._id || sa.staff || sa.staffId) === String(sid)) c += (sa.komisiNominal || sa.commission || 0); });
-            (inv.items || []).forEach((item: any) => { (item.staffAssignments || []).forEach((sa: any) => { if (String(sa.staff?._id || sa.staff || sa.staffId) === String(sid)) c += (sa.komisiNominal || sa.commission || 0); }); });
+            (inv.items || []).forEach((item: any) => {
+                (item.staffAssignments || []).forEach((sa: any) => { if (String(sa.staff?._id || sa.staff || sa.staffId) === String(sid)) c += (sa.komisiNominal || sa.commission || 0); });
+                if (item.sellingBy && String(item.sellingBy._id || item.sellingBy) === String(sid)) {
+                    sellingCommission += (item.sellingCommission || 0);
+                }
+            });
             commission += c;
         });
-        return { commission, revenue };
+        return { commission, sellingCommission, revenue };
     }, [drillDownData, drillDownStaff, staffList]);
 
     // Invoice preview modal (for sales report)
@@ -977,12 +983,41 @@ export default function ReportsPage() {
                                                         
                                                         return rows;
                                                     })}
+                                                    {/* === SELLING COMMISSION ROWS === */}
+                                                    {drillDownData.flatMap((inv: any) => {
+                                                        const staffMatch = staffList.find(s => s.name === drillDownStaff);
+                                                        const staffId = staffMatch?._id;
+                                                        const sellingRows: any[] = [];
+                                                        if (inv.items && inv.items.length > 0) {
+                                                            inv.items.forEach((item: any) => {
+                                                                if (item.sellingBy) {
+                                                                    const sellerId = String(item.sellingBy._id || item.sellingBy);
+                                                                    if (sellerId === String(staffId) && (item.sellingCommission || 0) > 0) {
+                                                                        sellingRows.push(
+                                                                            <tr key={`${inv._id}-${item._id}-selling`} className="hover:bg-yellow-50/50 bg-yellow-50/30">
+                                                                                <td className="px-4 py-3 text-gray-800 font-medium">
+                                                                                    <span className="text-[10px] font-bold text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded mr-1.5">SELLING</span>
+                                                                                    {item.name} <span className="text-xs text-gray-500">(x{item.quantity || 1})</span>
+                                                                                </td>
+                                                                                <td className="px-4 py-3 font-bold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline" onClick={() => openInvoicePreview(inv._id)}>{inv.invoiceNumber}</td>
+                                                                                <td className="px-4 py-3 text-gray-600">{formatSafeDate(inv.date)}</td>
+                                                                                <td className="px-4 py-3 text-gray-700">{inv.customer?.name || 'Walk-in'}</td>
+                                                                                <td className="px-4 py-3 font-bold text-yellow-700">{formatCurrency(item.sellingCommission || 0)}</td>
+                                                                                <td className="px-4 py-3 font-bold text-green-700">{formatCurrency((item.price || 0) * (item.quantity || 1))}</td>
+                                                                            </tr>
+                                                                        );
+                                                                    }
+                                                                }
+                                                            });
+                                                        }
+                                                        return sellingRows;
+                                                    })}
                                                 </tbody>
                                             </table>
                                         )}
                                     </div>
                                     <div className="px-6 py-3 border-t border-gray-100 text-xs text-gray-500 shrink-0">
-                                        Total: {drillDownData.length} invoice(s) | Commission: {formatCurrency(drillDownTotals.commission)} | Revenue: {formatCurrency(drillDownTotals.revenue)}
+                                        Total: {drillDownData.length} invoice(s) | Service Commission: {formatCurrency(drillDownTotals.commission)} | Selling Commission: {formatCurrency(drillDownTotals.sellingCommission)} | Revenue: {formatCurrency(drillDownTotals.revenue)}
                                     </div>
                                 </div>
                             </div>

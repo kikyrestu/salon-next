@@ -44,6 +44,7 @@ export async function GET(request: NextRequest, props: any) {
                             { staff: staffObjectId },
                             { 'staffAssignments.staff': staffObjectId },
                             { 'items.staffAssignments.staff': staffObjectId },
+                            { 'items.sellingBy': staffObjectId },
                         ];
                     } catch (err) {
                         // Ignore invalid ObjectId
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest, props: any) {
                     }
                 }
 
-                data = await Invoice.find(salesQuery).populate('customer staff').populate('items.staffAssignments.staff', 'name').populate('staffAssignments.staff', 'name').lean();
+                data = await Invoice.find(salesQuery).populate('customer staff').populate('items.staffAssignments.staff', 'name').populate('staffAssignments.staff', 'name').populate('items.sellingBy', 'name').lean();
                 break;
 
             case "services":

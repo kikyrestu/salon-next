@@ -61,8 +61,7 @@ export default async function DashboardPage(props: any) {
         lowStockItems,
         lowStockCount,
         todaysInvoices,
-        appointmentsToday,
-        monthInvoices
+        appointmentsToday
     ] = await Promise.all([
         Product.countDocuments({ status: "active" }),
         Product.find({
@@ -80,20 +79,16 @@ export default async function DashboardPage(props: any) {
         Appointment.countDocuments({
             date: { $gte: rangeStart, $lte: rangeEnd },
             status: { $in: ['confirmed', 'completed'] }
-        }),
-        Invoice.find({
-            date: { $gte: startOfDay(subDays(rangeStart, 30)), $lte: rangeEnd }, // Historical context if needed, but we can just use rangeStart
-            status: "paid"
-        }).lean()
+        })
     ]);
 
     const todaysSales = todaysInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
     const ordersToday = todaysInvoices.length;
 
     const serviceStats: Record<string, number> = {};
-    monthInvoices.forEach(inv => {
+    todaysInvoices.forEach(inv => {
         inv.items.forEach((item: any) => {
-            if (item.itemModel === 'Service') {
+            if (item.itemModel === 'Service' || item.itemModel === 'ServicePackage' || item.itemModel === 'ServiceBundle') {
                 serviceStats[item.name] = (serviceStats[item.name] || 0) + item.total;
             }
         });

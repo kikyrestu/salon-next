@@ -90,9 +90,13 @@ export async function GET(request: NextRequest, props: any) {
             receiptFooter: settings?.receiptFooter || '',
             paperWidth,
             isAppointment: !!invoice.appointment,
-            qrUrl: invoice.customer?.publicToken
-                ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://fukomo.com'}/${tenantSlug}/portal/${invoice.customer.publicToken}/invoice/${id}`
-                : undefined,
+            qrUrl: settings?.receiptQrType === 'hidden' 
+                ? undefined 
+                : settings?.receiptQrType === 'custom' && settings?.customReceiptQrLink
+                    ? settings.customReceiptQrLink
+                    : invoice.customer?.publicToken
+                        ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://fukomo.com'}/${tenantSlug}/portal/${invoice.customer.publicToken}/invoice/${id}`
+                        : undefined,
             showStaffOnReceipt: settings?.showStaffOnReceipt !== false,
             showTaxOnReceipt: settings?.showTaxAndTaxableAmountOnReceipt !== false,
         };

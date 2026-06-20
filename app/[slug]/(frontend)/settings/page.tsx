@@ -24,6 +24,8 @@ interface Settings {
     logoUrl: string;
     businessHours: string;
     receiptFooter: string;
+    receiptQrType?: string;
+    customReceiptQrLink?: string;
     showStaffOnReceipt: boolean;
     showTaxAndTaxableAmountOnReceipt: boolean;
     showCommissionInPOS: boolean;
@@ -141,6 +143,8 @@ export default function SettingsPage() {
         logoUrl: "",
         businessHours: "Mon-Fri: 9:00 AM - 6:00 PM",
         receiptFooter: "Thank you for your business!",
+        receiptQrType: "digital_receipt",
+        customReceiptQrLink: "",
         showStaffOnReceipt: true,
         showTaxAndTaxableAmountOnReceipt: true,
         showCommissionInPOS: false,
@@ -303,7 +307,9 @@ export default function SettingsPage() {
                     taxRate: data.data.taxRate || 0,
                     logoUrl: data.data.logoUrl || "",
                     businessHours: data.data.businessHours || "Mon-Fri: 9:00 AM - 6:00 PM",
-                    receiptFooter: data.data.receiptFooter || "Thank you for your business!",
+                    receiptFooter: data.data.receiptFooter || 'Thank you for your business!',
+                    receiptQrType: data.data.receiptQrType || 'digital_receipt',
+                    customReceiptQrLink: data.data.customReceiptQrLink || '',
                     showStaffOnReceipt: data.data.showStaffOnReceipt !== false,
                     showTaxAndTaxableAmountOnReceipt: data.data.showTaxAndTaxableAmountOnReceipt !== false,
                     showCommissionInPOS: data.data.showCommissionInPOS || false,
@@ -693,6 +699,45 @@ export default function SettingsPage() {
                                 />
                                 <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                             </label>
+                        </div>
+                        
+                        <div className="flex flex-col p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <p className="text-sm font-bold text-gray-900 mb-1">Receipt Footer Note</p>
+                            <p className="text-xs text-gray-500 mb-3">Teks tambahan di bagian bawah nota (contoh: "Barang yang sudah dibeli tidak dapat ditukar", atau "Info promo cek IG: @salonnext")</p>
+                            <textarea 
+                                className="w-full p-2 border border-gray-300 rounded-lg text-sm"
+                                rows={3}
+                                value={settings.receiptFooter || ''}
+                                onChange={(e) => setSettings({...settings, receiptFooter: e.target.value})}
+                                placeholder="Thank you for your business!"
+                            />
+                        </div>
+
+                        <div className="flex flex-col p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <p className="text-sm font-bold text-gray-900 mb-1">QR Code di Nota</p>
+                            <p className="text-xs text-gray-500 mb-3">Pilih tipe QR code yang ingin dicetak pada nota thermal.</p>
+                            <select 
+                                className="w-full p-2 border border-gray-300 rounded-lg text-sm mb-3"
+                                value={settings.receiptQrType || 'digital_receipt'}
+                                onChange={(e) => setSettings({...settings, receiptQrType: e.target.value})}
+                            >
+                                <option value="digital_receipt">QR Digital Receipt (Link ke nota online pelanggan)</option>
+                                <option value="custom">QR Custom (Link bebas)</option>
+                                <option value="hidden">Sembunyikan QR Code</option>
+                            </select>
+
+                            {settings.receiptQrType === 'custom' && (
+                                <div className="mt-2">
+                                    <p className="text-xs font-bold text-gray-700 mb-1">Link Kustom QR Code</p>
+                                    <input 
+                                        type="text"
+                                        className="w-full p-2 border border-gray-300 rounded-lg text-sm"
+                                        placeholder="https://wa.me/62812345... atau https://g.page/r/..."
+                                        value={settings.customReceiptQrLink || ''}
+                                        onChange={(e) => setSettings({...settings, customReceiptQrLink: e.target.value})}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

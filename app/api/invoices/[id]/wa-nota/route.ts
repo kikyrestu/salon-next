@@ -19,7 +19,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     
-    const { Invoice, Settings, ShortLink } = await getTenantModels(tenantSlug);
+    const { Invoice, Settings, ShortLink, PackageUsageLedger } = await getTenantModels(tenantSlug);
     
     const { Customer } = await getTenantModels(tenantSlug);
     const invoice = await Invoice.findById(id).populate('customer');
@@ -106,6 +106,44 @@ export async function POST(
     // Clean up empty staff lines when showStaffOnReceipt is off
     if (!showStaff) {
       message = message.replace(/^.*(?:Kasir|Staff|staff_name|staffName).*:\s*\n?/gm, '');
+    }
+
+    // === Tambah 3 Transaksi Terakhir & Riwayat Pemakaian Paket ===
+    if (invoice.customer?._id) {
+      // 3 Transaksi Terakhir
+      const recentInvoices = await Invoice.find({
+        customer: invoice.customer._id,
+        status: { $nin: ['cancelled', 'voided'] }
+      })
+        .select('invoiceNumber date totalAmount')
+        .sort({ date: -1 })
+        .limit(3)
+        .lean();
+
+      if (recentInvoices.length > 0) {
+        const txLines = recentInvoices.map((inv: any, i: number) => {
+          const d = new Date(inv.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+          return `${i + 1}. ${d} — ${inv.invoiceNumber} — ${formatRupiah(inv.totalAmount)}`;
+        }).join('\n');
+        message += `\n\n━━━━━━━━━━━━━━━━\n📋 *3 TRANSAKSI TERAKHIR:*\n${txLines}`;
+      }
+
+      // Riwayat Pemakaian Paket (semua)
+      const usages = await PackageUsageLedger.find({
+        customer: invoice.customer._id
+      })
+        .populate('customerPackage', 'packageName')
+        .sort({ usedAt: -1 })
+        .lean();
+
+      if (usages.length > 0) {
+        const usageLines = usages.map((u: any) => {
+          const d = new Date(u.usedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+          const pkgName = u.customerPackage?.packageName || 'Paket';
+          return `• ${d} — ${pkgName} (${u.serviceName}) — ${u.quantity}x`;
+        }).join('\n');
+        message += `\n\n📦 *RIWAYAT PEMAKAIAN PAKET:*\n${usageLines}\n━━━━━━━━━━━━━━━━`;
+      }
     }
 
     let sentToCustomer = false;
