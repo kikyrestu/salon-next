@@ -918,6 +918,7 @@ export default function ReportsPage() {
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Date</th>
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Customer</th>
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Commission</th>
+                                                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Selling Comm.</th>
                                                         <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Item Total</th>
                                                     </tr>
                                                 </thead>
@@ -943,6 +944,7 @@ export default function ReportsPage() {
                                                                     if (assigned) {
                                                                         const staffCount = item.staffAssignments.length;
                                                                         const itemTotal = (item.price || 0) * (item.quantity || 1);
+                                                                        const sellingComm = (item.sellingBy && String(item.sellingBy._id || item.sellingBy) === String(staffId)) ? (item.sellingCommission || 0) : 0;
                                                                         rows.push(
                                                                             <tr key={`${inv._id}-${item._id}`} className="hover:bg-gray-50/50">
                                                                                 <td className="px-4 py-3 text-gray-800 font-medium">{item.name} <span className="text-xs text-gray-500">(x{item.quantity || 1})</span></td>
@@ -950,6 +952,7 @@ export default function ReportsPage() {
                                                                                 <td className="px-4 py-3 text-gray-600">{formatSafeDate(inv.date)}</td>
                                                                                 <td className="px-4 py-3 text-gray-700">{inv.customer?.name || 'Walk-in'}</td>
                                                                                 <td className="px-4 py-3 font-bold text-blue-700">{formatCurrency(assigned.komisiNominal || assigned.commission || 0)}</td>
+                                                                                <td className="px-4 py-3 font-bold text-yellow-700">{formatCurrency(sellingComm)}</td>
                                                                                 <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(itemTotal / staffCount)}</td>
                                                                             </tr>
                                                                         );
@@ -968,6 +971,12 @@ export default function ReportsPage() {
                                                             
                                                             if (assigned) {
                                                                 const staffCount = inv.staffAssignments?.length || 1;
+                                                                const invSellingComm = (inv.items || []).reduce((sum: number, it: any) => {
+                                                                    if (it.sellingBy && String(it.sellingBy._id || it.sellingBy) === String(staffId)) {
+                                                                        return sum + (it.sellingCommission || 0);
+                                                                    }
+                                                                    return sum;
+                                                                }, 0);
                                                                 rows.push(
                                                                     <tr key={inv._id} className="hover:bg-gray-50/50">
                                                                         <td className="px-4 py-3 text-gray-800 font-medium text-xs truncate max-w-[200px]">{inv.items?.map((it: any) => it.name).join(', ') || 'Global Invoice'}</td>
@@ -975,6 +984,7 @@ export default function ReportsPage() {
                                                                         <td className="px-4 py-3 text-gray-600">{formatSafeDate(inv.date)}</td>
                                                                         <td className="px-4 py-3 text-gray-700">{inv.customer?.name || 'Walk-in'}</td>
                                                                         <td className="px-4 py-3 font-bold text-blue-700">{formatCurrency(assigned.komisiNominal || assigned.commission || 0)}</td>
+                                                                        <td className="px-4 py-3 font-bold text-yellow-700">{formatCurrency(invSellingComm)}</td>
                                                                         <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(inv.totalAmount / staffCount)}</td>
                                                                     </tr>
                                                                 );
@@ -982,35 +992,6 @@ export default function ReportsPage() {
                                                         }
                                                         
                                                         return rows;
-                                                    })}
-                                                    {/* === SELLING COMMISSION ROWS === */}
-                                                    {drillDownData.flatMap((inv: any) => {
-                                                        const staffMatch = staffList.find(s => s.name === drillDownStaff);
-                                                        const staffId = staffMatch?._id;
-                                                        const sellingRows: any[] = [];
-                                                        if (inv.items && inv.items.length > 0) {
-                                                            inv.items.forEach((item: any) => {
-                                                                if (item.sellingBy) {
-                                                                    const sellerId = String(item.sellingBy._id || item.sellingBy);
-                                                                    if (sellerId === String(staffId) && (item.sellingCommission || 0) > 0) {
-                                                                        sellingRows.push(
-                                                                            <tr key={`${inv._id}-${item._id}-selling`} className="hover:bg-yellow-50/50 bg-yellow-50/30">
-                                                                                <td className="px-4 py-3 text-gray-800 font-medium">
-                                                                                    <span className="text-[10px] font-bold text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded mr-1.5">SELLING</span>
-                                                                                    {item.name} <span className="text-xs text-gray-500">(x{item.quantity || 1})</span>
-                                                                                </td>
-                                                                                <td className="px-4 py-3 font-bold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline" onClick={() => openInvoicePreview(inv._id)}>{inv.invoiceNumber}</td>
-                                                                                <td className="px-4 py-3 text-gray-600">{formatSafeDate(inv.date)}</td>
-                                                                                <td className="px-4 py-3 text-gray-700">{inv.customer?.name || 'Walk-in'}</td>
-                                                                                <td className="px-4 py-3 font-bold text-yellow-700">{formatCurrency(item.sellingCommission || 0)}</td>
-                                                                                <td className="px-4 py-3 font-bold text-green-700">{formatCurrency((item.price || 0) * (item.quantity || 1))}</td>
-                                                                            </tr>
-                                                                        );
-                                                                    }
-                                                                }
-                                                            });
-                                                        }
-                                                        return sellingRows;
                                                     })}
                                                 </tbody>
                                             </table>
