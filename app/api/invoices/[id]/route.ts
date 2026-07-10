@@ -121,7 +121,7 @@ export async function PUT(request: NextRequest, props: any) {
  */
 export async function DELETE(request: NextRequest, props: any) {
     const tenantSlug = request.headers.get('x-store-slug') || 'pusat';
-    const { Invoice, Customer, PackageOrder, CustomerPackage, PackageUsageLedger } = await getTenantModels(tenantSlug);
+    const { Invoice, Customer, PackageOrder, CustomerPackage, PackageUsageLedger, CashBalance, CashLog } = await getTenantModels(tenantSlug);
 
     try {
         // Must be Super Admin to void an invoice
@@ -157,6 +157,10 @@ export async function DELETE(request: NextRequest, props: any) {
             return NextResponse.json({ success: false, error: "Invoice sudah di-void sebelumnya" }, { status: 400 });
         }
 
+        // Simpan status asli SEBELUM di-overwrite jadi 'voided' — dipakai untuk
+        // menentukan apakah invoice ini sempat menambah saldo kasir saat dibuat.
+        const wasPaidOrPartial = invoice.status === 'paid' || invoice.status === 'partially_paid';
+
         // Get void reason from request body
         let voidReason = 'No reason provided';
         try {
@@ -171,6 +175,50 @@ export async function DELETE(request: NextRequest, props: any) {
         invoice.voidedAt = new Date();
         invoice.voidReason = voidReason;
         await invoice.save();
+
+        // --- CASH DRAWER REVERSAL ---
+        // [BUG FIX] Saat invoice dibuat & dibayar cash, POST /api/invoices menambah
+        // CashBalance.kasirBalance (lihat blok "CASH DRAWER INTEGRATION" di sana).
+        // Sebelumnya, void di sini TIDAK pernah membalikkan penambahan itu, jadi
+        // saldo laci kasir tetap "kegedean" walau invoice-nya sudah dibatalkan.
+        // Reversal ini pakai logic yang sama persis (paymentMethods -> fallback
+        // paymentMethod) supaya konsisten dengan cara nominal cash dihitung saat
+        // invoice dibuat.
+        if (wasPaidOrPartial) {
+            let cashAmount = 0;
+
+            if (invoice.paymentMethods && invoice.paymentMethods.length > 0) {
+                const cashPayment = invoice.paymentMethods.find((p: any) => p.method.toLowerCase() === 'cash');
+                if (cashPayment) cashAmount = cashPayment.amount;
+            } else if (invoice.paymentMethod && invoice.paymentMethod.toLowerCase() === 'cash') {
+                cashAmount = invoice.amountPaid || invoice.totalAmount;
+            }
+
+            if (cashAmount > 0) {
+                const balance = await CashBalance.findOneAndUpdate(
+                    {},
+                    { $inc: { kasirBalance: -cashAmount }, $set: { lastUpdatedAt: new Date() } },
+                    { new: true, upsert: true }
+                );
+
+                await CashLog.create({
+                    type: 'void',
+                    amount: cashAmount,
+                    sourceLocation: 'kasir',
+                    destinationLocation: 'customer',
+                    performedBy: session.user.id,
+                    description: `VOID Invoice ${invoice.invoiceNumber} — saldo kasir dikembalikan (${voidReason})`,
+                    referenceModel: 'Invoice',
+                    referenceId: invoice._id,
+                    balanceAfter: {
+                        kasir: balance.kasirBalance,
+                        brankas: balance.brankasBalance,
+                        bank: balance.bankBalance
+                    }
+                });
+            }
+        }
+        // -------------------------------
 
         // [BUG FIX] Jika ini pembelian paket, otomatis hanguskan paket pelanggan (CustomerPackage)
         if (invoice.sourceType === 'package_purchase' && invoice.notes) {

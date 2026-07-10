@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export type CashLocation = 'kasir' | 'brankas' | 'bank' | 'owner' | 'customer' | 'expense' | 'system';
-export type CashTransactionType = 'sale' | 'expense' | 'transfer' | 'adjustment' | 'open_session' | 'close_session';
+export type CashTransactionType = 'sale' | 'expense' | 'transfer' | 'adjustment' | 'open_session' | 'close_session' | 'void';
 
 export interface ICashLog extends Document {
     date: Date;
@@ -24,7 +24,7 @@ const cashLogSchema = new Schema<ICashLog>({
     date: { type: Date, default: Date.now },
     type: { 
         type: String, 
-        enum: ['sale', 'expense', 'transfer', 'adjustment', 'open_session', 'close_session'],
+        enum: ['sale', 'expense', 'transfer', 'adjustment', 'open_session', 'close_session', 'void'],
         required: true 
     },
     amount: { type: Number, required: true },

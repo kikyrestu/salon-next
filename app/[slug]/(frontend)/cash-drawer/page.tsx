@@ -164,6 +164,7 @@ export default function CashDrawerPage() {
     const getAmountColor = (log: any) => {
         const isOut = ['bank', 'owner'].includes(log.destinationLocation) || 
                       log.type === 'expense' || 
+                      log.type === 'void' ||
                       (log.sourceLocation === 'kasir' && log.destinationLocation === 'system');
         const isIn = log.type === 'sale' || log.type === 'deposit' || 
                      (log.sourceLocation === 'system' && log.destinationLocation === 'kasir');
@@ -310,6 +311,7 @@ export default function CashDrawerPage() {
                                             <span className={`px-2 py-1 rounded text-xs font-bold uppercase
                                                 ${log.type === 'sale' ? 'bg-green-100 text-green-700' : 
                                                 log.type === 'expense' ? 'bg-red-100 text-red-700' :
+                                                log.type === 'void' ? 'bg-red-100 text-red-700' :
                                                 log.type === 'transfer' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
                                                 {log.type}
                                             </span>
