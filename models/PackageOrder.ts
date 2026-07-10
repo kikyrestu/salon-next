@@ -22,6 +22,10 @@ export interface IPackageOrder extends Document {
   status: PackageOrderStatus;
   paymentTransaction?: mongoose.Types.ObjectId;
   activatedCustomerPackage?: mongoose.Types.ObjectId;
+  // [BUG FIX] Staff yang menjual paket ini, dipakai untuk komisi penjualan.
+  // Sebelumnya tidak ada tempat menyimpan ini sama sekali, jadi komisi
+  // penjualan paket tidak pernah muncul di laporan Staff Performance / Payroll.
+  sellingBy?: mongoose.Types.ObjectId;
 }
 
 const packageOrderSchema = new Schema<IPackageOrder>(
@@ -53,6 +57,7 @@ const packageOrderSchema = new Schema<IPackageOrder>(
     },
     paymentTransaction: { type: Schema.Types.ObjectId, ref: 'PaymentTransaction' },
     activatedCustomerPackage: { type: Schema.Types.ObjectId, ref: 'CustomerPackage' },
+    sellingBy: { type: Schema.Types.ObjectId, ref: 'Staff' },
   },
   { timestamps: true }
 );

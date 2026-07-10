@@ -8,6 +8,7 @@ interface PackageOrderBody {
   customerId: string;
   packageId: string;
   discount?: number;
+  sellingBy?: string;
 }
 
 function makeOrderNumber(): string {
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest, props: any) {
     
 
     const body = (await request.json()) as PackageOrderBody;
-    const { customerId, packageId, discount = 0 } = body;
+    const { customerId, packageId, discount = 0, sellingBy } = body;
 
     if (!customerId || !packageId) {
       return NextResponse.json({ success: false, error: 'customerId and packageId are required' }, { status: 400 });
@@ -66,6 +67,10 @@ export async function POST(request: NextRequest, props: any) {
 
     if (!mongoose.Types.ObjectId.isValid(customerId) || !mongoose.Types.ObjectId.isValid(packageId)) {
       return NextResponse.json({ success: false, error: 'Invalid customerId or packageId' }, { status: 400 });
+    }
+
+    if (sellingBy && !mongoose.Types.ObjectId.isValid(sellingBy)) {
+      return NextResponse.json({ success: false, error: 'Invalid sellingBy staff id' }, { status: 400 });
     }
 
     const [customer, servicePackage] = await Promise.all([
@@ -103,6 +108,7 @@ export async function POST(request: NextRequest, props: any) {
       amount: Math.max(0, Number(servicePackage.price || 0) - discount),
       discount: discount,
       status: 'pending',
+      ...(sellingBy ? { sellingBy } : {}),
     });
 
     return NextResponse.json({

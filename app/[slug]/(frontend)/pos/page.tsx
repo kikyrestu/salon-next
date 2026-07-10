@@ -666,8 +666,15 @@ export default function POSPage() {
               serviceName: s.service?.name,
               servicePrice: s.service?.price,
               duration: s.service?.duration,
-              commissionType: s.service?.commissionType,
-              commissionValue: s.service?.commissionValue,
+              // [BUG FIX] Sebelumnya baca s.service?.commissionType/commissionValue —
+              // itu komisi master Service standalone, BUKAN komisi khusus yang
+              // di-set admin di dalam form Bundle (halaman Bundles, per-service).
+              // Akibatnya kalau komisi master Service-nya 0 (wajar, karena
+              // komisinya justru mau di-set khusus lewat bundle), validasi POS
+              // "Komisi service X dalam bundle Y belum diisi" selalu gagal dan
+              // checkout Bundle (sendiri atau digabung Service) tidak bisa diproses.
+              commissionType: s.commissionType || s.service?.commissionType,
+              commissionValue: s.commissionValue || s.service?.commissionValue,
             })),
           })),
         );
@@ -2069,6 +2076,7 @@ export default function POSPage() {
               customerId,
               packageId: packageItem._id,
               discount: totalDiscountForThisPackage,
+              sellingBy: packageItem.sellingBy || undefined,
             }),
           });
 

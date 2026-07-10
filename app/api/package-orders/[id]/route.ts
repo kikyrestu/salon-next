@@ -120,6 +120,16 @@ export async function PATCH(request: NextRequest, props: any) {
 
       const invoiceNumber = await generateInvoiceNumber(tenantSlug);
 
+      // [BUG FIX] Sebelumnya commissionAmount cuma disimpen di field flat
+      // `invoice.commission` tanpa ada info staff-nya sama sekali. Report Staff
+      // Performance & Payroll sama-sama nyari staff lewat item.sellingBy /
+      // item.staffAssignments / invoice.staffAssignments / invoice.staff — semua
+      // itu kosong untuk invoice pembelian paket, jadi komisinya nggak pernah
+      // ke-attribute ke staff manapun. Fix: taruh juga di item.sellingBy +
+      // item.sellingCommission (field yang sama yang dipakai Product/Service),
+      // biar konsisten kebaca sama report & payroll tanpa perlu ubah logic lain.
+      const sellingByStaffId = order.sellingBy || undefined;
+
       createdInvoice = await Invoice.create({
         invoiceNumber,
         customer: order.customer,
@@ -137,6 +147,8 @@ export async function PATCH(request: NextRequest, props: any) {
           quantity: 1,
           discount: order.discount || 0,
           total: amount,
+          sellingBy: sellingByStaffId,
+          sellingCommission: sellingByStaffId ? commissionAmount : 0,
         }],
         subtotal: order.packageSnapshot?.price || amount,
         tax: 0,
