@@ -988,6 +988,29 @@ export default function ReportsPage() {
                                                                         <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(inv.totalAmount / staffCount)}</td>
                                                                     </tr>
                                                                 );
+                                                            } else {
+                                                                // [BUG FIX] Invoice tanpa staffAssignments/inv.staff sama sekali (mis. invoice
+                                                                // pembelian paket) sebelumnya ngga pernah dirender di sini walaupun API
+                                                                // /api/reports?type=sales sudah benar memfilter invoice ini lewat
+                                                                // items.sellingBy. Akibatnya modal "Detail" keliatan kosong padahal
+                                                                // datanya ada. Fallback ke item-level sellingBy kalau ngga ada assignment
+                                                                // level manapun yang match.
+                                                                const sellingByItems = (inv.items || []).filter((it: any) => it.sellingBy && String(it.sellingBy._id || it.sellingBy) === String(staffId));
+                                                                if (sellingByItems.length > 0) {
+                                                                    const invSellingComm = sellingByItems.reduce((sum: number, it: any) => sum + (it.sellingCommission || 0), 0);
+                                                                    const itemsTotal = sellingByItems.reduce((sum: number, it: any) => sum + ((it.price || 0) * (it.quantity || 1) - (it.discount || 0)), 0);
+                                                                    rows.push(
+                                                                        <tr key={`${inv._id}-selling`} className="hover:bg-gray-50/50">
+                                                                            <td className="px-4 py-3 text-gray-800 font-medium text-xs truncate max-w-[200px]">{sellingByItems.map((it: any) => it.name).join(', ')}</td>
+                                                                            <td className="px-4 py-3 font-bold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline" onClick={() => openInvoicePreview(inv._id)}>{inv.invoiceNumber}</td>
+                                                                            <td className="px-4 py-3 text-gray-600">{formatSafeDate(inv.date)}</td>
+                                                                            <td className="px-4 py-3 text-gray-700">{inv.customer?.name || 'Walk-in'}</td>
+                                                                            <td className="px-4 py-3 font-bold text-blue-700">{formatCurrency(0)}</td>
+                                                                            <td className="px-4 py-3 font-bold text-yellow-700">{formatCurrency(invSellingComm)}</td>
+                                                                            <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(itemsTotal)}</td>
+                                                                        </tr>
+                                                                    );
+                                                                }
                                                             }
                                                         }
                                                         

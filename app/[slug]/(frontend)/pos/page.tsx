@@ -3328,10 +3328,17 @@ export default function POSPage() {
                   )}
 
                   {/* Inline Staff Assignment (Side by Side) */}
-                  {["Service", "Product", "Package", "Bundle"].includes(item.type) && (
+                  {/* NOTE: "Assign Staff" (staffAssignments) is intentionally NOT shown for Package.
+                      Package purchases go through /api/package-orders -> PATCH /api/package-orders/[id],
+                      which only reads/saves `sellingBy` (single staff, matches ServicePackage's single
+                      commissionType/commissionValue). staffAssignments entered here was silently dropped
+                      and never reached the Invoice, which caused package sales to be missing entirely from
+                      Staff Report (both the summary table and the drill-down detail). Keeping only
+                      "Selling By" here so the field shown actually matches what gets saved & reported. */}
+                  {["Service", "Product", "Bundle"].includes(item.type) && (
                     <div className="flex gap-2 w-full pt-1 mt-1 border-t border-gray-100">
                       <div className="flex-1 w-0 min-w-0">
-                        {(item.type === "Service" || item.type === "Product" || item.type === "Package") && (
+                        {(item.type === "Service" || item.type === "Product") && (
                           renderStaffAssignmentBlock(item)
                         )}
                         {item.type === "Bundle" && item.bundleServices && (
@@ -3343,6 +3350,11 @@ export default function POSPage() {
                       <div className="flex-1 w-0 min-w-0 border-l border-gray-100 pl-2">
                         {renderSellingByBlock(item)}
                       </div>
+                    </div>
+                  )}
+                  {item.type === "Package" && (
+                    <div className="w-full pt-1 mt-1 border-t border-gray-100">
+                      {renderSellingByBlock(item)}
                     </div>
                   )}
                 </div>
