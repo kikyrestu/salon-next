@@ -2,6 +2,10 @@ import mongoose from 'mongoose';
 import { StoreSchema, IStore } from '@/models/Store';
 import { RegistrationSchema, IRegistration } from '@/models/Registration';
 import { AdminSettingsSchema, IAdminSettings } from '@/models/AdminSettings';
+import { SaasPlanSchema, ISaasPlan } from '@/models/SaasPlan';
+import { TenantSubscriptionSchema, ITenantSubscription } from '@/models/TenantSubscription';
+import { TenantUsageCounterSchema, ITenantUsageCounter } from '@/models/TenantUsageCounter';
+import { PlatformAdminSchema, IPlatformAdmin, PlatformAdminModel } from '@/models/PlatformAdmin';
 
 const getMasterMongoUri = () => process.env.MASTER_MONGODB_URI?.trim();
 
@@ -12,6 +16,10 @@ interface MasterCache {
     Store: mongoose.Model<IStore> | null;
     Registration: mongoose.Model<IRegistration> | null;
     AdminSettings: mongoose.Model<IAdminSettings> | null;
+    SaasPlan: mongoose.Model<ISaasPlan> | null;
+    TenantSubscription: mongoose.Model<ITenantSubscription> | null;
+    TenantUsageCounter: mongoose.Model<ITenantUsageCounter> | null;
+    PlatformAdmin: PlatformAdminModel | null;
   };
 }
 
@@ -22,7 +30,15 @@ declare global {
 let cached: MasterCache = global.masterMongoose || {
   conn: null,
   promise: null,
-  models: { Store: null, Registration: null, AdminSettings: null },
+  models: {
+    Store: null,
+    Registration: null,
+    AdminSettings: null,
+    SaasPlan: null,
+    TenantSubscription: null,
+    TenantUsageCounter: null,
+    PlatformAdmin: null,
+  },
 };
 
 if (!global.masterMongoose) {
@@ -84,10 +100,26 @@ export async function getMasterModels() {
   if (!cached.models.AdminSettings) {
     cached.models.AdminSettings = conn.model<IAdminSettings>('AdminSettings', AdminSettingsSchema);
   }
+  if (!cached.models.SaasPlan) {
+    cached.models.SaasPlan = conn.model<ISaasPlan>('SaasPlan', SaasPlanSchema);
+  }
+  if (!cached.models.TenantSubscription) {
+    cached.models.TenantSubscription = conn.model<ITenantSubscription>('TenantSubscription', TenantSubscriptionSchema);
+  }
+  if (!cached.models.TenantUsageCounter) {
+    cached.models.TenantUsageCounter = conn.model<ITenantUsageCounter>('TenantUsageCounter', TenantUsageCounterSchema);
+  }
+  if (!cached.models.PlatformAdmin) {
+    cached.models.PlatformAdmin = conn.model<IPlatformAdmin, PlatformAdminModel>('PlatformAdmin', PlatformAdminSchema);
+  }
 
   return {
     Store: cached.models.Store,
     Registration: cached.models.Registration,
     AdminSettings: cached.models.AdminSettings,
+    SaasPlan: cached.models.SaasPlan,
+    TenantSubscription: cached.models.TenantSubscription,
+    TenantUsageCounter: cached.models.TenantUsageCounter,
+    PlatformAdmin: cached.models.PlatformAdmin,
   };
 }

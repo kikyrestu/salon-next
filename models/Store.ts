@@ -6,6 +6,11 @@ export interface IStore {
     slug: string;
     dbUri: string;
     isActive: boolean;
+    // Cache dari TenantSubscription aktif (lihat models/TenantSubscription.ts) — di-update
+    // tiap kali subscription berubah (approve, renewal, expired via cron, upgrade/downgrade),
+    // biar auth.config.ts authorized() callback gak perlu join ke Master DB tiap request.
+    subscriptionStatus: 'active' | 'expired' | 'suspended' | 'pending_payment' | null;
+    subscriptionExpiresAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -38,6 +43,15 @@ const storeSchema = new Schema<IStore, StoreModel>(
         isActive: {
             type: Boolean,
             default: true,
+        },
+        subscriptionStatus: {
+            type: String,
+            enum: ['active', 'expired', 'suspended', 'pending_payment', null],
+            default: null,
+        },
+        subscriptionExpiresAt: {
+            type: Date,
+            default: null,
         },
     },
     {

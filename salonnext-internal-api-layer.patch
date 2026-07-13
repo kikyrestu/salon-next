@@ -1,0 +1,1398 @@
+diff --git a/app/api/admin/registrations/[id]/route.ts b/app/api/admin/registrations/[id]/route.ts
+index a39627a..ef144a4 100644
+--- a/app/api/admin/registrations/[id]/route.ts
++++ b/app/api/admin/registrations/[id]/route.ts
+@@ -1,7 +1,5 @@
+ import { NextRequest, NextResponse } from 'next/server';
+-import { getMasterModels } from '@/lib/masterDb';
+-import { getTenantModels } from '@/lib/tenantDb';
+-import mongoose from 'mongoose';
++import { approveRegistration, rejectRegistration } from '@/lib/provisioning';
+ 
+ function validatePin(request: NextRequest) {
+     const headerPin = request.headers.get('x-admin-pin');
+@@ -11,6 +9,10 @@ function validatePin(request: NextRequest) {
+     return pin === correctPin;
+ }
+ 
++// NOTE: route ini masih dipertahankan (PIN auth) sampai panel PHP live, sesuai
++// blueprint-teknis-internal.md section 1.3 & 4. Logic approve/reject-nya udah
++// dipindah ke lib/provisioning.ts biar bisa dipakai bareng sama
++// /api/internal/saas/registrations/[id]/approve (dipanggil PHP panel / payment webhook nanti).
+ export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+     if (!validatePin(request)) {
+         return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+@@ -25,104 +27,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{
+             return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
+         }
+ 
+-        const master = await getMasterModels();
+-        const registration = await master.Registration.findById(id).select('+hashedPassword');
+-
+-        if (!registration) {
+-            return NextResponse.json({ success: false, error: 'Pendaftaran tidak ditemukan' }, { status: 404 });
+-        }
+-
+-        if (registration.status !== 'pending') {
+-            return NextResponse.json({ success: false, error: 'Pendaftaran sudah diproses' }, { status: 400 });
+-        }
+-
+-        const adminSettings = await master.AdminSettings.findOne();
+-        const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+-
+         if (action === 'approve') {
+-            // 1. Create Store in Master DB
+-            const cleanSlug = registration.slug.replace(/[^a-z0-9-]/g, '');
+-            
+-            // Check if slug already exists in stores (just to be safe)
+-            const existingStore = await master.Store.findOne({ slug: cleanSlug });
+-            if (existingStore) {
+-                 return NextResponse.json({ success: false, error: 'Slug cabang sudah digunakan.' }, { status: 400 });
+-            }
+-
+-            const baseUri = process.env.MONGODB_URI;
+-            if (!baseUri) throw new Error('MONGODB_URI is missing');
+-
+-            const url = new URL(baseUri);
+-            const uniqueSuffix = Date.now().toString(36);
+-            url.pathname = `/salon_${cleanSlug}_${uniqueSuffix}`;
+-            const dbUri = url.toString();
+-            
+-            const newStore = await master.Store.create({
+-                name: registration.storeName,
+-                slug: cleanSlug,
+-                dbUri,
+-                isActive: true
+-            });
+-
+-            // 2. Create Tenant DB + Super Admin
+-            const { User, Role } = await getTenantModels(cleanSlug);
+-            
+-            const standardResources = ['appointments', 'pos', 'services', 'products', 'purchases', 'usageLogs', 'staff', 'staffSlots', 'customers', 'suppliers', 'payroll', 'expenses', 'reports', 'users', 'roles', 'invoices', 'activityLogs', 'calendarView'];
+-            const allPermissions: any = { dashboard: { view: true }, settings: { view: true, edit: true }, aiReports: { view: true } };
+-            standardResources.forEach(resource => { allPermissions[resource] = { view: 'all', create: true, edit: true, delete: true }; });
+-            
+-            const superAdminRole = await Role.findOneAndUpdate(
+-                { name: 'Super Admin' },
+-                { $setOnInsert: { name: 'Super Admin', description: 'Full access to all system resources', isSystem: true }, $set: { permissions: allPermissions } },
+-                { upsert: true, new: true }
+-            );
+-
+-            // Directly insert User using mongoose Model.collection to bypass the pre('save') hook that would hash the already hashed password
+-            await User.collection.insertOne({
+-                name: registration.ownerName,
+-                email: registration.email,
+-                password: registration.hashedPassword,
+-                role: superAdminRole._id,
+-                createdAt: new Date(),
+-                updatedAt: new Date(),
+-                __v: 0
+-            });
+-
+-            // 3. Update registration status
+-            registration.status = 'approved';
+-            registration.hashedPassword = 'cleared'; // remove hash for security
+-            await registration.save();
+-
+-            // 4. Send WA
+-            if (adminSettings?.fonnteToken && registration.phone) {
+-                const message = `✅ *Selamat!* Pendaftaran toko *${registration.storeName}* telah disetujui.\n\nSilakan login ke sistem kasir Anda di:\n${baseUrl}/${registration.slug}/login\n\nEmail: ${registration.email}\n(Gunakan password yang Anda daftarkan)`;
+-                fetch('https://api.fonnte.com/send', {
+-                    method: 'POST',
+-                    headers: { 'Authorization': adminSettings.fonnteToken, 'Content-Type': 'application/json' },
+-                    body: JSON.stringify({ target: registration.phone, message })
+-                }).catch(e => console.error('Fonnte send error:', e));
++            const result = await approveRegistration(id);
++            if (!result.ok) {
++                return NextResponse.json({ success: false, error: result.error }, { status: result.status });
+             }
+-
+             return NextResponse.json({ success: true, message: 'Toko berhasil di-approve dan siap digunakan!' });
+-
+-        } else if (action === 'reject') {
+-            registration.status = 'rejected';
+-            registration.rejectionReason = rejectionReason || 'Tidak ada alasan.';
+-            registration.hashedPassword = 'cleared';
+-            await registration.save();
+-
+-            if (adminSettings?.fonnteToken && registration.phone) {
+-                const message = `❌ Mohon maaf, pendaftaran toko *${registration.storeName}* belum dapat disetujui saat ini.\n\nAlasan: ${rejectionReason || '-'}\n\nSilakan hubungi admin untuk informasi lebih lanjut.`;
+-                fetch('https://api.fonnte.com/send', {
+-                    method: 'POST',
+-                    headers: { 'Authorization': adminSettings.fonnteToken, 'Content-Type': 'application/json' },
+-                    body: JSON.stringify({ target: registration.phone, message })
+-                }).catch(e => console.error('Fonnte send error:', e));
++        } else {
++            const result = await rejectRegistration(id, rejectionReason);
++            if (!result.ok) {
++                return NextResponse.json({ success: false, error: result.error }, { status: result.status });
+             }
+-
+             return NextResponse.json({ success: true, message: 'Pendaftaran ditolak.' });
+         }
+-
+     } catch (error: any) {
+         console.error('Approve/Reject error:', error);
+         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+diff --git a/app/api/internal/saas/admins/login/route.ts b/app/api/internal/saas/admins/login/route.ts
+new file mode 100644
+index 0000000..4a3a707
+--- /dev/null
++++ b/app/api/internal/saas/admins/login/route.ts
+@@ -0,0 +1,65 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { requireInternalApiKey } from '@/lib/internalAuth';
++import { getMasterModels } from '@/lib/masterDb';
++import { checkRateLimit } from '@/lib/rateLimiter';
++
++// PHP panel POST username+password ke sini, Next.js yang validasi (bcrypt compare
++// jalan di sini, bukan di PHP) lalu PHP yang bikin session-nya sendiri kalau valid.
++// Internal API key (header) itu shared secret ANTAR SERVER (PHP <-> Next.js), beda
++// layer sama username/password si admin manusia - makanya tetep di-rate-limit per
++// username biar gak kena credential stuffing walau internal key-nya udah bocor duluan.
++export async function POST(request: NextRequest) {
++    const auth = requireInternalApiKey(request);
++    if (!auth.authorized) return auth.response!;
++
++    try {
++        const body = await request.json();
++        const { username, password } = body;
++
++        if (!username || !password) {
++            return NextResponse.json({ success: false, error: 'Username dan password wajib diisi.' }, { status: 400 });
++        }
++
++        const rateLimit = await checkRateLimit(`platform-admin-login:${username.toLowerCase().trim()}`, 15 * 60 * 1000, 5);
++        if (!rateLimit.allowed) {
++            return NextResponse.json(
++                { success: false, error: 'Terlalu banyak percobaan login. Coba lagi dalam beberapa menit.' },
++                { status: 429 }
++            );
++        }
++
++        const master = await getMasterModels();
++        const admin = await master.PlatformAdmin.findOne({ username: username.toLowerCase().trim() }).select(
++            '+passwordHash'
++        );
++
++        // Pesan error SENGAJA disamain buat "gak ketemu" vs "password salah" -
++        // biar gak bocorin username mana yang valid ke orang yang nyoba brute-force.
++        const genericError = { success: false, error: 'Username atau password salah.' };
++
++        if (!admin || !admin.isActive) {
++            return NextResponse.json(genericError, { status: 401 });
++        }
++
++        const isValid = await admin.comparePassword(password);
++        if (!isValid) {
++            return NextResponse.json(genericError, { status: 401 });
++        }
++
++        admin.lastLoginAt = new Date();
++        await admin.save();
++
++        return NextResponse.json({
++            success: true,
++            data: {
++                id: admin._id,
++                username: admin.username,
++                name: admin.name,
++                role: admin.role,
++            },
++        });
++    } catch (error: any) {
++        console.error('[internal/saas/admins/login][POST] error:', error);
++        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
++    }
++}
+diff --git a/app/api/internal/saas/plans/[id]/route.ts b/app/api/internal/saas/plans/[id]/route.ts
+new file mode 100644
+index 0000000..cf6e285
+--- /dev/null
++++ b/app/api/internal/saas/plans/[id]/route.ts
+@@ -0,0 +1,84 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { requireInternalApiKey } from '@/lib/internalAuth';
++import { getMasterModels } from '@/lib/masterDb';
++
++export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
++    const auth = requireInternalApiKey(request);
++    if (!auth.authorized) return auth.response!;
++
++    try {
++        const master = await getMasterModels();
++        const { id } = await params;
++        const plan = await master.SaasPlan.findById(id);
++
++        if (!plan) {
++            return NextResponse.json({ success: false, error: 'Plan tidak ditemukan' }, { status: 404 });
++        }
++
++        return NextResponse.json({ success: true, data: plan });
++    } catch (error: any) {
++        console.error('[internal/saas/plans/id][GET] error:', error);
++        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
++    }
++}
++
++export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
++    const auth = requireInternalApiKey(request);
++    if (!auth.authorized) return auth.response!;
++
++    try {
++        const master = await getMasterModels();
++        const { id } = await params;
++        const body = await request.json();
++
++        // code sengaja gak boleh diubah lewat PUT - dia dipakai sebagai referensi
++        // internal (planSnapshot.code di TenantSubscription histori lama). Kalau
++        // mau ganti kode plan, mending bikin plan baru + nonaktifin yang lama.
++        const { code, ...updatable } = body;
++
++        const plan = await master.SaasPlan.findByIdAndUpdate(id, updatable, {
++            new: true,
++            runValidators: true,
++        });
++
++        if (!plan) {
++            return NextResponse.json({ success: false, error: 'Plan tidak ditemukan' }, { status: 404 });
++        }
++
++        return NextResponse.json({ success: true, data: plan });
++    } catch (error: any) {
++        console.error('[internal/saas/plans/id][PUT] error:', error);
++        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
++    }
++}
++
++export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
++    const auth = requireInternalApiKey(request);
++    if (!auth.authorized) return auth.response!;
++
++    try {
++        const master = await getMasterModels();
++        const { id } = await params;
++
++        const referencedByActive = await master.TenantSubscription.findOne({ planId: id, status: 'active' });
++        if (referencedByActive) {
++            return NextResponse.json(
++                {
++                    success: false,
++                    error: 'Plan ini masih dipakai toko yang subscription-nya aktif. Nonaktifkan (isActive: false) aja daripada dihapus.',
++                },
++                { status: 409 }
++            );
++        }
++
++        const plan = await master.SaasPlan.findByIdAndDelete(id);
++        if (!plan) {
++            return NextResponse.json({ success: false, error: 'Plan tidak ditemukan' }, { status: 404 });
++        }
++
++        return NextResponse.json({ success: true, message: 'Plan dihapus.' });
++    } catch (error: any) {
++        console.error('[internal/saas/plans/id][DELETE] error:', error);
++        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
++    }
++}
+diff --git a/app/api/internal/saas/plans/route.ts b/app/api/internal/saas/plans/route.ts
+new file mode 100644
+index 0000000..f5c7ffb
+--- /dev/null
++++ b/app/api/internal/saas/plans/route.ts
+@@ -0,0 +1,62 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { requireInternalApiKey } from '@/lib/internalAuth';
++import { getMasterModels } from '@/lib/masterDb';
++
++export async function GET(request: NextRequest) {
++    const auth = requireInternalApiKey(request);
++    if (!auth.authorized) return auth.response!;
++
++    try {
++        const master = await getMasterModels();
++        const { searchParams } = new URL(request.url);
++        const includeInactive = searchParams.get('includeInactive') === 'true';
++
++        const filter = includeInactive ? {} : { isActive: true };
++        const plans = await master.SaasPlan.find(filter).sort({ sortOrder: 1, createdAt: 1 });
++
++        return NextResponse.json({ success: true, data: plans });
++    } catch (error: any) {
++        console.error('[internal/saas/plans][GET] error:', error);
++        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
++    }
++}
++
++export async function POST(request: NextRequest) {
++    const auth = requireInternalApiKey(request);
++    if (!auth.authorized) return auth.response!;
++
++    try {
++        const master = await getMasterModels();
++        const body = await request.json();
++
++        const { name, code, description, limits, pricingOptions, availableAddOns, isActive, sortOrder } = body;
++
++        if (!name || !code || !limits || !Array.isArray(pricingOptions) || pricingOptions.length === 0) {
++            return NextResponse.json(
++                { success: false, error: 'name, code, limits, dan minimal 1 pricingOptions wajib diisi.' },
++                { status: 400 }
++            );
++        }
++
++        const existing = await master.SaasPlan.findOne({ code: code.toLowerCase().trim() });
++        if (existing) {
++            return NextResponse.json({ success: false, error: `Kode plan "${code}" sudah dipakai.` }, { status: 400 });
++        }
++
++        const plan = await master.SaasPlan.create({
++            name,
++            code,
++            description,
++            limits,
++            pricingOptions,
++            availableAddOns: availableAddOns || [],
++            isActive: isActive ?? true,
++            sortOrder: sortOrder ?? 0,
++        });
++
++        return NextResponse.json({ success: true, data: plan }, { status: 201 });
++    } catch (error: any) {
++        console.error('[internal/saas/plans][POST] error:', error);
++        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
++    }
++}
+diff --git a/app/api/internal/saas/registrations/[id]/approve/route.ts b/app/api/internal/saas/registrations/[id]/approve/route.ts
+new file mode 100644
+index 0000000..058d6ca
+--- /dev/null
++++ b/app/api/internal/saas/registrations/[id]/approve/route.ts
+@@ -0,0 +1,36 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { requireInternalApiKey } from '@/lib/internalAuth';
++import { approveRegistration } from '@/lib/provisioning';
++
++export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
++    const auth = requireInternalApiKey(request);
++    if (!auth.authorized) return auth.response!;
++
++    try {
++        const { id } = await params;
++        const body = await request.json().catch(() => ({}));
++        const { planId, billingPeriod } = body;
++
++        const result = await approveRegistration(id, { planId, billingPeriod });
++
++        if (!result.ok) {
++            return NextResponse.json({ success: false, error: result.error }, { status: result.status });
++        }
++
++        return NextResponse.json({
++            success: true,
++            message: 'Toko berhasil di-approve.',
++            data: {
++                storeId: result.storeId,
++                slug: result.slug,
++                storeName: result.storeName,
++                loginUrl: result.loginUrl,
++                subscriptionId: result.subscriptionId ?? null,
++                subscriptionExpiresAt: result.subscriptionExpiresAt ?? null,
++            },
++        });
++    } catch (error: any) {
++        console.error('[internal/saas/registrations/id/approve][POST] error:', error);
++        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
++    }
++}
+diff --git a/app/api/internal/saas/registrations/[id]/reject/route.ts b/app/api/internal/saas/registrations/[id]/reject/route.ts
+new file mode 100644
+index 0000000..b9e09f8
+--- /dev/null
++++ b/app/api/internal/saas/registrations/[id]/reject/route.ts
+@@ -0,0 +1,25 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { requireInternalApiKey } from '@/lib/internalAuth';
++import { rejectRegistration } from '@/lib/provisioning';
++
++export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
++    const auth = requireInternalApiKey(request);
++    if (!auth.authorized) return auth.response!;
++
++    try {
++        const { id } = await params;
++        const body = await request.json().catch(() => ({}));
++        const { rejectionReason } = body;
++
++        const result = await rejectRegistration(id, rejectionReason);
++
++        if (!result.ok) {
++            return NextResponse.json({ success: false, error: result.error }, { status: result.status });
++        }
++
++        return NextResponse.json({ success: true, message: 'Pendaftaran ditolak.' });
++    } catch (error: any) {
++        console.error('[internal/saas/registrations/id/reject][POST] error:', error);
++        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
++    }
++}
+diff --git a/app/api/internal/saas/registrations/route.ts b/app/api/internal/saas/registrations/route.ts
+new file mode 100644
+index 0000000..bf157bf
+--- /dev/null
++++ b/app/api/internal/saas/registrations/route.ts
+@@ -0,0 +1,29 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { requireInternalApiKey } from '@/lib/internalAuth';
++import { getMasterModels } from '@/lib/masterDb';
++
++export async function GET(request: NextRequest) {
++    const auth = requireInternalApiKey(request);
++    if (!auth.authorized) return auth.response!;
++
++    try {
++        const { searchParams } = new URL(request.url);
++        const status = searchParams.get('status');
++
++        const master = await getMasterModels();
++        const query = status ? { status } : {};
++
++        const registrations = await master.Registration.find(query).sort({ createdAt: -1 });
++
++        // Jangan kirim hashedPassword ke client, sama kayak app/api/admin/registrations/route.ts
++        const safeRegistrations = registrations.map((reg) => {
++            const { hashedPassword, ...doc } = reg.toObject();
++            return doc;
++        });
++
++        return NextResponse.json({ success: true, data: safeRegistrations });
++    } catch (error: any) {
++        console.error('[internal/saas/registrations][GET] error:', error);
++        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
++    }
++}
+diff --git a/app/api/internal/saas/stores/route.ts b/app/api/internal/saas/stores/route.ts
+new file mode 100644
+index 0000000..9004433
+--- /dev/null
++++ b/app/api/internal/saas/stores/route.ts
+@@ -0,0 +1,67 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { requireInternalApiKey } from '@/lib/internalAuth';
++import { getMasterModels } from '@/lib/masterDb';
++
++// List gabungan Store + TenantSubscription aktifnya. Dipakai buat tabel utama
++// dashboard admin panel PHP ("daftar semua toko terdaftar beserta status
++// langganan masing-masing" - Modul B di blueprint client).
++//
++// Store.subscriptionStatus/subscriptionExpiresAt (field cache) dipakai buat
++// enforcement cepat di auth.config.ts - di endpoint LIST ini kita tetap join
++// ke TenantSubscription biar admin panel bisa nampilin nama plan & billing
++// period-nya juga, bukan cuma status doang.
++export async function GET(request: NextRequest) {
++    const auth = requireInternalApiKey(request);
++    if (!auth.authorized) return auth.response!;
++
++    try {
++        const master = await getMasterModels();
++        const { searchParams } = new URL(request.url);
++        const search = searchParams.get('search')?.trim();
++
++        const filter: any = {};
++        if (search) {
++            filter.$or = [
++                { name: { $regex: search, $options: 'i' } },
++                { slug: { $regex: search, $options: 'i' } },
++            ];
++        }
++
++        const stores = await master.Store.find(filter).sort({ createdAt: -1 });
++        const storeIds = stores.map((s) => s._id);
++
++        const activeSubscriptions = await master.TenantSubscription.find({
++            storeId: { $in: storeIds },
++            status: 'active',
++        });
++        const subscriptionByStoreId = new Map(activeSubscriptions.map((sub) => [sub.storeId.toString(), sub]));
++
++        const data = stores.map((store) => {
++            const sub = subscriptionByStoreId.get(store._id.toString());
++            return {
++                _id: store._id,
++                name: store.name,
++                slug: store.slug,
++                isActive: store.isActive,
++                subscriptionStatus: store.subscriptionStatus,
++                subscriptionExpiresAt: store.subscriptionExpiresAt,
++                createdAt: store.createdAt,
++                subscription: sub
++                    ? {
++                          _id: sub._id,
++                          planName: sub.planSnapshot.name,
++                          billingPeriod: sub.billingPeriod,
++                          startDate: sub.startDate,
++                          expiresAt: sub.expiresAt,
++                          activeAddOnsCount: sub.activeAddOns.length,
++                      }
++                    : null,
++            };
++        });
++
++        return NextResponse.json({ success: true, data });
++    } catch (error: any) {
++        console.error('[internal/saas/stores][GET] error:', error);
++        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
++    }
++}
+diff --git a/lib/internalAuth.ts b/lib/internalAuth.ts
+new file mode 100644
+index 0000000..e2542ba
+--- /dev/null
++++ b/lib/internalAuth.ts
+@@ -0,0 +1,69 @@
++import { NextRequest, NextResponse } from 'next/server';
++import crypto from 'crypto';
++
++// Dipakai khusus buat /api/internal/saas/* — endpoint yang nanti dikonsumsi panel
++// admin PHP (arsitektur Opsi B, lihat blueprint-teknis-internal.md section 2).
++// SENGAJA dipisah dari validatePin() yang ada di app/api/admin/* (PIN lama, bakal
++// dihapus begitu panel PHP live) dan dari protectAPI() di lib/protect-api.ts
++// (itu buat session NextAuth user tenant/POS, beda konteks otentikasi sama sekali).
++//
++// Key dibaca dari header `x-internal-api-key`, dibandingkan pakai timing-safe
++// compare (bukan `===` biasa kayak validatePin() yang sekarang) buat ngurangin
++// exposure ke timing attack.
++
++const HEADER_NAME = 'x-internal-api-key';
++
++function getConfiguredKey(): string | null {
++    const key = process.env.INTERNAL_API_KEY;
++    if (!key || key.trim().length === 0) return null;
++    return key;
++}
++
++function timingSafeCompare(a: string, b: string): boolean {
++    const bufA = Buffer.from(a);
++    const bufB = Buffer.from(b);
++    // Buffer harus sama panjang buat timingSafeEqual, kalau beda panjang udah pasti gak cocok
++    // tapi tetep kita bandingin ke buffer dummy sepanjang bufA biar gak bocorin length lewat timing.
++    if (bufA.length !== bufB.length) {
++        crypto.timingSafeEqual(bufA, bufA);
++        return false;
++    }
++    return crypto.timingSafeEqual(bufA, bufB);
++}
++
++export interface InternalAuthResult {
++    authorized: boolean;
++    response: NextResponse | null;
++}
++
++export function requireInternalApiKey(request: NextRequest): InternalAuthResult {
++    const configuredKey = getConfiguredKey();
++
++    if (!configuredKey) {
++        // Fail closed. Beda dari validatePin() lama yang fallback ke '123456' kalau
++        // env kosong — di sini kalau INTERNAL_API_KEY belum di-set, endpoint DITOLAK
++        // semua, bukan dibuka pakai default value yang gampang ditebak.
++        console.error('[internalAuth] INTERNAL_API_KEY belum diset di environment.');
++        return {
++            authorized: false,
++            response: NextResponse.json(
++                { success: false, error: 'Internal API belum dikonfigurasi di server.' },
++                { status: 503 }
++            ),
++        };
++    }
++
++    const providedKey = request.headers.get(HEADER_NAME);
++
++    if (!providedKey || !timingSafeCompare(providedKey, configuredKey)) {
++        return {
++            authorized: false,
++            response: NextResponse.json(
++                { success: false, error: 'Unauthorized: internal API key tidak valid.' },
++                { status: 401 }
++            ),
++        };
++    }
++
++    return { authorized: true, response: null };
++}
+diff --git a/lib/masterDb.ts b/lib/masterDb.ts
+index ca91d92..242f0ac 100644
+--- a/lib/masterDb.ts
++++ b/lib/masterDb.ts
+@@ -2,6 +2,10 @@ import mongoose from 'mongoose';
+ import { StoreSchema, IStore } from '@/models/Store';
+ import { RegistrationSchema, IRegistration } from '@/models/Registration';
+ import { AdminSettingsSchema, IAdminSettings } from '@/models/AdminSettings';
++import { SaasPlanSchema, ISaasPlan } from '@/models/SaasPlan';
++import { TenantSubscriptionSchema, ITenantSubscription } from '@/models/TenantSubscription';
++import { TenantUsageCounterSchema, ITenantUsageCounter } from '@/models/TenantUsageCounter';
++import { PlatformAdminSchema, IPlatformAdmin, PlatformAdminModel } from '@/models/PlatformAdmin';
+ 
+ const getMasterMongoUri = () => process.env.MASTER_MONGODB_URI?.trim();
+ 
+@@ -12,6 +16,10 @@ interface MasterCache {
+     Store: mongoose.Model<IStore> | null;
+     Registration: mongoose.Model<IRegistration> | null;
+     AdminSettings: mongoose.Model<IAdminSettings> | null;
++    SaasPlan: mongoose.Model<ISaasPlan> | null;
++    TenantSubscription: mongoose.Model<ITenantSubscription> | null;
++    TenantUsageCounter: mongoose.Model<ITenantUsageCounter> | null;
++    PlatformAdmin: PlatformAdminModel | null;
+   };
+ }
+ 
+@@ -22,7 +30,15 @@ declare global {
+ let cached: MasterCache = global.masterMongoose || {
+   conn: null,
+   promise: null,
+-  models: { Store: null, Registration: null, AdminSettings: null },
++  models: {
++    Store: null,
++    Registration: null,
++    AdminSettings: null,
++    SaasPlan: null,
++    TenantSubscription: null,
++    TenantUsageCounter: null,
++    PlatformAdmin: null,
++  },
+ };
+ 
+ if (!global.masterMongoose) {
+@@ -84,10 +100,26 @@ export async function getMasterModels() {
+   if (!cached.models.AdminSettings) {
+     cached.models.AdminSettings = conn.model<IAdminSettings>('AdminSettings', AdminSettingsSchema);
+   }
++  if (!cached.models.SaasPlan) {
++    cached.models.SaasPlan = conn.model<ISaasPlan>('SaasPlan', SaasPlanSchema);
++  }
++  if (!cached.models.TenantSubscription) {
++    cached.models.TenantSubscription = conn.model<ITenantSubscription>('TenantSubscription', TenantSubscriptionSchema);
++  }
++  if (!cached.models.TenantUsageCounter) {
++    cached.models.TenantUsageCounter = conn.model<ITenantUsageCounter>('TenantUsageCounter', TenantUsageCounterSchema);
++  }
++  if (!cached.models.PlatformAdmin) {
++    cached.models.PlatformAdmin = conn.model<IPlatformAdmin, PlatformAdminModel>('PlatformAdmin', PlatformAdminSchema);
++  }
+ 
+   return {
+     Store: cached.models.Store,
+     Registration: cached.models.Registration,
+     AdminSettings: cached.models.AdminSettings,
++    SaasPlan: cached.models.SaasPlan,
++    TenantSubscription: cached.models.TenantSubscription,
++    TenantUsageCounter: cached.models.TenantUsageCounter,
++    PlatformAdmin: cached.models.PlatformAdmin,
+   };
+ }
+diff --git a/lib/provisioning.ts b/lib/provisioning.ts
+new file mode 100644
+index 0000000..a8673fc
+--- /dev/null
++++ b/lib/provisioning.ts
+@@ -0,0 +1,210 @@
++import { getMasterModels } from '@/lib/masterDb';
++import { getTenantModels } from '@/lib/tenantDb';
++import type { SaasBillingPeriod } from '@/models/SaasPlan';
++
++// Diekstrak dari app/api/admin/registrations/[id]/route.ts (logic-nya SAMA PERSIS,
++// cuma dipindah biar bisa dipanggil dari 2 tempat: route PIN lama (manual approve)
++// dan internal API baru /api/internal/saas/registrations/[id]/approve (bakal dipanggil
++// PHP admin panel, dan nantinya juga dari payment webhook buat auto-provisioning).
++//
++// TIDAK ada perubahan behavior buat flow yang sudah ada — cuma nambah langkah opsional
++// "assign TenantSubscription" kalau planId dikasih (blueprint section 4, baris terakhir).
++
++export interface ApproveRegistrationOptions {
++    planId?: string;
++    billingPeriod?: SaasBillingPeriod;
++}
++
++export type ApproveRegistrationResult =
++    | {
++          ok: true;
++          storeId: string;
++          slug: string;
++          storeName: string;
++          loginUrl: string;
++          subscriptionId?: string;
++          subscriptionExpiresAt?: Date;
++      }
++    | { ok: false; status: number; error: string };
++
++export type RejectRegistrationResult = { ok: true } | { ok: false; status: number; error: string };
++
++export async function approveRegistration(
++    registrationId: string,
++    options: ApproveRegistrationOptions = {}
++): Promise<ApproveRegistrationResult> {
++    const master = await getMasterModels();
++    const registration = await master.Registration.findById(registrationId).select('+hashedPassword');
++
++    if (!registration) {
++        return { ok: false, status: 404, error: 'Pendaftaran tidak ditemukan' };
++    }
++
++    if (registration.status !== 'pending') {
++        return { ok: false, status: 400, error: 'Pendaftaran sudah diproses' };
++    }
++
++    const adminSettings = await master.AdminSettings.findOne();
++    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
++
++    // 1. Create Store in Master DB
++    const cleanSlug = registration.slug.replace(/[^a-z0-9-]/g, '');
++
++    const existingStore = await master.Store.findOne({ slug: cleanSlug });
++    if (existingStore) {
++        return { ok: false, status: 400, error: 'Slug cabang sudah digunakan.' };
++    }
++
++    const baseUri = process.env.MONGODB_URI;
++    if (!baseUri) throw new Error('MONGODB_URI is missing');
++
++    const url = new URL(baseUri);
++    const uniqueSuffix = Date.now().toString(36);
++    url.pathname = `/salon_${cleanSlug}_${uniqueSuffix}`;
++    const dbUri = url.toString();
++
++    // 2. Kalau planId dikasih, siapin subscription data DULU sebelum create Store,
++    // biar Store bisa langsung dibuat dengan subscriptionStatus/subscriptionExpiresAt
++    // ke-cache dari awal (section 3 blueprint) - gak perlu update terpisah.
++    let subscriptionPlan: any = null;
++    let pricingOption: any = null;
++    let subscriptionExpiresAt: Date | null = null;
++
++    if (options.planId) {
++        if (!options.billingPeriod) {
++            return { ok: false, status: 400, error: 'billingPeriod wajib diisi kalau planId dikasih.' };
++        }
++        subscriptionPlan = await master.SaasPlan.findById(options.planId);
++        if (!subscriptionPlan || !subscriptionPlan.isActive) {
++            return { ok: false, status: 400, error: 'SaasPlan tidak ditemukan atau tidak aktif.' };
++        }
++        pricingOption = subscriptionPlan.pricingOptions.find(
++            (p: any) => p.billingPeriod === options.billingPeriod
++        );
++        if (!pricingOption) {
++            return {
++                ok: false,
++                status: 400,
++                error: `Plan "${subscriptionPlan.name}" tidak punya opsi harga untuk periode "${options.billingPeriod}".`,
++            };
++        }
++        subscriptionExpiresAt = new Date(Date.now() + pricingOption.billingPeriodDays * 24 * 60 * 60 * 1000);
++    }
++
++    const newStore = await master.Store.create({
++        name: registration.storeName,
++        slug: cleanSlug,
++        dbUri,
++        isActive: true,
++        subscriptionStatus: subscriptionPlan ? 'active' : null,
++        subscriptionExpiresAt: subscriptionExpiresAt,
++    });
++
++    // 3. Create Tenant DB + Super Admin (persis logic lama, gak diubah)
++    const { User, Role } = await getTenantModels(cleanSlug);
++
++    const standardResources = ['appointments', 'pos', 'services', 'products', 'purchases', 'usageLogs', 'staff', 'staffSlots', 'customers', 'suppliers', 'payroll', 'expenses', 'reports', 'users', 'roles', 'invoices', 'activityLogs', 'calendarView'];
++    const allPermissions: any = { dashboard: { view: true }, settings: { view: true, edit: true }, aiReports: { view: true } };
++    standardResources.forEach((resource) => {
++        allPermissions[resource] = { view: 'all', create: true, edit: true, delete: true };
++    });
++
++    const superAdminRole = await Role.findOneAndUpdate(
++        { name: 'Super Admin' },
++        { $setOnInsert: { name: 'Super Admin', description: 'Full access to all system resources', isSystem: true }, $set: { permissions: allPermissions } },
++        { upsert: true, new: true }
++    );
++
++    await User.collection.insertOne({
++        name: registration.ownerName,
++        email: registration.email,
++        password: registration.hashedPassword,
++        role: superAdminRole._id,
++        createdAt: new Date(),
++        updatedAt: new Date(),
++        __v: 0,
++    });
++
++    // 4. Update registration status
++    registration.status = 'approved';
++    registration.hashedPassword = 'cleared';
++    await registration.save();
++
++    // 5. Assign TenantSubscription (langkah baru, cuma jalan kalau planId dikasih)
++    let subscriptionId: string | undefined;
++    if (subscriptionPlan && pricingOption && subscriptionExpiresAt) {
++        const subscription = await master.TenantSubscription.create({
++            storeId: newStore._id,
++            planId: subscriptionPlan._id,
++            planSnapshot: {
++                name: subscriptionPlan.name,
++                code: subscriptionPlan.code,
++                limits: subscriptionPlan.limits,
++            },
++            billingPeriod: options.billingPeriod,
++            pricePaid: pricingOption.price,
++            status: 'active',
++            startDate: new Date(),
++            expiresAt: subscriptionExpiresAt,
++            activeAddOns: [],
++            autoRenew: true,
++        });
++        subscriptionId = subscription._id.toString();
++    }
++
++    // 6. Send WA (persis logic lama - masih langsung ke Fonnte, belum lewat lib/waProvider
++    // abstraction. Itu bagian dari task terpisah "swap WA provider", bukan task ini.)
++    const loginUrl = `${baseUrl}/${registration.slug}/login`;
++    if (adminSettings?.fonnteToken && registration.phone) {
++        const message = `✅ *Selamat!* Pendaftaran toko *${registration.storeName}* telah disetujui.\n\nSilakan login ke sistem kasir Anda di:\n${loginUrl}\n\nEmail: ${registration.email}\n(Gunakan password yang Anda daftarkan)`;
++        fetch('https://api.fonnte.com/send', {
++            method: 'POST',
++            headers: { Authorization: adminSettings.fonnteToken, 'Content-Type': 'application/json' },
++            body: JSON.stringify({ target: registration.phone, message }),
++        }).catch((e) => console.error('Fonnte send error:', e));
++    }
++
++    return {
++        ok: true,
++        storeId: newStore._id.toString(),
++        slug: cleanSlug,
++        storeName: registration.storeName,
++        loginUrl,
++        subscriptionId,
++        subscriptionExpiresAt: subscriptionExpiresAt ?? undefined,
++    };
++}
++
++export async function rejectRegistration(
++    registrationId: string,
++    rejectionReason?: string
++): Promise<RejectRegistrationResult> {
++    const master = await getMasterModels();
++    const registration = await master.Registration.findById(registrationId).select('+hashedPassword');
++
++    if (!registration) {
++        return { ok: false, status: 404, error: 'Pendaftaran tidak ditemukan' };
++    }
++
++    if (registration.status !== 'pending') {
++        return { ok: false, status: 400, error: 'Pendaftaran sudah diproses' };
++    }
++
++    const adminSettings = await master.AdminSettings.findOne();
++
++    registration.status = 'rejected';
++    registration.rejectionReason = rejectionReason || 'Tidak ada alasan.';
++    registration.hashedPassword = 'cleared';
++    await registration.save();
++
++    if (adminSettings?.fonnteToken && registration.phone) {
++        const message = `❌ Mohon maaf, pendaftaran toko *${registration.storeName}* belum dapat disetujui saat ini.\n\nAlasan: ${rejectionReason || '-'}\n\nSilakan hubungi admin untuk informasi lebih lanjut.`;
++        fetch('https://api.fonnte.com/send', {
++            method: 'POST',
++            headers: { Authorization: adminSettings.fonnteToken, 'Content-Type': 'application/json' },
++            body: JSON.stringify({ target: registration.phone, message }),
++        }).catch((e) => console.error('Fonnte send error:', e));
++    }
++
++    return { ok: true };
++}
+diff --git a/models/PlatformAdmin.ts b/models/PlatformAdmin.ts
+new file mode 100644
+index 0000000..002f517
+--- /dev/null
++++ b/models/PlatformAdmin.ts
+@@ -0,0 +1,92 @@
++import { Schema, Model } from 'mongoose';
++import bcrypt from 'bcryptjs';
++
++// Ganti sistem PIN (app/admin/cabang + app/api/admin/*) yang cuma bandingin
++// x-admin-pin vs process.env.ADMIN_PIN (fallback '123456'). Password di-hash
++// pakai bcryptjs, PERSIS pola yang sudah dipakai models/User.ts buat password
++// tenant - biar dua permukaan auth ini punya level keamanan yang sama, gak
++// reinvent hashing baru cuma buat panel PHP ini.
++
++export type PlatformAdminRole = 'super_admin' | 'staff';
++
++export interface IPlatformAdmin {
++    _id: string;
++    username: string;
++    passwordHash: string;
++    name: string;
++    role: PlatformAdminRole;
++    twoFactorSecret?: string; // optional TOTP, diisi kalau admin aktifin 2FA
++    isActive: boolean;
++    lastLoginAt?: Date;
++    createdAt: Date;
++    updatedAt: Date;
++}
++
++export interface IPlatformAdminMethods {
++    comparePassword(candidatePassword: string): Promise<boolean>;
++}
++
++export type PlatformAdminModel = Model<IPlatformAdmin, {}, IPlatformAdminMethods>;
++
++export const PlatformAdminSchema = new Schema<IPlatformAdmin, PlatformAdminModel, IPlatformAdminMethods>(
++    {
++        username: {
++            type: String,
++            required: [true, 'Username wajib diisi'],
++            unique: true,
++            lowercase: true,
++            trim: true,
++        },
++        passwordHash: {
++            type: String,
++            required: true,
++            select: false,
++        },
++        name: {
++            type: String,
++            required: true,
++            trim: true,
++        },
++        role: {
++            type: String,
++            enum: ['super_admin', 'staff'],
++            default: 'super_admin',
++        },
++        twoFactorSecret: {
++            type: String,
++            select: false,
++        },
++        isActive: {
++            type: Boolean,
++            default: true,
++        },
++        lastLoginAt: {
++            type: Date,
++        },
++    },
++    {
++        timestamps: true,
++    }
++);
++
++// Hash passwordHash sebelum saving - sama persis pola models/User.ts, cuma nama
++// field-nya beda (passwordHash, bukan password) biar jelas ini bukan plaintext
++// dari awal.
++PlatformAdminSchema.pre('save', async function (this: any) {
++    if (!this.isModified('passwordHash')) return;
++    const salt = await bcrypt.genSalt(10);
++    this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
++});
++
++PlatformAdminSchema.methods.comparePassword = async function (
++    this: any,
++    candidatePassword: string
++): Promise<boolean> {
++    try {
++        return await bcrypt.compare(candidatePassword, this.passwordHash);
++    } catch {
++        return false;
++    }
++};
++
++export default PlatformAdminSchema;
+diff --git a/models/SaasPlan.ts b/models/SaasPlan.ts
+new file mode 100644
+index 0000000..6efdab5
+--- /dev/null
++++ b/models/SaasPlan.ts
+@@ -0,0 +1,149 @@
++import { Schema } from 'mongoose';
++
++// Client final decision (chat 1/7 & 2/7):
++// - Tiap plan (Starter/Standard/Enterprise) punya harga beda-beda per periode
++//   langganan (bulanan / 6 bulanan / tahunan) -> pricingOptions array, bukan 1 harga statis.
++// - Add-on TIDAK cuma buat kuota WA, tapi bisa buat staff & transaksi juga -> availableAddOns
++//   pakai limitType generik, bukan field khusus `extraWaQuota`.
++
++export type SaasBillingPeriod = 'monthly' | 'semiannual' | 'annual';
++export type SaasLimitType = 'staff' | 'transaction' | 'wa';
++
++export interface ISaasPlanPricingOption {
++    billingPeriod: SaasBillingPeriod;
++    billingPeriodDays: number; // 30 / 180 / 365 (dibikin eksplisit biar gampang ubah tanpa nebak dari enum)
++    price: number;
++    discountLabel?: string; // contoh: "Hemat 15%" buat ditampilin di halaman upgrade
++}
++
++export interface ISaasPlanAddOn {
++    _id?: string;
++    name: string; // contoh: "Tambahan 5 staff", "Tambahan 500 transaksi", "Tambahan 200 pesan WA"
++    limitType: SaasLimitType;
++    extraAmount: number; // jumlah tambahan kuota yang didapat per pembelian add-on ini
++    price: number;
++    isActive: boolean;
++}
++
++export interface ISaasPlan {
++    _id: string;
++    name: string; // "Starter" | "Standard" | "Enterprise" (bebas diedit admin)
++    code: string; // slug unik, dipakai referensi internal (bukan buat ditampilin)
++    description?: string;
++    limits: {
++        maxStaff: number;
++        maxTransactionsPerMonth: number;
++        maxWaMessagesPerMonth: number;
++    };
++    pricingOptions: ISaasPlanPricingOption[];
++    availableAddOns: ISaasPlanAddOn[];
++    isActive: boolean;
++    sortOrder: number;
++    createdAt: Date;
++    updatedAt: Date;
++}
++
++const SaasPlanPricingOptionSchema = new Schema<ISaasPlanPricingOption>(
++    {
++        billingPeriod: {
++            type: String,
++            enum: ['monthly', 'semiannual', 'annual'],
++            required: true,
++        },
++        billingPeriodDays: {
++            type: Number,
++            required: true,
++        },
++        price: {
++            type: Number,
++            required: true,
++            min: 0,
++        },
++        discountLabel: {
++            type: String,
++            trim: true,
++        },
++    },
++    { _id: false }
++);
++
++const SaasPlanAddOnSchema = new Schema<ISaasPlanAddOn>(
++    {
++        name: {
++            type: String,
++            required: true,
++            trim: true,
++        },
++        limitType: {
++            type: String,
++            enum: ['staff', 'transaction', 'wa'],
++            required: true,
++        },
++        extraAmount: {
++            type: Number,
++            required: true,
++            min: 1,
++        },
++        price: {
++            type: Number,
++            required: true,
++            min: 0,
++        },
++        isActive: {
++            type: Boolean,
++            default: true,
++        },
++    }
++);
++
++export const SaasPlanSchema = new Schema<ISaasPlan>(
++    {
++        name: {
++            type: String,
++            required: [true, 'Nama plan wajib diisi'],
++            trim: true,
++        },
++        code: {
++            type: String,
++            required: [true, 'Kode plan wajib diisi'],
++            unique: true,
++            lowercase: true,
++            trim: true,
++            match: [/^[a-z0-9-]+$/, 'Code hanya boleh huruf kecil, angka, dan strip'],
++        },
++        description: {
++            type: String,
++            trim: true,
++        },
++        limits: {
++            maxStaff: { type: Number, required: true, min: 0 },
++            maxTransactionsPerMonth: { type: Number, required: true, min: 0 },
++            maxWaMessagesPerMonth: { type: Number, required: true, min: 0 },
++        },
++        pricingOptions: {
++            type: [SaasPlanPricingOptionSchema],
++            default: [],
++            validate: {
++                validator: (v: ISaasPlanPricingOption[]) => v.length > 0,
++                message: 'Minimal 1 opsi harga (billing period) wajib diisi',
++            },
++        },
++        availableAddOns: {
++            type: [SaasPlanAddOnSchema],
++            default: [],
++        },
++        isActive: {
++            type: Boolean,
++            default: true,
++        },
++        sortOrder: {
++            type: Number,
++            default: 0,
++        },
++    },
++    {
++        timestamps: true,
++    }
++);
++
++export default SaasPlanSchema;
+diff --git a/models/Store.ts b/models/Store.ts
+index 6d4d387..d70aa22 100644
+--- a/models/Store.ts
++++ b/models/Store.ts
+@@ -6,6 +6,11 @@ export interface IStore {
+     slug: string;
+     dbUri: string;
+     isActive: boolean;
++    // Cache dari TenantSubscription aktif (lihat models/TenantSubscription.ts) — di-update
++    // tiap kali subscription berubah (approve, renewal, expired via cron, upgrade/downgrade),
++    // biar auth.config.ts authorized() callback gak perlu join ke Master DB tiap request.
++    subscriptionStatus: 'active' | 'expired' | 'suspended' | 'pending_payment' | null;
++    subscriptionExpiresAt: Date | null;
+     createdAt: Date;
+     updatedAt: Date;
+ }
+@@ -39,6 +44,15 @@ const storeSchema = new Schema<IStore, StoreModel>(
+             type: Boolean,
+             default: true,
+         },
++        subscriptionStatus: {
++            type: String,
++            enum: ['active', 'expired', 'suspended', 'pending_payment', null],
++            default: null,
++        },
++        subscriptionExpiresAt: {
++            type: Date,
++            default: null,
++        },
+     },
+     {
+         timestamps: true,
+diff --git a/models/TenantSubscription.ts b/models/TenantSubscription.ts
+new file mode 100644
+index 0000000..555f584
+--- /dev/null
++++ b/models/TenantSubscription.ts
+@@ -0,0 +1,129 @@
++import mongoose, { Schema } from 'mongoose';
++import { SaasBillingPeriod, SaasLimitType } from './SaasPlan';
++
++// planSnapshot disimpan biar histori subscription gak ikut berubah kalau admin edit
++// SaasPlan-nya belakangan (misal ganti nama/limit paket setelah tenant udah subscribe).
++
++export type TenantSubscriptionStatus = 'active' | 'expired' | 'suspended' | 'pending_payment';
++
++export interface ITenantSubscriptionAddOn {
++    _id?: string;
++    name: string;
++    limitType: SaasLimitType;
++    extraAmount: number;
++    price: number;
++    purchasedAt: Date;
++    expiresAt: Date; // add-on ikut habis pas periode subscription-nya abis
++}
++
++export interface ITenantSubscription {
++    _id: string;
++    storeId: mongoose.Types.ObjectId;
++    planId: mongoose.Types.ObjectId;
++    planSnapshot: {
++        name: string;
++        code: string;
++        limits: {
++            maxStaff: number;
++            maxTransactionsPerMonth: number;
++            maxWaMessagesPerMonth: number;
++        };
++    };
++    billingPeriod: SaasBillingPeriod;
++    pricePaid: number;
++    status: TenantSubscriptionStatus;
++    startDate: Date;
++    expiresAt: Date;
++    activeAddOns: ITenantSubscriptionAddOn[];
++    lastXenditInvoiceId?: string; // buat nyambungin ke lib/xendit.ts invoice type 'saas_subscription'
++    autoRenew: boolean;
++    createdAt: Date;
++    updatedAt: Date;
++}
++
++const TenantSubscriptionAddOnSchema = new Schema<ITenantSubscriptionAddOn>(
++    {
++        name: { type: String, required: true, trim: true },
++        limitType: {
++            type: String,
++            enum: ['staff', 'transaction', 'wa'],
++            required: true,
++        },
++        extraAmount: { type: Number, required: true, min: 1 },
++        price: { type: Number, required: true, min: 0 },
++        purchasedAt: { type: Date, required: true, default: Date.now },
++        expiresAt: { type: Date, required: true },
++    }
++);
++
++export const TenantSubscriptionSchema = new Schema<ITenantSubscription>(
++    {
++        storeId: {
++            type: Schema.Types.ObjectId,
++            ref: 'Store',
++            required: true,
++            index: true,
++        },
++        planId: {
++            type: Schema.Types.ObjectId,
++            ref: 'SaasPlan',
++            required: true,
++        },
++        planSnapshot: {
++            name: { type: String, required: true },
++            code: { type: String, required: true },
++            limits: {
++                maxStaff: { type: Number, required: true },
++                maxTransactionsPerMonth: { type: Number, required: true },
++                maxWaMessagesPerMonth: { type: Number, required: true },
++            },
++        },
++        billingPeriod: {
++            type: String,
++            enum: ['monthly', 'semiannual', 'annual'],
++            required: true,
++        },
++        pricePaid: {
++            type: Number,
++            required: true,
++            min: 0,
++        },
++        status: {
++            type: String,
++            enum: ['active', 'expired', 'suspended', 'pending_payment'],
++            default: 'pending_payment',
++            index: true,
++        },
++        startDate: {
++            type: Date,
++            required: true,
++        },
++        expiresAt: {
++            type: Date,
++            required: true,
++            index: true,
++        },
++        activeAddOns: {
++            type: [TenantSubscriptionAddOnSchema],
++            default: [],
++        },
++        lastXenditInvoiceId: {
++            type: String,
++            trim: true,
++        },
++        autoRenew: {
++            type: Boolean,
++            default: true,
++        },
++    },
++    {
++        timestamps: true,
++    }
++);
++
++// Satu store cuma boleh punya satu subscription yang lagi 'active' dalam satu waktu -
++// histori lama biarin nambah row baru tiap ganti/renewal, jangan di-overwrite in-place,
++// biar ada jejak billing (dan gampang dipakai buat laporan admin panel PHP nanti).
++TenantSubscriptionSchema.index({ storeId: 1, status: 1 });
++
++export default TenantSubscriptionSchema;
+diff --git a/models/TenantUsageCounter.ts b/models/TenantUsageCounter.ts
+new file mode 100644
+index 0000000..5758978
+--- /dev/null
++++ b/models/TenantUsageCounter.ts
+@@ -0,0 +1,65 @@
++import mongoose, { Schema } from 'mongoose';
++
++// Satu dokumen per store per periode billing berjalan. Di-reset (bikin dokumen baru)
++// tiap kali TenantSubscription mulai periode baru (renewal / upgrade / downgrade).
++// Enforcement logic bandingin transactionsCount/waMessagesCount di sini terhadap
++// planSnapshot.limits + total activeAddOns pada TenantSubscription yang lagi aktif.
++
++export interface ITenantUsageCounter {
++    _id: string;
++    storeId: mongoose.Types.ObjectId;
++    subscriptionId: mongoose.Types.ObjectId;
++    periodStart: Date;
++    periodEnd: Date;
++    transactionsCount: number;
++    waMessagesCount: number;
++    staffCountSnapshot: number;
++    createdAt: Date;
++    updatedAt: Date;
++}
++
++export const TenantUsageCounterSchema = new Schema<ITenantUsageCounter>(
++    {
++        storeId: {
++            type: Schema.Types.ObjectId,
++            ref: 'Store',
++            required: true,
++        },
++        subscriptionId: {
++            type: Schema.Types.ObjectId,
++            ref: 'TenantSubscription',
++            required: true,
++        },
++        periodStart: {
++            type: Date,
++            required: true,
++        },
++        periodEnd: {
++            type: Date,
++            required: true,
++        },
++        transactionsCount: {
++            type: Number,
++            default: 0,
++            min: 0,
++        },
++        waMessagesCount: {
++            type: Number,
++            default: 0,
++            min: 0,
++        },
++        staffCountSnapshot: {
++            type: Number,
++            default: 0,
++            min: 0,
++        },
++    },
++    {
++        timestamps: true,
++    }
++);
++
++// Satu counter per store per periode - dipakai buat $inc atomik tiap ada transaksi/WA baru.
++TenantUsageCounterSchema.index({ storeId: 1, periodStart: 1 }, { unique: true });
++
++export default TenantUsageCounterSchema;
