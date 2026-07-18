@@ -50,6 +50,27 @@ export const authConfig = {
                 if (userSlug && slugSegment !== userSlug) {
                     return Response.redirect(new URL(`/${userSlug}/dashboard`, nextUrl));
                 }
+
+                // Subscription expiry check (blueprint section 4) — block akses walau
+                // JWT masih valid kalau langganan toko udah habis/suspended. Data ini
+                // di-embed ke token pas sign-in & refresh 5-menitan di auth.ts (Node
+                // runtime, lihat getSubscriptionCacheForSlug) - DILARANG query DB
+                // langsung di sini karena authorized() ini jalan di Edge runtime
+                // (proxy.ts pakai NextAuth(authConfig) tanpa provider/DB access).
+                //
+                // status null = tenant belum pernah di-assign subscription plan
+                // (misal toko lama sebelum sistem SaaS ini ada) - sengaja TIDAK
+                // diblokir, biar gak nge-lockout toko existing yang belum migrasi.
+                const subscriptionStatus = (auth?.user as any)?.subscriptionStatus;
+                const subscriptionExpiresAt = (auth?.user as any)?.subscriptionExpiresAt;
+                const isSubscriptionBlocked =
+                    subscriptionStatus === 'expired' ||
+                    subscriptionStatus === 'suspended' ||
+                    (!!subscriptionExpiresAt && new Date(subscriptionExpiresAt).getTime() < Date.now());
+
+                if (isSubscriptionBlocked && pageSegment !== 'subscription-expired') {
+                    return Response.redirect(new URL(`/${slugSegment}/subscription-expired`, nextUrl));
+                }
             }
 
             if (isLoggedIn && (isRootOrRegister || pageSegment === 'login' || pageSegment === 'register')) {
@@ -81,6 +102,8 @@ export const authConfig = {
                 session.user.role = token.role;
                 session.user.permissions = token.permissions;
                 session.user.tenantSlug = token.tenantSlug;
+                session.user.subscriptionStatus = token.subscriptionStatus ?? null;
+                session.user.subscriptionExpiresAt = token.subscriptionExpiresAt ?? null;
             }
             return session;
         },

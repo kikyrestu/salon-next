@@ -12,6 +12,7 @@ import { scheduleFollowUp } from "@/lib/waFollowUp";
 import { normalizeIndonesianPhone } from "@/lib/phone";
 import { decryptFonnteToken } from '@/lib/encryption';
 import { sendWhatsApp } from "@/lib/fonnte";
+import { getStoreIdBySlug, tryConsumeUsage } from "@/lib/subscriptionEnforcement";
 
 
 import { auth } from "@/auth";
@@ -95,6 +96,32 @@ export async function POST(request: NextRequest, props: any) {
     // [B14 FIX] Gunakan checkPermissionWithSession — 1 auth() call untuk seluruh POST handler
     const { error: permissionError, session: posSession } = await checkPermissionWithSession(request, "pos", "create");
     if (permissionError) return permissionError;
+
+    // SaaS plan enforcement (blueprint section 4 - "titik create invoice/transaksi").
+    // Behavior sesuai keputusan client: kalau limit transaksi bulan ini kelampauan,
+    // transaksi BARU diblok total (bukan warning) - frontend POS perlu nangkep
+    // error.code === 'TRANSACTION_LIMIT_EXCEEDED' ini dan arahin ke halaman upgrade/add-on.
+    const storeId = await getStoreIdBySlug(tenantSlug);
+    if (storeId) {
+        const usageCheck = await tryConsumeUsage(storeId, 'transaction', 1);
+        if (!usageCheck.allowed) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error:
+                        usageCheck.reason === 'no_active_subscription'
+                            ? 'Toko belum punya langganan aktif.'
+                            : `Batas transaksi bulan ini (${usageCheck.limit}) sudah tercapai. Upgrade paket atau beli add-on untuk melanjutkan.`,
+                    code: usageCheck.reason === 'no_active_subscription' ? 'NO_ACTIVE_SUBSCRIPTION' : 'TRANSACTION_LIMIT_EXCEEDED',
+                    currentUsage: usageCheck.currentUsage,
+                    limit: usageCheck.limit,
+                },
+                { status: 403 }
+            );
+        }
+    }
+    // storeId null berarti tenant ini belum ke-link ke Store manapun (kondisi ganjil/legacy) -
+    // sengaja TIDAK diblokir daripada nge-lockout toko yang datanya belum lengkap.
 
     const body = await request.json();
 

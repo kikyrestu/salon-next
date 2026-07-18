@@ -5,6 +5,7 @@ import { sendWhatsApp } from "@/lib/fonnte";
 import { decryptFonnteToken } from "@/lib/encryption";
 import { normalizeIndonesianPhone } from "@/lib/phone";
 import { logActivity } from "@/lib/logger";
+import { getStoreIdBySlug } from "@/lib/subscriptionEnforcement";
 
 function formatCurrency(amount: number): string {
     return `Rp${(amount || 0).toLocaleString('id-ID')}`;
@@ -109,7 +110,15 @@ export async function POST(request: NextRequest, props: any) {
             }, { status: 400 });
         }
 
-        await sendWhatsApp(phone, message, fonnteToken);
+        const storeId = await getStoreIdBySlug(tenantSlug);
+        const waResult = await sendWhatsApp(phone, message, fonnteToken, storeId ?? undefined);
+
+        if (waResult.blocked) {
+            return NextResponse.json(
+                { success: false, error: waResult.error, code: 'WA_QUOTA_EXCEEDED', quota: waResult.quota },
+                { status: 403 }
+            );
+        }
 
         await logActivity({
             req: request,

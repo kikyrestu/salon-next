@@ -1747,6 +1747,15 @@ export default function POSPage() {
     const unassignedItems = cart.filter(item => {
       if (!typesRequiringStaff.includes(item.type)) return false;
 
+      if (item.type === "Package") {
+        // Package pakai field `sellingBy` (single staff, buat komisi penjualan),
+        // BUKAN serviceStaffAssignments — lihat komentar di render item Package
+        // (~line 3331): UI-nya sengaja cuma nampilin "Selling By" biar match sama
+        // yang disimpan/dilaporin. Validasi ini ketinggalan waktu itu diubah, jadi
+        // selalu nganggep Package "belum di-assign" walau Selling By udah diisi.
+        return !item.sellingBy;
+      }
+
       if (item.type === "Bundle" && item.bundleServices) {
         // Jika bundle, cek apakah ada minimal 1 anak service yang belum di-assign
         return item.bundleServices.some((bs, idx) => {

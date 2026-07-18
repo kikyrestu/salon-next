@@ -1,9 +1,12 @@
 import { decryptFonnteToken } from './encryption';
+import { tryConsumeUsage } from './subscriptionEnforcement';
 
 export interface SendWhatsAppResult {
     success: boolean;
     data?: unknown;
     error?: string;
+    blocked?: boolean; // true kalau gagal karena kuota WA plan abis (bukan error Fonnte)
+    quota?: { currentUsage: number; limit: number };
 }
 
 /**
@@ -11,12 +14,34 @@ export interface SendWhatsAppResult {
  * @param phone - Target phone number
  * @param message - Message body
  * @param fonnteToken - Optional explicit Fonnte API token. When provided, skips DB lookup.
+ * @param storeId - Optional Master DB Store._id. Kalau dikasih, WA quota (SaasPlan.maxWaMessagesPerMonth)
+ *   di-cek & di-consume SEBELUM kirim ke Fonnte. Sengaja OPSIONAL (bukan required) supaya
+ *   call site yang belum di-update tetap jalan seperti biasa (unenforced) - lihat
+ *   blueprint-teknis-internal.md section 1.4, daftar call site yang masih perlu di-migrate.
+ *   Notifikasi PLATFORM (approval toko baru, dsb di lib/provisioning.ts) SENGAJA gak lewat
+ *   fungsi ini - itu WA dari platform pakai token global, bukan kuota WA milik tenant.
  */
 export async function sendWhatsApp(
     phone: string,
     message: string,
-    fonnteToken?: string
+    fonnteToken?: string,
+    storeId?: string
 ): Promise<SendWhatsAppResult> {
+    if (storeId) {
+        const usageCheck = await tryConsumeUsage(storeId, 'wa', 1);
+        if (!usageCheck.allowed) {
+            return {
+                success: false,
+                blocked: true,
+                error:
+                    usageCheck.reason === 'no_active_subscription'
+                        ? 'Toko belum punya langganan aktif.'
+                        : `Kuota pesan WA bulan ini (${usageCheck.limit}) sudah habis. Upgrade paket atau beli add-on WA.`,
+                quota: usageCheck.limit !== undefined ? { currentUsage: usageCheck.currentUsage ?? usageCheck.limit, limit: usageCheck.limit } : undefined,
+            };
+        }
+    }
+
     let token = (fonnteToken ?? '').trim();
 
     // If caller passed a token, use it as-is (caller is responsible for decrypting).

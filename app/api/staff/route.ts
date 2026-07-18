@@ -2,6 +2,7 @@ import { getTenantModels } from "@/lib/tenantDb";
 
 import { NextRequest, NextResponse } from "next/server";
 import { checkPermission } from "@/lib/rbac";
+import { checkStaffLimit, getStoreIdBySlug } from "@/lib/subscriptionEnforcement";
 
 
 
@@ -52,7 +53,28 @@ export async function POST(request: NextRequest, props: any) {
     try {
         const permissionError = await checkPermission(request, 'staff', 'create');
         if (permissionError) return permissionError;
-        
+
+        // SaaS plan enforcement (blueprint section 4 - "titik create staff").
+        const storeId = await getStoreIdBySlug(tenantSlug);
+        if (storeId) {
+            const staffCheck = await checkStaffLimit(tenantSlug, storeId);
+            if (!staffCheck.allowed) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error:
+                            staffCheck.reason === 'no_active_subscription'
+                                ? 'Toko belum punya langganan aktif.'
+                                : `Batas jumlah staff (${staffCheck.limit}) sudah tercapai. Upgrade paket atau beli add-on untuk menambah staff.`,
+                        code: staffCheck.reason === 'no_active_subscription' ? 'NO_ACTIVE_SUBSCRIPTION' : 'STAFF_LIMIT_EXCEEDED',
+                        currentUsage: staffCheck.currentUsage,
+                        limit: staffCheck.limit,
+                    },
+                    { status: 403 }
+                );
+            }
+        }
+
         const body = await request.json();
         const staff = await Staff.create(body);
         return NextResponse.json({ success: true, data: staff });

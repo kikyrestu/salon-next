@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { authConfig } from "./auth.config";
 import { getTenantModels } from "@/lib/tenantDb";
+import { getSubscriptionCacheForSlug } from "@/lib/subscriptionEnforcement";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     ...authConfig,
@@ -77,6 +78,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     token.roleId = user.role._id?.toString() || user.role.id;
                 }
                 token.permissionsRefreshedAt = Date.now();
+
+                // Subscription status di-embed dari awal biar authorized() (Edge,
+                // di proxy.ts) langsung punya data ini sejak request pertama,
+                // gak perlu nunggu refresh cycle 5 menit.
+                try {
+                    const subCache = await getSubscriptionCacheForSlug(user.tenantSlug as string);
+                    token.subscriptionStatus = subCache?.status ?? null;
+                    token.subscriptionExpiresAt = subCache?.expiresAt ? new Date(subCache.expiresAt).toISOString() : null;
+                } catch (error) {
+                    console.error('[Auth] Error fetching subscription cache at sign-in:', error);
+                }
+
                 return token;
             }
 
@@ -101,6 +114,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 } catch (error) {
                     // Silently fail — pakai permissions lama dari token
                     console.error('[Auth] Error refreshing permissions from DB:', error);
+                }
+
+                try {
+                    const subCache = await getSubscriptionCacheForSlug(token.tenantSlug as string);
+                    token.subscriptionStatus = subCache?.status ?? null;
+                    token.subscriptionExpiresAt = subCache?.expiresAt ? new Date(subCache.expiresAt).toISOString() : null;
+                } catch (error) {
+                    // Silently fail — pakai status lama dari token, gak block login existing session
+                    console.error('[Auth] Error refreshing subscription cache from DB:', error);
                 }
             }
 
